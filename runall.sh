@@ -1,5 +1,6 @@
-for config in $(python3 exp_configs.py $1);
+mkdir -p ~/jobs
+for config in $(python3 experiments.py list $1);
 do
     echo $config
-    sbatch --output=~/jobs/job_$(date +%F_%H-%M-%S)_%x.txt exp_configs.py $config
+    sbatch experiment_job.sh $config
 done

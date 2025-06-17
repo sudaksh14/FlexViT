@@ -35,7 +35,7 @@ def make_file(path: str) -> Path:
 PROJECT_DIR = make_path(HOME if ON_CLUSTER else './.tmp')
 TMPDIR = make_path(TMPDIR if ON_CLUSTER else './.tmp/temp')
 
-JOBDIR = make_path(f"{PROJECT_DIR}/job_{SLURM_JOBID}")
+JOBDIR = make_path(f"{PROJECT_DIR}/jobs/job_{SLURM_JOBID}")
 
 DATA_PATH = make_path(f"{PROJECT_DIR}/data")
 LOG_PATH = make_path(JOBDIR / 'logs')

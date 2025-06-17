@@ -1,11 +1,4 @@
 #!/usr/bin/python3
-
-# SBATCH -J IterativePruning
-# SBATCH -p gpu_h100
-# SBATCH -N 1
-# SBATCH -t 24:00:00
-# SBATCH --gpus-per-node=1
-
 from networks import resnetadapt
 import sys
 
@@ -58,6 +51,13 @@ CONFIGS = {
         .set_small_channels((6, 8, 10, 12, 14, 16))
         .set_mid_channels((12, 16, 20, 24, 28, 32))
         .set_large_channels((24, 32, 40, 48, 56, 64))
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+        resnetadapt.Config()
+        .set_num_blocks((9, 9, 9))
+        .set_training_context(ModelTraining),
+        resnetadapt.Config()
+        .set_num_blocks((9, 9, 9))
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
         resnetadapt.Config()
