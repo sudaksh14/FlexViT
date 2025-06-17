@@ -1,0 +1,306 @@
+import torch
+from sklearn.metrics import accuracy_score, f1_score
+import os
+
+from torchvision import datasets, transforms
+from torchvision.datasets import CIFAR10, CIFAR100
+from torchvision.datasets import ImageFolder
+
+from torchvision.transforms import (
+    Compose, RandomResizedCrop, RandomHorizontalFlip, RandomRotation,
+    ColorJitter, ToTensor, Normalize, Resize, CenterCrop
+)
+
+from torch.utils.data import random_split, DataLoader
+import shutil
+
+from dataclasses import dataclass
+
+import paths
+
+
+def get_device():
+    return torch.device("mps" if torch.backends.mps.is_available() else
+                        "cuda" if torch.cuda.is_available() else "cpu")
+
+
+def fluent_setters(cls):
+    variables = list(filter(lambda s: s[:2] != "__", cls.__dict__))
+    for attr in variables:
+        def make_setter(attr_name):
+            def setter(self, value):
+                setattr(self, attr_name, value)
+                return self
+            return setter
+        setattr(cls, f'set_{attr}', make_setter(attr))
+    return cls
+
+
+class SelfDescripting:
+    def get_description(self) -> str:
+        res = f"{self.__class__.__name__}"
+        for name, val in self.__dict__.items():
+            if name[:2] == "__":
+                continue
+            try:
+                descr = val.get_description()
+                res += f"_({descr})"
+            except AttributeError:
+                res += f"_{val}"
+        return res
+
+    def get_flat_dict(self) -> str:
+        res = {}
+        for name, val in self.__dict__.items():
+            if name[:2] == "__":
+                continue
+            try:
+                flatdict = val.get_flat_dict()
+                for dname, dval in flatdict.items():
+                    res[f"{name}.{dname}"] = dval
+            except AttributeError:
+                res[f"{name}"] = val
+        return res
+
+
+def self_descripting(cls):
+    def get_description(self) -> str:
+        res = f"{cls.__name__}"
+        for name, val in self.__dict__.items():
+            if name[:2] == "__":
+                continue
+            try:
+                descr = val.get_description()
+                res += f"_({descr})"
+            except AttributeError:
+                res += f"_{val}"
+        return res
+
+    def get_flat_dict(self) -> str:
+        res = {}
+        for name, val in self.__dict__.items():
+            if name[:2] == "__":
+                continue
+            try:
+                flatdict = val.get_flat_dict()
+                for dname, dval in flatdict.items():
+                    res[f"{name}.{dname}"] = dval
+            except AttributeError:
+                res[f"{name}"] = val
+        return res
+
+    setattr(cls, "get_description", get_description)
+    setattr(cls, "get_flat_dict", get_flat_dict)
+    return cls
+
+
+def evaluate_model(model, dataloader, device):
+    """
+    Evaluates the model on the given dataloader and returns accuracy and F1 score.
+    """
+    all_preds = []
+    all_labels = []
+    # Move model to the correct device and ensure correct data type
+    model = model.to(device).to(torch.float32)
+    model.eval()
+
+    with torch.no_grad():
+        for images, labels in dataloader:
+            # Ensure images are on the same device and data type
+            images = images.to(device).to(torch.float32)
+            labels = labels.to(device)
+
+            outputs = model(images)  # Perform forward pass
+            preds = torch.argmax(outputs, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+    accuracy = accuracy_score(all_labels, all_preds)
+    return accuracy
+
+
+def count_parameters(model):
+    """Counts the number of trainable parameters in the model."""
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def model_size_in_mb(model):
+    torch.save(model.state_dict(), "temp.p")
+    size_mb = os.path.getsize("temp.p") / (1024 * 1024)
+    os.remove("temp.p")
+    return size_mb
+
+
+def dummy_data(data_dir=paths.DATA_PATH):
+    val_split = 0.2
+    batch_size = 64
+
+    train_transform = Compose([
+        RandomHorizontalFlip(p=0.5),
+        RandomRotation(degrees=15),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    test_transform = Compose([
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406],
+                  std=[0.229, 0.224, 0.225])
+    ])
+
+    train_dataset = CIFAR10(root=data_dir, train=True,
+                            download=True, transform=train_transform)
+    test_dataset = CIFAR10(root=data_dir, train=False,
+                           download=True, transform=test_transform)
+
+    # Split the train dataset into train/val
+    # train_size = int((1 - val_split) * len(train_dataset))
+    # val_size = len(train_dataset) - train_size
+
+    train_dataset, val_dataset, _ = random_split(
+        train_dataset, [100 * 8, 8 * 8, len(train_dataset) - 108 * 8])
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, num_workers=4, shuffle=False)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, num_workers=4)
+
+    return train_dataloader, train_dataloader, test_dataloader
+
+
+def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
+    # Data transformations for training
+    train_transform = Compose([
+        RandomHorizontalFlip(p=0.5),
+        RandomRotation(degrees=15),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    # Data transformations for validation/test
+    test_transform = Compose([
+        # Resize((224, 224)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406],
+                  std=[0.229, 0.224, 0.225])
+    ])
+
+    if tmp_dir is not None:
+        try:
+            os.makedirs(tmp_dir)
+        except FileExistsError:
+            pass
+        try:
+            os.makedirs(data_dir)
+        except FileExistsError:
+            pass
+        shutil.copytree(data_dir, tmp_dir, dirs_exist_ok=True)
+    train_dataset = CIFAR10(root=data_dir if tmp_dir is None else tmp_dir, train=True,
+                            download=True, transform=train_transform)
+    test_dataset = CIFAR10(root=data_dir if tmp_dir is None else tmp_dir, train=False,
+                           download=True, transform=test_transform)
+    if tmp_dir is not None:
+        shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
+
+    # Split the train dataset into train/val
+    train_size = int((1 - val_split) * len(train_dataset))
+    val_size = len(train_dataset) - train_size
+    train_dataset, val_dataset = random_split(
+        train_dataset, [train_size, val_size])
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, num_workers=4)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, num_workers=4)
+
+    return train_dataloader, val_dataloader, test_dataloader
+
+
+def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
+    # Data transformations for training
+    train_transform = Compose([
+        RandomHorizontalFlip(p=0.5),
+        RandomRotation(degrees=15),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    # Data transformations for validation/test
+    test_transform = Compose([
+        # Resize((224, 224)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406],
+                  std=[0.229, 0.224, 0.225])
+    ])
+
+    if tmp_dir is not None:
+        try:
+            os.makedirs(tmp_dir)
+        except FileExistsError:
+            pass
+        try:
+            os.makedirs(data_dir)
+        except FileExistsError:
+            pass
+        shutil.copytree(data_dir, tmp_dir, dirs_exist_ok=True)
+    train_dataset = CIFAR100(root=data_dir if tmp_dir is None else tmp_dir, train=True,
+                             download=True, transform=train_transform)
+    test_dataset = CIFAR100(root=data_dir if tmp_dir is None else tmp_dir, train=False,
+                            download=True, transform=test_transform)
+    if tmp_dir is not None:
+        shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
+
+    # Split the train dataset into train/val
+    train_size = int((1 - val_split) * len(train_dataset))
+    val_size = len(train_dataset) - train_size
+    train_dataset, val_dataset = random_split(
+        train_dataset, [train_size, val_size])
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, num_workers=4)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, num_workers=4)
+
+    return train_dataloader, val_dataloader, test_dataloader
+
+
+def load_imagenette(data_dir="./data/imagenette2",
+                    batch_size=128,
+                    val_split=0.1,
+                    num_workers=8):
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+    train_tf = transforms.Compose([
+        transforms.Resize(40),          # small augmentation
+        transforms.RandomCrop(32),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    val_tf = transforms.Compose([
+        transforms.Resize(32),
+        transforms.CenterCrop(32),
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    full_train = datasets.ImageFolder(f"{data_dir}/train", transform=train_tf)
+    n_val = int(len(full_train) * val_split)
+    train_ds, val_ds = random_split(full_train, [len(full_train)-n_val, n_val])
+    test_ds = datasets.ImageFolder(f"{data_dir}/val", transform=val_tf)
+
+    def loader(ds, shuffle):
+        return DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
+                          num_workers=num_workers, pin_memory=True)
+
+    return loader(train_ds, True), loader(val_ds, False), loader(test_ds, False)
