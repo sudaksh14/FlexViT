@@ -11,6 +11,9 @@ class Conv2d(Module):
         self.in_sizes = in_sizes
         self.out_sizes = out_sizes
 
+        self._args = args
+        self._kwargs = kwargs
+
         assert (not kwargs.get('bias', False))
         assert (len(self.in_sizes) > 0)
         assert (len(self.out_sizes) > 0)
@@ -59,3 +62,9 @@ class Conv2d(Module):
     def load_from_base(self, src: nn.Conv2d):
         self.conv.weight.data[:self.out_sizes[self.level],
                               :self.in_sizes[self.level]] = src.weight.data
+
+    def make_base_copy(self) -> nn.Conv2d:
+        conv = nn.Conv2d(
+            self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
+        self.copy_to_base(conv)
+        return conv

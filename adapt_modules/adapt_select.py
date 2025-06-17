@@ -27,9 +27,6 @@ class AdaptSelect(Module):
     def max_level(self) -> int:
         return len(self.layers)
 
-    def base_type(self):
-        raise NotImplemented()
-
     def copy_to_base(self, dest: nn.Module):
         dest.load_state_dict(self.current_layer().state_dict())
 

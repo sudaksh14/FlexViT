@@ -19,3 +19,6 @@ class Module(nn.Module):
 
     def load_from_base(self, src: nn.Module):
         raise NotImplemented()
+    
+    def make_base_copy(self) -> nn.Module:
+        raise NotImplemented()
