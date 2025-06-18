@@ -16,7 +16,8 @@ class Linear(AdaptSelect):
         ]
         super().__init__(layers)
 
-    def base_type(self):
+    @staticmethod
+    def base_type():
         return nn.Linear
 
     def make_base_copy(self) -> nn.Linear:
@@ -24,3 +25,16 @@ class Linear(AdaptSelect):
             self._in_sizes[self.current_level()], self._out_sizes[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)
         return m
+
+    def export_level_delta(self):
+        return ((self.layers[self.level].weight.data, self.layers[self.level].bias.data), (self.layers[self.level].weight.data, self.layers[self.level].bias.data))
+
+    @staticmethod
+    def apply_level_delta_down(model: nn.BatchNorm2d, level_delta):
+        model.weight.data = level_delta[0][:]
+        model.bias.data = level_delta[1][:]
+
+    @staticmethod
+    def apply_level_delta_up(model: nn.Module, level_delta):
+        model.weight.data = level_delta[0][:]
+        model.bias.data = level_delta[1][:]

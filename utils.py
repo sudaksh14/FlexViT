@@ -66,37 +66,6 @@ class SelfDescripting:
         return res
 
 
-def self_descripting(cls):
-    def get_description(self) -> str:
-        res = f"{cls.__name__}"
-        for name, val in self.__dict__.items():
-            if name[:2] == "__":
-                continue
-            try:
-                descr = val.get_description()
-                res += f"_({descr})"
-            except AttributeError:
-                res += f"_{val}"
-        return res
-
-    def get_flat_dict(self) -> str:
-        res = {}
-        for name, val in self.__dict__.items():
-            if name[:2] == "__":
-                continue
-            try:
-                flatdict = val.get_flat_dict()
-                for dname, dval in flatdict.items():
-                    res[f"{name}.{dname}"] = dval
-            except AttributeError:
-                res[f"{name}"] = val
-        return res
-
-    setattr(cls, "get_description", get_description)
-    setattr(cls, "get_flat_dict", get_flat_dict)
-    return cls
-
-
 def evaluate_model(model, dataloader, device):
     """
     Evaluates the model on the given dataloader and returns accuracy and F1 score.
@@ -336,7 +305,7 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
                     print(f"Skip copying layer {src_name}")
                 continue
 
-        if last_copied_from is not None and dest_module in last_copied_from.modules():
+        if last_copied_from is not None and src_module in last_copied_from.modules():
             if verbose >= 2:
                 print(f"Skip copying layer {src_name}")
             continue
