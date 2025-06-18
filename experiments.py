@@ -36,58 +36,58 @@ class ModelTraining100(TrainingContext):
 
 
 CONFIGS = {
-    "resnetadapt": [
-        resnetadapt.ResnetConfig()
+    "resnetadapt": {
+        'resnet20.3_levels.cifar10': resnetadapt.ResnetConfig()
         .set_training_context(ModelTraining),
-        resnetadapt.ResnetConfig()
+        'resnet20.3_levels.cifar100': resnetadapt.ResnetConfig()
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
-        resnetadapt.ResnetConfig()
+        'resnet20.6_levels.cifar10': resnetadapt.ResnetConfig()
         .set_small_channels((6, 8, 10, 12, 14, 16))
         .set_mid_channels((12, 16, 20, 24, 28, 32))
         .set_large_channels((24, 32, 40, 48, 56, 64))
         .set_training_context(ModelTraining),
-        resnetadapt.ResnetConfig()
-        .set_small_channels((6, 8, 10, 12, 14, 16))
-        .set_mid_channels((12, 16, 20, 24, 28, 32))
-        .set_large_channels((24, 32, 40, 48, 56, 64))
-        .set_training_context(ModelTraining100)
-        .set_num_classes(100),
-        resnetadapt.ResnetConfig()
-        .set_num_blocks((9, 9, 9))
-        .set_training_context(ModelTraining),
-        resnetadapt.ResnetConfig()
-        .set_num_blocks((9, 9, 9))
-        .set_training_context(ModelTraining100)
-        .set_num_classes(100),
-        resnetadapt.ResnetConfig()
-        .set_num_blocks((9, 9, 9))
-        .set_small_channels((6, 8, 10, 12, 14, 16))
-        .set_mid_channels((12, 16, 20, 24, 28, 32))
-        .set_large_channels((24, 32, 40, 48, 56, 64))
-        .set_training_context(ModelTraining),
-        resnetadapt.ResnetConfig()
-        .set_num_blocks((9, 9, 9))
+        'resnet20.6_levels.cifar100': resnetadapt.ResnetConfig()
         .set_small_channels((6, 8, 10, 12, 14, 16))
         .set_mid_channels((12, 16, 20, 24, 28, 32))
         .set_large_channels((24, 32, 40, 48, 56, 64))
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
-    ],
-    "vggadapt": [
-        vggadapt.VGGConfig()
+        'resnet56.3_levels.cifar10': resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
         .set_training_context(ModelTraining),
-        vggadapt.VGGConfig()
+        'resnet56.3_levels.cifar100': resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+        'resnet56.6_levels.cifar10': resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_small_channels((6, 8, 10, 12, 14, 16))
+        .set_mid_channels((12, 16, 20, 24, 28, 32))
+        .set_large_channels((24, 32, 40, 48, 56, 64))
+        .set_training_context(ModelTraining),
+        'resnet56.6_levels.cifar100': resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_small_channels((6, 8, 10, 12, 14, 16))
+        .set_mid_channels((12, 16, 20, 24, 28, 32))
+        .set_large_channels((24, 32, 40, 48, 56, 64))
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+    },
+    "vggadapt": {
+        'vgg11.3_levels.cifar10': vggadapt.VGGConfig()
+        .set_training_context(ModelTraining),
+        'vgg11.3_levels.cifar100': vggadapt.VGGConfig()
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
 
-        vggadapt.VGGConfig()
+        'vgg11.6_levels.cifar10': vggadapt.VGGConfig()
         .set_training_context(ModelTraining)
         .set_small_channels((24, 32, 40, 48, 56, 64))
         .set_mid_channels((48, 64, 80, 96, 112, 128))
         .set_large_channels((96, 128, 160, 192, 224, 256))
         .set_max_channels((192, 256, 320, 384, 448, 512)),
-        vggadapt.VGGConfig()
+        'vgg11.6_levels.cifar100': vggadapt.VGGConfig()
         .set_training_context(ModelTraining100)
         .set_num_classes(100)
         .set_small_channels((24, 32, 40, 48, 56, 64))
@@ -95,21 +95,21 @@ CONFIGS = {
         .set_large_channels((96, 128, 160, 192, 224, 256))
         .set_max_channels((192, 256, 320, 384, 448, 512)),
 
-        vggadapt.VGGConfig()
+        'vgg19.3_levels.cifar10': vggadapt.VGGConfig()
         .set_version(19)
         .set_training_context(ModelTraining),
-        vggadapt.VGGConfig()
+        'vgg19.3_levels.cifar100': vggadapt.VGGConfig()
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
 
-        vggadapt.VGGConfig()
+        'vgg19.6_levels.cifar10': vggadapt.VGGConfig()
         .set_version(19)
         .set_training_context(ModelTraining)
         .set_small_channels((24, 32, 40, 48, 56, 64))
         .set_mid_channels((48, 64, 80, 96, 112, 128))
         .set_large_channels((96, 128, 160, 192, 224, 256))
         .set_max_channels((192, 256, 320, 384, 448, 512)),
-        vggadapt.VGGConfig()
+        'vgg19.6_levels.cifar100': vggadapt.VGGConfig()
         .set_version(19)
         .set_training_context(ModelTraining100)
         .set_num_classes(100)
@@ -117,7 +117,7 @@ CONFIGS = {
         .set_mid_channels((48, 64, 80, 96, 112, 128))
         .set_large_channels((96, 128, 160, 192, 224, 256))
         .set_max_channels((192, 256, 320, 384, 448, 512)),
-    ]
+    }
 }
 
 
@@ -138,7 +138,7 @@ def iter_over_conf(conf, basestr):
         for key, val in conf.items():
             for s in iter_over_conf(val, basestr + f",{key}"):
                 yield s
-    if isinstance(conf, list):
+    elif isinstance(conf, list):
         for idx, val in enumerate(conf):
             for s in iter_over_conf(val, basestr + f",{idx}"):
                 yield s
@@ -159,4 +159,4 @@ if __name__ == "__main__":
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
-        res.run_training()
+        res.run_training(conf)
