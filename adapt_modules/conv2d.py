@@ -52,7 +52,8 @@ class Conv2d(Module):
     def max_level(self) -> int:
         return len(self.in_sizes) - 1
 
-    def base_type(self):
+    @staticmethod
+    def base_type():
         return nn.Conv2d
 
     def copy_to_base(self, dest: nn.Conv2d):
@@ -91,5 +92,5 @@ class Conv2d(Module):
         weights = F.pad(
             weights, (0, 0, 0, 0, 0, lower_part.size(1), 0, right_part.size(0)))
         weights[:, in_size:] = lower_part
-        weights[in_size:, :out_size] = right_part
+        weights[out_size:, :in_size] = right_part
         model.weight.data = weights

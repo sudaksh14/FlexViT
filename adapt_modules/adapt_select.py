@@ -32,14 +32,3 @@ class AdaptSelect(Module):
 
     def load_from_base(self, src: nn.Module):
         self.current_layer().load_state_dict(src.state_dict())
-
-    def export_level_delta(self):
-        return self.layers[self.level].state_dict()
-
-    @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta):
-        model.load_state_dict(level_delta)
-
-    @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta):
-        model.load_state_dict(level_delta)

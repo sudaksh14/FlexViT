@@ -17,6 +17,8 @@ import wandb
 import training
 import paths
 
+from networks.adapt_model import AdaptModel
+
 
 class BasicBlock(nn.Module):
     def __init__(self, in_channels, mid_channels, out_channels, stride=1):
@@ -64,7 +66,7 @@ KNOWN_MODEL_PRETRAINED = {
 }
 
 
-class Resnet(nn.Module):
+class Resnet(AdaptModel):
     def __init__(self, config: 'Config'):
         super().__init__()
         self.build_net(config)
@@ -90,6 +92,7 @@ class Resnet(nn.Module):
             [config.num_classes] * self.levels)
 
         self.set_level_use(self.levels - 1)
+        self.level = self.levels - 1
 
         if config.prebuilt:
             prebuild_config = (config.num_classes, config.num_blocks, (
@@ -110,9 +113,16 @@ class Resnet(nn.Module):
         return nn.Sequential(*layers)
 
     def set_level_use(self, level):
+        self.level = level
         for _, module in self.named_modules():
             if isinstance(module, am.Module):
                 module.set_level_use(level)
+
+    def current_level(self) -> int:
+        return self.level
+
+    def max_level(self) -> int:
+        return self.levels - 1
 
     def forward(self, x):
         out = self.conv1(x)
@@ -139,7 +149,7 @@ class FullTrainer(pl.LightningModule):
         x, y = batch
         total_loss = 0.0
 
-        for i in range(self.submodel.levels):
+        for i in range(self.submodel.max_level() + 1):
             self.submodel.set_level_use(i)
             logits = self(x)
             loss = F.cross_entropy(logits, y)
