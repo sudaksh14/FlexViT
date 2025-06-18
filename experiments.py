@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from networks import resnetadapt
+from networks import resnetadapt, vggadapt
 import sys
 
 from training import TrainingContext
@@ -37,42 +37,86 @@ class ModelTraining100(TrainingContext):
 
 CONFIGS = {
     "resnetadapt": [
-        resnetadapt.Config()
+        resnetadapt.ResnetConfig()
         .set_training_context(ModelTraining),
-        resnetadapt.Config()
+        resnetadapt.ResnetConfig()
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
-        resnetadapt.Config()
+        resnetadapt.ResnetConfig()
         .set_small_channels((6, 8, 10, 12, 14, 16))
         .set_mid_channels((12, 16, 20, 24, 28, 32))
         .set_large_channels((24, 32, 40, 48, 56, 64))
         .set_training_context(ModelTraining),
-        resnetadapt.Config()
-        .set_small_channels((6, 8, 10, 12, 14, 16))
-        .set_mid_channels((12, 16, 20, 24, 28, 32))
-        .set_large_channels((24, 32, 40, 48, 56, 64))
-        .set_training_context(ModelTraining100)
-        .set_num_classes(100),
-        resnetadapt.Config()
-        .set_num_blocks((9, 9, 9))
-        .set_training_context(ModelTraining),
-        resnetadapt.Config()
-        .set_num_blocks((9, 9, 9))
-        .set_training_context(ModelTraining100)
-        .set_num_classes(100),
-        resnetadapt.Config()
-        .set_num_blocks((9, 9, 9))
-        .set_small_channels((6, 8, 10, 12, 14, 16))
-        .set_mid_channels((12, 16, 20, 24, 28, 32))
-        .set_large_channels((24, 32, 40, 48, 56, 64))
-        .set_training_context(ModelTraining),
-        resnetadapt.Config()
-        .set_num_blocks((9, 9, 9))
+        resnetadapt.ResnetConfig()
         .set_small_channels((6, 8, 10, 12, 14, 16))
         .set_mid_channels((12, 16, 20, 24, 28, 32))
         .set_large_channels((24, 32, 40, 48, 56, 64))
         .set_training_context(ModelTraining100)
         .set_num_classes(100),
+        resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_training_context(ModelTraining),
+        resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+        resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_small_channels((6, 8, 10, 12, 14, 16))
+        .set_mid_channels((12, 16, 20, 24, 28, 32))
+        .set_large_channels((24, 32, 40, 48, 56, 64))
+        .set_training_context(ModelTraining),
+        resnetadapt.ResnetConfig()
+        .set_num_blocks((9, 9, 9))
+        .set_small_channels((6, 8, 10, 12, 14, 16))
+        .set_mid_channels((12, 16, 20, 24, 28, 32))
+        .set_large_channels((24, 32, 40, 48, 56, 64))
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+    ],
+    "vggadapt": [
+        vggadapt.VGGConfig()
+        .set_training_context(ModelTraining),
+        vggadapt.VGGConfig()
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+
+        vggadapt.VGGConfig()
+        .set_training_context(ModelTraining)
+        .set_small_channels((24, 32, 40, 48, 56, 64))
+        .set_mid_channels((48, 64, 80, 96, 112, 128))
+        .set_large_channels((96, 128, 160, 192, 224, 256))
+        .set_max_channels((192, 256, 320, 384, 448, 512)),
+        vggadapt.VGGConfig()
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100)
+        .set_small_channels((24, 32, 40, 48, 56, 64))
+        .set_mid_channels((48, 64, 80, 96, 112, 128))
+        .set_large_channels((96, 128, 160, 192, 224, 256))
+        .set_max_channels((192, 256, 320, 384, 448, 512)),
+
+        vggadapt.VGGConfig()
+        .set_version(19)
+        .set_training_context(ModelTraining),
+        vggadapt.VGGConfig()
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100),
+
+        vggadapt.VGGConfig()
+        .set_version(19)
+        .set_training_context(ModelTraining)
+        .set_small_channels((24, 32, 40, 48, 56, 64))
+        .set_mid_channels((48, 64, 80, 96, 112, 128))
+        .set_large_channels((96, 128, 160, 192, 224, 256))
+        .set_max_channels((192, 256, 320, 384, 448, 512)),
+        vggadapt.VGGConfig()
+        .set_version(19)
+        .set_training_context(ModelTraining100)
+        .set_num_classes(100)
+        .set_small_channels((24, 32, 40, 48, 56, 64))
+        .set_mid_channels((48, 64, 80, 96, 112, 128))
+        .set_large_channels((96, 128, 160, 192, 224, 256))
+        .set_max_channels((192, 256, 320, 384, 448, 512)),
     ]
 }
 

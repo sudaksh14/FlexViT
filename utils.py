@@ -294,6 +294,8 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
     dest_iter = iter(dest.named_modules())
 
     last_copied_from = None
+    last_copied_to: nn.Module = None
+
     for src_name, src_module in src.named_modules():
         src_is_adaptable = isinstance(src_module, am.Module)
         if src_is_adaptable:
@@ -310,7 +312,6 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
                 print(f"Skip copying layer {src_name}")
             continue
 
-        last_copied_to: nn.Module = None
         while True:
             dest_name, dest_module = next(dest_iter)
             dest_is_adaptable = isinstance(dest_module, am.Module)
