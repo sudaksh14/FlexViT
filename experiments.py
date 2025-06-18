@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from networks import resnetadapt, vggadapt
+from networks import resnetadapt, vggadapt, resnet, vgg
 import sys
 
 from training import TrainingContext
@@ -117,6 +117,28 @@ CONFIGS = {
         .set_mid_channels((48, 64, 80, 96, 112, 128))
         .set_large_channels((96, 128, 160, 192, 224, 256))
         .set_max_channels((192, 256, 320, 384, 448, 512)),
+    },
+    "baseline_model": {
+        "resnet20_cifar10": resnet.ResnetConfig()
+        .set_training_context(ModelTraining),
+        "resnet56_cifar10": resnet.ResnetConfig()
+        .set_training_context(ModelTraining)
+        .set_num_blocks((9, 9, 9)),
+        "vgg11_cifar10": vgg.VGGConfig()
+        .set_training_context(ModelTraining)
+        .set_version(19),
+        "vgg19_cifar10": vgg.VGGConfig()
+        .set_training_context(ModelTraining),
+        "resnet20_cifar100": resnet.ResnetConfig()
+        .set_training_context(ModelTraining100),
+        "resnet56_cifar100": resnet.ResnetConfig()
+        .set_training_context(ModelTraining100)
+        .set_num_blocks((9, 9, 9)),
+        "vgg11_cifar100": vgg.VGGConfig()
+        .set_training_context(ModelTraining100),
+        "vgg19_cifar100": vgg.VGGConfig()
+        .set_training_context(ModelTraining100)
+        .set_version(19),
     }
 }
 
