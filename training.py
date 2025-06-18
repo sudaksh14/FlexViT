@@ -14,6 +14,7 @@ import paths
 from networks.adapt_model import AdaptModel
 import torch.nn.functional as F
 
+
 @dataclasses.dataclass
 class TrainingContext:
     device: torch.device
@@ -68,6 +69,37 @@ class FullTrainer(pl.LightningModule):
 
         self.log(f"{stage}_loss", total_loss, prog_bar=False)
         return total_loss
+
+    def training_step(self, b, _): return self._step(b, "train")
+    def validation_step(self, b, _): return self._step(b, "val")
+    def test_step(self, b, _): return self._step(b, "test")
+
+    def configure_optimizers(self):
+        opt = AdamW(self.parameters(),
+                    lr=self.hparams.config.learning_rate, weight_decay=1e-4)
+        sched = lr_scheduler.ReduceLROnPlateau(
+            opt, "min", factor=0.5, patience=3)
+        return {"optimizer": opt,
+                "lr_scheduler": {"scheduler": sched, "monitor": "val_loss"}}
+
+
+class SimpleTrainer(pl.LightningModule):
+    def __init__(self, model: AdaptModel):
+        super().__init__()
+        self.submodel = model
+
+    def forward(self, x):
+        return self.submodel(x)
+
+    def _step(self, batch, stage):
+        x, y = batch
+        logits = self(x)
+        loss = F.cross_entropy(logits, y)
+        acc = (logits.argmax(1) == y).float().mean()
+        self.log(f"{stage}_loss", loss, prog_bar=False)
+        self.log(f"{stage}_acc",  acc,
+                 prog_bar=(stage != 'train'))
+        return loss
 
     def training_step(self, b, _): return self._step(b, "train")
     def validation_step(self, b, _): return self._step(b, "val")

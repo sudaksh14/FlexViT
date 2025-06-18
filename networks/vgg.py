@@ -7,6 +7,12 @@ from typing import Union, List, Dict, cast
 import utils
 import dataclasses
 
+from training import TrainingContext
+from training import SimpleTrainer
+import training
+import wandb
+import paths
+
 # basic implementation from github.com/chenyaofo/pytorch-cifar-models
 
 
@@ -20,6 +26,18 @@ class VGGConfig(utils.SelfDescripting):
     max_channels: int = 512
     num_classes: int = 10
     prebuilt: bool = True
+    training_context: TrainingContext = None
+
+    def run_training(self, conf_description: str):
+        torch.set_float32_matmul_precision('high')
+
+        device = utils.get_device()
+        model = VGG(self).to(device)
+
+        trainer = SimpleTrainer(model)
+
+        with wandb.init(project="test adapt", name=conf_description, config=self.get_flat_dict(), dir=paths.LOG_PATH):
+            training.finetune(trainer, self.training_context(device))
 
 
 LAYER_CONFIGS = {
