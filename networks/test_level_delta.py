@@ -19,8 +19,8 @@ class TestLevelDelta(unittest.TestCase):
         return (torch.abs(a - b) < error).all()
 
     def test_deltas(self):
-        amodel = resneta.Resnet(resneta.Config())
-        model = resnet.Resnet(resnet.Config())
+        amodel = resneta.Resnet(resneta.ResnetConfig())
+        model = resnet.Resnet(resnet.ResnetConfig())
         utils.flexible_model_copy(amodel, model)
 
         x = torch.rand(10, 3, 100, 100)

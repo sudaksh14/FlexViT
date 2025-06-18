@@ -4,9 +4,6 @@ from typing import Union, Iterable
 
 import torch.nn.functional as F
 
-from torch.optim import AdamW, Adam, lr_scheduler, SGD
-import pytorch_lightning as pl
-
 import utils
 import dataclasses
 
@@ -18,6 +15,9 @@ import training
 import paths
 
 from networks.adapt_model import AdaptModel
+from training import FullTrainer
+
+from networks.resnet import KNOWN_MODEL_PRETRAINED
 
 
 class BasicBlock(nn.Module):
@@ -54,24 +54,12 @@ class BasicBlock(nn.Module):
         return F.relu(out)
 
 
-KNOWN_MODEL_PRETRAINED = {
-    (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
-    (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
-    (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
-    (10, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet56", pretrained=True),
-    (100, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True),
-    (100, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True),
-    (100, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet44", pretrained=True),
-    (100, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet56", pretrained=True),
-}
-
-
 class Resnet(AdaptModel):
-    def __init__(self, config: 'Config'):
+    def __init__(self, config: 'ResnetConfig'):
         super().__init__()
         self.build_net(config)
 
-    def build_net(self, config: 'Config'):
+    def build_net(self, config: 'ResnetConfig'):
         self.levels = len(config.small_channels)
 
         self.conv1 = am.Conv2d(
@@ -112,12 +100,6 @@ class Resnet(AdaptModel):
             layers.append(BasicBlock(in_channels, out_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def set_level_use(self, level):
-        self.level = level
-        for _, module in self.named_modules():
-            if isinstance(module, am.Module):
-                module.set_level_use(level)
-
     def current_level(self) -> int:
         return self.level
 
@@ -136,49 +118,9 @@ class Resnet(AdaptModel):
         return out
 
 
-class FullTrainer(pl.LightningModule):
-    def __init__(self, model: Resnet, upto):
-        super().__init__()
-        self.submodel = model
-        self.upto = upto
-
-    def forward(self, x):
-        return self.submodel(x)
-
-    def _step(self, batch, stage):
-        x, y = batch
-        total_loss = 0.0
-
-        for i in range(self.submodel.max_level() + 1):
-            self.submodel.set_level_use(i)
-            logits = self(x)
-            loss = F.cross_entropy(logits, y)
-            acc = (logits.argmax(1) == y).float().mean()
-            self.log(f"{stage}_level{i}_loss", loss, prog_bar=False)
-            self.log(f"{stage}_level{i}_acc",  acc,
-                     prog_bar=(stage != 'train'))
-            if self.upto >= i:
-                total_loss += loss
-
-        self.log(f"{stage}_loss", total_loss, prog_bar=False)
-        return total_loss
-
-    def training_step(self, b, _): return self._step(b, "train")
-    def validation_step(self, b, _): return self._step(b, "val")
-    def test_step(self, b, _): return self._step(b, "test")
-
-    def configure_optimizers(self):
-        opt = AdamW(self.parameters(),
-                    lr=self.hparams.config.learning_rate, weight_decay=1e-4)
-        sched = lr_scheduler.ReduceLROnPlateau(
-            opt, "min", factor=0.5, patience=3)
-        return {"optimizer": opt,
-                "lr_scheduler": {"scheduler": sched, "monitor": "val_loss"}}
-
-
 @utils.fluent_setters
 @dataclasses.dataclass
-class Config(utils.SelfDescripting):
+class ResnetConfig(utils.SelfDescripting):
     num_blocks: Iterable[int] = (3, 3, 3)
     num_classes: int = 10
     small_channels: Iterable[int] = (8, 12, 16)
@@ -193,7 +135,7 @@ class Config(utils.SelfDescripting):
         device = utils.get_device()
         model = Resnet(self).to(device)
 
-        trainer = FullTrainer(model, model.levels - 1)
+        trainer = FullTrainer(model, model.max_level())
 
         with wandb.init(project="test adapt", name=self.get_description(), config=self.get_flat_dict(), dir=paths.LOG_PATH):
             training.finetune(trainer, self.training_context(device))

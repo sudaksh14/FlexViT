@@ -6,6 +6,19 @@ import utils
 import dataclasses
 from typing import Iterable
 
+# basic implementation from github.com/chenyaofo/pytorch-cifar-models
+
+
+@utils.fluent_setters
+@dataclasses.dataclass
+class ResnetConfig(utils.SelfDescripting):
+    num_blocks: Iterable[int] = (3, 3, 3)
+    num_classes: int = 10
+    small_channels: Iterable[int] = 16
+    mid_channels: Iterable[int] = 32
+    large_channels: Iterable[int] = 64
+    prebuilt: bool = True
+
 
 class BasicBlock(nn.Module):
     def __init__(self, in_channels, mid_channels, out_channels, stride=1):
@@ -42,23 +55,23 @@ class BasicBlock(nn.Module):
 
 
 KNOWN_MODEL_PRETRAINED = {
-    (10, (3, 3, 3)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
-    (10, (5, 5, 5)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
-    (10, (7, 7, 7)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
-    (10, (9, 9, 9)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet56", pretrained=True),
-    (100, (3, 3, 3)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True),
-    (100, (5, 5, 5)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True),
-    (100, (7, 7, 7)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet44", pretrained=True),
-    (100, (9, 9, 9)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet56", pretrained=True),
+    (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
+    (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
+    (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
+    (10, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet56", pretrained=True),
+    (100, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True),
+    (100, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True),
+    (100, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet44", pretrained=True),
+    (100, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet56", pretrained=True),
 }
 
 
 class Resnet(nn.Module):
-    def __init__(self, config: 'Config'):
+    def __init__(self, config: 'ResnetConfig'):
         super().__init__()
         self.build_net(config)
 
-    def build_net(self, config: 'Config'):
+    def build_net(self, config: 'ResnetConfig'):
         self.conv1 = nn.Conv2d(
             3, config.small_channels,
             kernel_size=3, padding=1, bias=False)
@@ -75,10 +88,11 @@ class Resnet(nn.Module):
             config.large_channels, config.num_classes)
 
         if config.prebuilt:
-            prebuild_config = (config.num_classes, config.num_blocks)
+            prebuild_config = (
+                config.num_classes, config.num_blocks,
+                (config.small_channels, config.mid_channels, config.large_channels))
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
-
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             utils.flexible_model_copy(prebuilt, self)
 
@@ -101,14 +115,3 @@ class Resnet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.fc(out)
         return out
-
-
-@utils.fluent_setters
-@dataclasses.dataclass
-class Config(utils.SelfDescripting):
-    num_blocks: Iterable[int] = (3, 3, 3)
-    num_classes: int = 10
-    small_channels: Iterable[int] = 16
-    mid_channels: Iterable[int] = 32
-    large_channels: Iterable[int] = 64
-    prebuilt: bool = True
