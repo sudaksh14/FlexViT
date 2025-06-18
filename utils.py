@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from sklearn.metrics import accuracy_score, f1_score
 import os
 
@@ -17,6 +18,8 @@ import shutil
 from dataclasses import dataclass
 
 import paths
+
+import adapt_modules as am
 
 
 def get_device():
@@ -304,3 +307,72 @@ def load_imagenette(data_dir="./data/imagenette2",
                           num_workers=num_workers, pin_memory=True)
 
     return loader(train_ds, True), loader(val_ds, False), loader(test_ds, False)
+
+
+def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
+    MODULE_TYPES = (
+        torch.nn.Conv2d,
+        torch.nn.Linear,
+        torch.nn.BatchNorm2d,
+    )
+
+    def find_instance_type(obj, *types):
+        for t in types:
+            if isinstance(obj, t):
+                return t
+        return None
+
+    dest_iter = iter(dest.named_modules())
+
+    last_copied_from = None
+    for src_name, src_module in src.named_modules():
+        src_is_adaptable = isinstance(src_module, am.Module)
+        if src_is_adaptable:
+            src_instance_type = src_module.base_type()
+        else:
+            src_instance_type = find_instance_type(src_module, *MODULE_TYPES)
+            if src_instance_type is None:
+                if verbose >= 2:
+                    print(f"Skip copying layer {src_name}")
+                continue
+
+        if last_copied_from is not None and dest_module in last_copied_from.modules():
+            if verbose >= 2:
+                print(f"Skip copying layer {src_name}")
+            continue
+
+        last_copied_to: nn.Module = None
+        while True:
+            dest_name, dest_module = next(dest_iter)
+            dest_is_adaptable = isinstance(dest_module, am.Module)
+
+            if dest_is_adaptable:
+                if src_instance_type != dest_module.base_type():
+                    if verbose >= 2:
+                        print(f"Cannot copy {src_name} to {dest_name}")
+                    continue
+            else:
+                if not isinstance(dest_module, src_instance_type):
+                    if verbose >= 2:
+                        print(f"Cannot copy {src_name} to {dest_name}")
+                    continue
+
+            if last_copied_to is not None and dest_module in last_copied_to.modules():
+                continue
+
+            if verbose >= 1:
+                print(f"copy from {src_name} to {dest_name}")
+            if src_is_adaptable:
+                if dest_is_adaptable:
+                    dest_module.load_from_base(src_module.make_base_copy())
+                else:
+                    src_module.copy_to_base(dest_module)
+            else:
+                if dest_is_adaptable:
+                    dest_module.load_from_base(src_module)
+                else:
+                    dest_module.load_state_dict(src_module.state_dict())
+            last_copied_to = dest_module
+            break
+
+        last_copied_from = src_module

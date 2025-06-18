@@ -52,55 +52,6 @@ class BasicBlock(nn.Module):
         return F.relu(out)
 
 
-def adapt_copy_from_prebuilt(src: nn.Module, dest: nn.Module, verbose=0):
-    def find_instance_type(obj, *types):
-        for t in types:
-            if isinstance(obj, t):
-                return t
-        return None
-
-    MODULE_TYPES = (
-        torch.nn.Conv2d,
-        torch.nn.Linear,
-        torch.nn.BatchNorm2d,
-    )
-
-    dest_iter = iter(dest.named_modules())
-    for src_name, src_module in src.named_modules():
-        src_instance_type = find_instance_type(src_module, *MODULE_TYPES)
-        if src_instance_type is None:
-            continue
-
-        while True:
-            dest_name, dest_module = next(dest_iter)
-
-            if dest_name.find('channel_attention') > 0:
-                continue
-            if dest_name.find('spatial_attention') > 0:
-                continue
-
-            if dest_name is None:
-                return
-
-            if not isinstance(dest_module, am.Module):
-                if verbose >= 2:
-                    print(
-                        f"{src_name} not copied to {dest_name} because it is not an AdaptBaseNetWork")
-                continue
-            dest_module: am.Module
-            if not isinstance(src_module, dest_module.base_type()):
-                if verbose >= 2:
-                    print(
-                        f"{src_name} not copied to {dest_name} because it is not the same layer type")
-                continue
-
-            dest_name: str
-            if verbose >= 1:
-                print(f"copy from {src_name} to {dest_name}")
-            dest_module.load_from_base(src_module)
-            break
-
-
 KNOWN_MODEL_PRETRAINED = {
     (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
     (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
@@ -147,7 +98,7 @@ class Resnet(nn.Module):
                 raise RuntimeError("prebuilt model not found")
 
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            adapt_copy_from_prebuilt(prebuilt, self)
+            utils.flexible_model_copy(prebuilt, self)
 
     def _make_base_layer(self, in_channels, out_channels, blocks, stride=1):
         layers = []

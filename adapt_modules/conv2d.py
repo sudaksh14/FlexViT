@@ -11,6 +11,9 @@ class Conv2d(Module):
         self.in_sizes = in_sizes
         self.out_sizes = out_sizes
 
+        self._args = args
+        self._kwargs = kwargs
+
         assert (not kwargs.get('bias', False))
         assert (len(self.in_sizes) > 0)
         assert (len(self.out_sizes) > 0)
@@ -47,7 +50,7 @@ class Conv2d(Module):
         return self.level
 
     def max_level(self) -> int:
-        return len(self.in_sizes)
+        return len(self.in_sizes) - 1
 
     def base_type(self):
         return nn.Conv2d
@@ -59,3 +62,34 @@ class Conv2d(Module):
     def load_from_base(self, src: nn.Conv2d):
         self.conv.weight.data[:self.out_sizes[self.level],
                               :self.in_sizes[self.level]] = src.weight.data
+
+    def make_base_copy(self) -> nn.Conv2d:
+        conv = nn.Conv2d(
+            self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
+        self.copy_to_base(conv)
+        return conv
+
+    def export_level_delta(self):
+        weights = self.conv.weight.data
+        lower_part = weights[:self.out_sizes[self.level],
+                             self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
+        right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        prune_up = (lower_part, right_part)
+        prune_down = (self.in_sizes[self.level], self.out_sizes[self.level])
+        return prune_down, prune_up
+
+    @staticmethod
+    def apply_level_delta_down(model: nn.Conv2d, level_delta):
+        in_size, out_size = level_delta
+        model.weight.data = model.weight.data[:out_size, :in_size]
+
+    @staticmethod
+    def apply_level_delta_up(model: nn.Conv2d, level_delta):
+        weights = model.weight.data
+        lower_part, right_part = level_delta
+        out_size, in_size, *_ = weights.size()
+        weights = F.pad(
+            weights, (0, 0, 0, 0, 0, lower_part.size(1), 0, right_part.size(0)))
+        weights[:, in_size:] = lower_part
+        weights[in_size:, :out_size] = right_part
+        model.weight.data = weights

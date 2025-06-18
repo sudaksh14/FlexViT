@@ -19,3 +19,17 @@ class Module(nn.Module):
 
     def load_from_base(self, src: nn.Module):
         raise NotImplemented()
+
+    def make_base_copy(self) -> nn.Module:
+        raise NotImplemented()
+
+    def export_level_delta(self):
+        raise NotImplemented()
+
+    @staticmethod
+    def apply_level_delta_down(model: nn.Module, level_delta):
+        raise NotImplemented()
+
+    @staticmethod
+    def apply_level_delta_up(model: nn.Module, level_delta):
+        raise NotImplemented()
