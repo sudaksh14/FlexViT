@@ -201,15 +201,14 @@ def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, 
         RandomRotation(degrees=15),
         ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
     ])
 
     # Data transformations for validation/test
     test_transform = Compose([
         # Resize((224, 224)),
         ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406],
-                  std=[0.229, 0.224, 0.225])
+        Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
     ])
 
     if tmp_dir is not None:
