@@ -94,7 +94,7 @@ class VGGConfig(utils.SelfDescripting):
     prebuilt: bool = True
     training_context: TrainingContext = None
 
-    def run_training(self):
+    def run_training(self, conf_description: str):
         torch.set_float32_matmul_precision('high')
 
         device = utils.get_device()
@@ -102,5 +102,5 @@ class VGGConfig(utils.SelfDescripting):
 
         trainer = FullTrainer(model, model.max_level())
 
-        with wandb.init(project="test adapt", name=self.get_description(), config=self.get_flat_dict(), dir=paths.LOG_PATH):
+        with wandb.init(project="test adapt", name=conf_description, config=self.get_flat_dict(), dir=paths.LOG_PATH):
             training.finetune(trainer, self.training_context(device))
