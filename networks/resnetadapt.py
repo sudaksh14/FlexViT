@@ -10,14 +10,25 @@ import dataclasses
 from training import TrainingContext
 
 import adapt_modules as am
-import wandb
-import training
-import paths
 
 from networks.adapt_model import AdaptModel
-from training import FullTrainer
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
+from networks.config import ModelConfig
+
+
+@utils.fluent_setters
+@dataclasses.dataclass
+class ResnetConfig(ModelConfig):
+    num_blocks: Iterable[int] = (3, 3, 3)
+    num_classes: int = 10
+    small_channels: Iterable[int] = (8, 12, 16)
+    mid_channels: Iterable[int] = (16, 24, 32)
+    large_channels: Iterable[int] = (32, 48, 64)
+    prebuilt: bool = True
+
+    def make_model(self):
+        return Resnet(self)
 
 
 class BasicBlock(nn.Module):
@@ -87,7 +98,6 @@ class Resnet(AdaptModel):
                 config.small_channels[-1], config.mid_channels[-1], config.large_channels[-1]))
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
-
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             utils.flexible_model_copy(prebuilt, self)
 
@@ -116,26 +126,3 @@ class Resnet(AdaptModel):
         out = out.view(out.size(0), -1)
         out = self.fc(out)
         return out
-
-
-@utils.fluent_setters
-@dataclasses.dataclass
-class ResnetConfig(utils.SelfDescripting):
-    num_blocks: Iterable[int] = (3, 3, 3)
-    num_classes: int = 10
-    small_channels: Iterable[int] = (8, 12, 16)
-    mid_channels: Iterable[int] = (16, 24, 32)
-    large_channels: Iterable[int] = (32, 48, 64)
-    prebuilt: bool = True
-    training_context: TrainingContext = None
-
-    def run_training(self, conf_description: str):
-        torch.set_float32_matmul_precision('high')
-
-        device = utils.get_device()
-        model = Resnet(self).to(device)
-
-        trainer = FullTrainer(model, model.max_level())
-
-        with wandb.init(project="test adapt", name=conf_description, config=self.get_flat_dict(), dir=paths.LOG_PATH):
-            training.finetune(trainer, self.training_context(device))

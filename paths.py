@@ -40,12 +40,4 @@ JOBDIR = make_path(f"{PROJECT_DIR}/jobs/job_{SLURM_JOBID}")
 DATA_PATH = make_path(f"{PROJECT_DIR}/data")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
-# pre train data
-CHECKPOINT_PATH = make_path(f"{JOBDIR}/checkpoints")
-CHECKPOINT_FILENAME = "best_checkpoint"
-
-
-# pruning data
-PRUNING_OUTPATH = make_path(f"{PROJECT_DIR}/pruning")
-PRUNING_MODEL = make_file(f"{PRUNING_OUTPATH}/model")
-PRUNING_DATA = make_file(f"{PRUNING_OUTPATH}/data")
+TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')

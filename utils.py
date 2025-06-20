@@ -52,6 +52,28 @@ class SelfDescripting:
                 res += f"_{val}"
         return res
 
+    def get_filename_safe_description(self):
+        prefix_char = 'x'
+        forbidden_chars = [
+            ('/', 'xa'),
+            ('<', 'xb'),
+            ('>', 'xc'),
+            (':', 'xd'),
+            ('"', 'xe'),
+            ('/', 'xf'),
+            ('\\', 'xg'),
+            ('|', 'xh'),
+            ('?', 'xi'),
+            ('*', 'xj'),
+        ]
+
+        description = self.get_description()
+        description = description.replace(
+            prefix_char, f"{prefix_char}{prefix_char}")
+        for forbidden, replacement in forbidden_chars:
+            description = description.replace(forbidden, replacement)
+        return description
+
     def get_flat_dict(self) -> str:
         res = {}
         for name, val in self.__dict__.items():
@@ -345,3 +367,13 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
             break
 
         last_copied_from = src_module
+
+
+def save_model(model, model_description, prefix=''):
+    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "wb") as file:
+        torch.save(model, file)
+
+
+def load_model(model_description, prefix=''):
+    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "rb") as file:
+        return torch.load(file, weights_only=False)
