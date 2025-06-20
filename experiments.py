@@ -2,13 +2,15 @@
 from networks import resnetadapt, vggadapt, resnet, vgg
 import sys
 
-from training import TrainingContext, AdaptiveTrainingContext, AdaptiveModelTrainer
+from training import TrainingContext, AdaptiveTrainingContext, AdaptiveModelTrainer, BaseTrainer
 
 from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau
 import torch.optim as optim
 
 import paths
 import utils
+
+from typing import Callable
 
 
 class ModelTraining(AdaptiveTrainingContext):
@@ -120,17 +122,25 @@ CONFIGS = {
             .set_max_channels((192, 256, 320, 384, 448, 512)), ModelTraining100()),
     },
     "incremental": {
-        "resnet20.3_levels.cifar100": lambda: AdaptiveModelTrainer(
+        "incr.resnet20.3_levels.cifar100": lambda: AdaptiveModelTrainer(
             resnetadapt.ResnetConfig()
             .set_num_classes(100), ModelTraining100().set_incremental_training(True)),
-        'vgg11.3_levels.cifar100': lambda: AdaptiveModelTrainer(
+        'incr.vgg11.3_levels.cifar100': lambda: AdaptiveModelTrainer(
             vggadapt.VGGConfig()
             .set_num_classes(100), ModelTraining100().set_incremental_training(True)),
+        'incr.vgg11.6_levels.cifar100': lambda: AdaptiveModelTrainer(
+            vggadapt.VGGConfig()
+            .set_num_classes(100)
+            .set_small_channels((24, 32, 40, 48, 56, 64))
+            .set_mid_channels((48, 64, 80, 96, 112, 128))
+            .set_large_channels((96, 128, 160, 192, 224, 256))
+            .set_max_channels((192, 256, 320, 384, 448, 512)), ModelTraining100().set_incremental_training(True)),
+
     }
 }
 
 
-def resolve_from_str(config):
+def resolve_from_str(config) -> Callable[[], BaseTrainer]:
     config = config.split(',')
     SUBPART = CONFIGS
     for i in config:
