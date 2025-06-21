@@ -25,7 +25,7 @@ class ResnetConfig(ModelConfig):
         return Resnet(self)
 
 
-KNOWN_MODEL_PRETRAINED = Dict[Hashable, Callable[[], nn.Module]] = {
+KNOWN_MODEL_PRETRAINED: Dict[Hashable, Callable[[], nn.Module]] = {
     (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
     (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
     (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
