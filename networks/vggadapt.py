@@ -10,14 +10,27 @@ import dataclasses
 from training import TrainingContext
 
 import adapt_modules as am
-import wandb
-import training
-import paths
 
 from networks.adapt_model import AdaptModel
-from training import FullTrainer
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
+from networks.config import ModelConfig
+
+
+@utils.fluent_setters
+@dataclasses.dataclass
+class VGGConfig(ModelConfig):
+    version: int = 11
+    small_channels: int = (32, 48, 64)
+    mid_channels: int = (64, 96, 128)
+    large_channels: int = (128, 192, 256)
+    max_channels: int = (256, 384, 512)
+    num_classes: int = 10
+    prebuilt: bool = True
+    prebuilt_level: int = -1
+
+    def make_model(self):
+        return VGG(self)
 
 
 class VGG(AdaptModel):
@@ -48,9 +61,13 @@ class VGG(AdaptModel):
         self.level = self.levels - 1
 
         if config.prebuilt:
+            if config.prebuilt_level < 0:
+                self.set_level_use(self.max_level() + 1 + config.prebuilt_level)
+            else:
+                self.set_level_use(config.prebuilt_level)
             prebuild_config = (
                 config.num_classes, config.version,
-                (config.small_channels[-1], config.mid_channels[-1], config.large_channels[-1], config.max_channels[-1]))
+                (config.small_channels[self.current_level()], config.mid_channels[self.current_level()], config.large_channels[self.current_level()], config.max_channels[self.current_level()]))
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
@@ -80,27 +97,3 @@ class VGG(AdaptModel):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
-
-
-@utils.fluent_setters
-@dataclasses.dataclass
-class VGGConfig(utils.SelfDescripting):
-    version: int = 11
-    small_channels: int = (32, 48, 64)
-    mid_channels: int = (64, 96, 128)
-    large_channels: int = (128, 192, 256)
-    max_channels: int = (256, 384, 512)
-    num_classes: int = 10
-    prebuilt: bool = True
-    training_context: TrainingContext = None
-
-    def run_training(self, conf_description: str):
-        torch.set_float32_matmul_precision('high')
-
-        device = utils.get_device()
-        model = VGG(self).to(device)
-
-        trainer = FullTrainer(model, model.max_level())
-
-        with wandb.init(project="test adapt", name=conf_description, config=self.get_flat_dict(), dir=paths.LOG_PATH):
-            training.finetune(trainer, self.training_context(device))

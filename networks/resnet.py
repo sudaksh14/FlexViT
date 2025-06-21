@@ -6,36 +6,35 @@ import utils
 import dataclasses
 from typing import Iterable
 
-from training import TrainingContext
-from training import SimpleTrainer
-import training
-import wandb
-import paths
+from networks.config import ModelConfig
 
 # basic implementation from github.com/chenyaofo/pytorch-cifar-models
 
 
 @utils.fluent_setters
 @dataclasses.dataclass
-class ResnetConfig(utils.SelfDescripting):
+class ResnetConfig(ModelConfig):
     num_blocks: Iterable[int] = (3, 3, 3)
     num_classes: int = 10
     small_channels: Iterable[int] = 16
     mid_channels: Iterable[int] = 32
     large_channels: Iterable[int] = 64
     prebuilt: bool = True
-    training_context: TrainingContext = None
 
-    def run_training(self, conf_description: str):
-        torch.set_float32_matmul_precision('high')
+    def make_model(self):
+        return Resnet(self)
 
-        device = utils.get_device()
-        model = Resnet(self).to(device)
 
-        trainer = SimpleTrainer(model)
-
-        with wandb.init(project="test adapt", name=conf_description, config=self.get_flat_dict(), dir=paths.LOG_PATH):
-            training.finetune(trainer, self.training_context(device))
+KNOWN_MODEL_PRETRAINED = {
+    (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
+    (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
+    (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
+    (10, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet56", pretrained=True),
+    (100, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True),
+    (100, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True),
+    (100, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet44", pretrained=True),
+    (100, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet56", pretrained=True),
+}
 
 
 class BasicBlock(nn.Module):
@@ -70,18 +69,6 @@ class BasicBlock(nn.Module):
 
         out += residual
         return F.relu(out)
-
-
-KNOWN_MODEL_PRETRAINED = {
-    (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
-    (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
-    (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
-    (10, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet56", pretrained=True),
-    (100, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True),
-    (100, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True),
-    (100, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet44", pretrained=True),
-    (100, (9, 9, 9), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet56", pretrained=True),
-}
 
 
 class Resnet(nn.Module):

@@ -1,6 +1,7 @@
 from torch import nn
 import adapt_modules as am
 
+
 class AdaptModel(nn.Module):
     def set_level_use(self, level):
         self.level = level

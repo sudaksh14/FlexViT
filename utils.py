@@ -52,6 +52,28 @@ class SelfDescripting:
                 res += f"_{val}"
         return res
 
+    def get_filename_safe_description(self):
+        prefix_char = 'x'
+        forbidden_chars = [
+            ('/', 'xa'),
+            ('<', 'xb'),
+            ('>', 'xc'),
+            (':', 'xd'),
+            ('"', 'xe'),
+            ('/', 'xf'),
+            ('\\', 'xg'),
+            ('|', 'xh'),
+            ('?', 'xi'),
+            ('*', 'xj'),
+        ]
+
+        description = self.get_description()
+        description = description.replace(
+            prefix_char, f"{prefix_char}{prefix_char}")
+        for forbidden, replacement in forbidden_chars:
+            description = description.replace(forbidden, replacement)
+        return description
+
     def get_flat_dict(self) -> str:
         res = {}
         for name, val in self.__dict__.items():
@@ -140,7 +162,7 @@ def dummy_data(data_dir=paths.DATA_PATH):
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=4)
 
-    return train_dataloader, train_dataloader, test_dataloader
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
@@ -179,15 +201,15 @@ def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val
         shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
 
     # Split the train dataset into train/val
-    train_size = int((1 - val_split) * len(train_dataset))
-    val_size = len(train_dataset) - train_size
-    train_dataset, val_dataset = random_split(
-        train_dataset, [train_size, val_size])
+    # train_size = int((1 - val_split) * len(train_dataset))
+    # val_size = len(train_dataset) - train_size
+    # train_dataset, val_dataset = random_split(
+    #     train_dataset, [train_size, val_size])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=4)
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=4)
 
@@ -197,9 +219,9 @@ def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val
 def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
     # Data transformations for training
     train_transform = Compose([
-        RandomHorizontalFlip(p=0.5),
-        RandomRotation(degrees=15),
-        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        # RandomHorizontalFlip(p=0.5),
+        # RandomRotation(degrees=15),
+        # ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ToTensor(),
         Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
     ])
@@ -229,15 +251,15 @@ def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, 
         shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
 
     # Split the train dataset into train/val
-    train_size = int((1 - val_split) * len(train_dataset))
-    val_size = len(train_dataset) - train_size
-    train_dataset, val_dataset = random_split(
-        train_dataset, [train_size, val_size])
+    # train_size = int((1 - val_split) * len(train_dataset))
+    # val_size = len(train_dataset) - train_size
+    # train_dataset, val_dataset = random_split(
+    #     train_dataset, [train_size, val_size])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=4)
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=4)
 
@@ -345,3 +367,13 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
             break
 
         last_copied_from = src_module
+
+
+def save_model(model, model_description, prefix=''):
+    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "wb") as file:
+        torch.save(model, file)
+
+
+def load_model(model_description, prefix=''):
+    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "rb") as file:
+        return torch.load(file, weights_only=False)

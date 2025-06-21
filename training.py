@@ -4,7 +4,7 @@ import dataclasses
 
 import pytorch_lightning as pl
 
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
 from pytorch_lightning.loggers import WandbLogger, CSVLogger
 
 from torch.optim import AdamW, Adam, lr_scheduler, SGD
@@ -13,18 +13,25 @@ import pytorch_lightning as pl
 import paths
 from networks.adapt_model import AdaptModel
 import torch.nn.functional as F
+import utils
+
+import tempfile
+from networks.adapt_model import AdaptModel
+from networks.config import ModelConfig
+
+import wandb
+from typing import Callable
 
 
+@utils.fluent_setters
 @dataclasses.dataclass
 class TrainingContext:
-    device: torch.device
-
-    train_loader: DataLoader
-    val_loader: DataLoader
-    test_loader: DataLoader
+    loader_function: Callable[[], tuple[DataLoader, DataLoader, DataLoader]]
 
     patience: int = 5
     epochs: int = 10
+
+    max_time: str = '00:23:00:00'
 
     def make_optimizer(self, model):
         raise NotImplemented()
@@ -43,11 +50,25 @@ class TrainingContext:
         model.__dict__.pop('configure_optimizers')
 
 
-class FullTrainer(pl.LightningModule):
-    def __init__(self, model: AdaptModel, upto):
+@utils.fluent_setters
+@dataclasses.dataclass
+class AdaptiveTrainingContext(TrainingContext):
+    incremental_training: bool = False
+
+
+class BaseTrainer:
+    def run_training(self, conf_description: str) -> None:
+        raise NotImplemented()
+
+
+class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
+    def __init__(self, model_config: ModelConfig, training_context: AdaptiveTrainingContext):
         super().__init__()
-        self.submodel = model
-        self.upto = upto
+        self.save_hyperparameters()
+        self.model_config = model_config
+        self.training_context = training_context
+        self.submodel = self.model_config.make_model().to(utils.get_device())
+        self.upto = self.submodel.max_level()
 
     def forward(self, x):
         return self.submodel(x)
@@ -74,65 +95,64 @@ class FullTrainer(pl.LightningModule):
     def validation_step(self, b, _): return self._step(b, "val")
     def test_step(self, b, _): return self._step(b, "test")
 
-    def configure_optimizers(self):
-        opt = AdamW(self.parameters(),
-                    lr=self.hparams.config.learning_rate, weight_decay=1e-4)
-        sched = lr_scheduler.ReduceLROnPlateau(
-            opt, "min", factor=0.5, patience=3)
-        return {"optimizer": opt,
-                "lr_scheduler": {"scheduler": sched, "monitor": "val_loss"}}
+    def run_training(self, conf_description: str):
+        torch.set_float32_matmul_precision('high')
 
+        model = self.submodel
+        trainer = self
 
-class SimpleTrainer(pl.LightningModule):
-    def __init__(self, model: AdaptModel):
-        super().__init__()
-        self.submodel = model
+        if self.training_context.incremental_training:
+            self.upto = 0
 
-    def forward(self, x):
-        return self.submodel(x)
+        with wandb.init(project="a", name=conf_description, config=self.model_config.get_flat_dict(), dir=paths.LOG_PATH):
+            if self.training_context.incremental_training:
+                for i in range(model.max_level() + 1):
+                    model = finetune(trainer, self.training_context)
+                    trainer.upto += 1
+            else:
+                model = finetune(trainer, self.training_context)
 
-    def _step(self, batch, stage):
-        x, y = batch
-        logits = self(x)
-        loss = F.cross_entropy(logits, y)
-        acc = (logits.argmax(1) == y).float().mean()
-        self.log(f"{stage}_loss", loss, prog_bar=False)
-        self.log(f"{stage}_acc",  acc,
-                 prog_bar=(stage != 'train'))
-        return loss
-
-    def training_step(self, b, _): return self._step(b, "train")
-    def validation_step(self, b, _): return self._step(b, "val")
-    def test_step(self, b, _): return self._step(b, "test")
+        utils.save_model(
+            model, self.model_config.get_filename_safe_description())
 
     def configure_optimizers(self):
-        opt = AdamW(self.parameters(),
-                    lr=self.hparams.config.learning_rate, weight_decay=1e-4)
-        sched = lr_scheduler.ReduceLROnPlateau(
-            opt, "min", factor=0.5, patience=3)
-        return {"optimizer": opt,
-                "lr_scheduler": {"scheduler": sched, "monitor": "val_loss"}}
+        pass
 
 
-def finetune(model, config: TrainingContext):
+def finetune(model: pl.LightningModule, config: TrainingContext):
     logger = WandbLogger(log_model=False, dir=paths.LOG_PATH)
     config.wrap_model(model)
 
-    early_stopping = EarlyStopping(
-        monitor='val_loss', patience=config.patience, mode='min', verbose=True)
+    with tempfile.TemporaryDirectory() as tdir:
+        early_stopping = EarlyStopping(
+            monitor='val_loss', patience=config.patience, mode='min', verbose=True)
 
-    trainer = pl.Trainer(
-        max_epochs=config.epochs,
-        logger=logger,
-        callbacks=[early_stopping],
-        log_every_n_steps=10,
-        enable_checkpointing=False,
-        accelerator="gpu",
-        devices="auto"
-    )
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=tdir,
+            filename='best-model',
+            monitor='val_loss',
+            mode='min',
+            save_top_k=1
+        )
 
-    trainer.fit(model, config.train_loader, config.val_loader)
-    trainer.test(model, dataloaders=config.test_loader)
+        timer = Timer(config.max_time)
+
+        trainer = pl.Trainer(
+            max_epochs=config.epochs,
+            logger=logger,
+            callbacks=[early_stopping, checkpoint_callback, timer],
+            log_every_n_steps=10,
+            enable_checkpointing=True,
+            accelerator="gpu",
+            devices="auto"
+        )
+
+        train_loader, val_loader, test_loader = config.loader_function()
+        trainer.fit(model, train_loader, val_loader)
+        model = type(model).load_from_checkpoint(
+            checkpoint_callback.best_model_path)
+        config.wrap_model(model)
+        trainer.test(model, dataloaders=test_loader)
 
     config.unwrap_model(model)
     return model
