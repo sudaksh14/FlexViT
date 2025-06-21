@@ -35,3 +35,6 @@ class Module(nn.Module):
     @staticmethod
     def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
         raise NotImplemented()
+
+    def zero_out_gradients(self, level: int) -> None:
+        pass

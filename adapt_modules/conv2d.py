@@ -96,3 +96,12 @@ class Conv2d(Module):
         weights[:, in_size:] = lower_part
         weights[out_size:, :in_size] = right_part
         model.weight.data = weights
+
+    def zero_out_gradients(self, level: int) -> None:
+        if level < 0:
+            return
+        with torch.no_grad():
+            if self.conv.weight.grad is None:
+                return
+            self.conv.weight.grad[:self.out_sizes[level],
+                                  :self.in_sizes[level], :, :] = 0
