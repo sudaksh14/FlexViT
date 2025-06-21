@@ -26,7 +26,7 @@ class ResnetConfig(ModelConfig):
     mid_channels: Iterable[int] = (16, 24, 32)
     large_channels: Iterable[int] = (32, 48, 64)
     prebuilt: bool = True
-    prebuilt_level: Union[int, None] = None
+    prebuilt_level: int = -1
 
     def make_model(self):
         return Resnet(self)
@@ -95,13 +95,16 @@ class Resnet(AdaptModel):
         self.level = self.levels - 1
 
         if config.prebuilt:
+            if config.prebuilt_level < 0:
+                self.set_level_use(self.max_level() + 1 +
+                                   config.prebuilt_level)
+            else:
+                self.set_level_use(config.prebuilt_level)
             prebuild_config = (config.num_classes, config.num_blocks, (
-                config.small_channels[-1], config.mid_channels[-1], config.large_channels[-1]))
+                config.small_channels[self.current_level()], config.mid_channels[self.current_level()], config.large_channels[self.current_level()]))
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            if config.prebuilt_level is not None:
-                self.set_level_use(config.prebuilt_level)
             utils.flexible_model_copy(prebuilt, self)
 
     def _make_base_layer(self, in_channels, out_channels, blocks, stride=1):

@@ -135,7 +135,16 @@ CONFIGS = {
             .set_mid_channels((48, 64, 80, 96, 112, 128))
             .set_large_channels((96, 128, 160, 192, 224, 256))
             .set_max_channels((192, 256, 320, 384, 448, 512)), ModelTraining100().set_incremental_training(True)),
-
+    },
+    "upscale": {
+        "upscale.vgg11.cifar100": lambda: AdaptiveModelTrainer(
+            vggadapt.VGGConfig()
+            .set_small_channels((64, 96, 128))
+            .set_mid_channels((128, 192, 256))
+            .set_large_channels((256, 384, 512))
+            .set_max_channels((512, 768, 1024))
+            .set_num_classes(100)
+            .set_prebuilt_level(0), ModelTraining100().set_incremental_training(True)),
     }
 }
 
@@ -175,7 +184,7 @@ def print_all_conf_paths(conf, basestr, file=sys.stdout):
 if __name__ == "__main__":
     command, conf = sys.argv[1:]
     # command = "run"
-    # conf = "resnetadapt,0"
+    # conf = "resnetadapt,resnet20.3_levels.cifar10"
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)

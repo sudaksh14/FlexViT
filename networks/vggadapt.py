@@ -27,7 +27,7 @@ class VGGConfig(ModelConfig):
     max_channels: int = (256, 384, 512)
     num_classes: int = 10
     prebuilt: bool = True
-    prebuilt_level: Union[int, None] = None
+    prebuilt_level: int = -1
 
     def make_model(self):
         return VGG(self)
@@ -61,14 +61,16 @@ class VGG(AdaptModel):
         self.level = self.levels - 1
 
         if config.prebuilt:
+            if config.prebuilt_level < 0:
+                self.set_level_use(self.max_level() + 1 + config.prebuilt_level)
+            else:
+                self.set_level_use(config.prebuilt_level)
             prebuild_config = (
                 config.num_classes, config.version,
-                (config.small_channels[-1], config.mid_channels[-1], config.large_channels[-1], config.max_channels[-1]))
+                (config.small_channels[self.current_level()], config.mid_channels[self.current_level()], config.large_channels[self.current_level()], config.max_channels[self.current_level()]))
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            if config.prebuilt_level is not None:
-                self.set_level_use(config.prebuilt_level)
             utils.flexible_model_copy(prebuilt, self)
 
     def make_layers(self, cfg):
