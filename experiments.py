@@ -10,7 +10,7 @@ import torch.optim as optim
 import paths
 import utils
 
-from typing import Callable
+from typing import Callable, Generator
 
 
 class ModelTraining(AdaptiveTrainingContext):
@@ -163,7 +163,7 @@ def resolve_from_str(config) -> Callable[[], BaseTrainer]:
     return SUBPART
 
 
-def iter_over_conf(conf, basestr):
+def iter_over_conf(conf, basestr) -> Generator[str, None, None]:
     if isinstance(conf, dict):
         for key, val in conf.items():
             for s in iter_over_conf(val, basestr + f",{key}"):
@@ -176,15 +176,13 @@ def iter_over_conf(conf, basestr):
         yield basestr
 
 
-def print_all_conf_paths(conf, basestr, file=sys.stdout):
+def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
     for s in iter_over_conf(conf, basestr):
         print(s, file=file)
 
 
 if __name__ == "__main__":
     command, conf = sys.argv[1:]
-    # command = "run"
-    # conf = "resnetadapt,resnet20.3_levels.cifar10"
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)

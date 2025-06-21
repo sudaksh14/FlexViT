@@ -33,20 +33,20 @@ class TrainingContext:
 
     max_time: str = '00:23:00:00'
 
-    def make_optimizer(self, model):
+    def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplemented()
 
-    def make_scheduler(self, optimizer):
+    def make_scheduler(self, optimizer) -> torch.optim.lr_scheduler.LRScheduler:
         raise NotImplemented()
 
-    def wrap_model(self, model):
+    def wrap_model(self, model: pl.LightningModule) -> pl.LightningModule:
         def configure_optimizers():
             optimizer = self.make_optimizer(model)
             scheduler = self.make_scheduler(optimizer)
             return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
         model.__dict__['configure_optimizers'] = configure_optimizers
 
-    def unwrap_model(self, model: torch.nn.Module):
+    def unwrap_model(self, model: pl.LightningModule) -> pl.LightningModule:
         model.__dict__.pop('configure_optimizers')
 
 
@@ -62,7 +62,7 @@ class BaseTrainer:
 
 
 class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
-    def __init__(self, model_config: ModelConfig, training_context: AdaptiveTrainingContext):
+    def __init__(self, model_config: ModelConfig, training_context: AdaptiveTrainingContext) -> None:
         super().__init__()
         self.save_hyperparameters()
         self.model_config = model_config
@@ -70,10 +70,10 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
         self.submodel = self.model_config.make_model().to(utils.get_device())
         self.upto = self.submodel.max_level()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.submodel(x)
 
-    def _step(self, batch, stage):
+    def _step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
         x, y = batch
         total_loss = 0.0
 
@@ -91,11 +91,16 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
         self.log(f"{stage}_loss", total_loss, prog_bar=False)
         return total_loss
 
-    def training_step(self, b, _): return self._step(b, "train")
-    def validation_step(self, b, _): return self._step(b, "val")
-    def test_step(self, b, _): return self._step(b, "test")
+    def training_step(self, b, _) -> torch.Tensor:
+        return self._step(b, "train")
 
-    def run_training(self, conf_description: str):
+    def validation_step(self, b, _) -> torch.Tensor:
+        return self._step(b, "val")
+
+    def test_step(self, b, _) -> torch.Tensor:
+        return self._step(b, "test")
+
+    def run_training(self, conf_description: str) -> None:
         torch.set_float32_matmul_precision('high')
 
         model = self.submodel
@@ -115,11 +120,11 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
         utils.save_model(
             model, self.model_config.get_filename_safe_description())
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> None:
         pass
 
 
-def finetune(model: pl.LightningModule, config: TrainingContext):
+def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.LightningModule:
     logger = WandbLogger(log_model=False, dir=paths.LOG_PATH)
     config.wrap_model(model)
 

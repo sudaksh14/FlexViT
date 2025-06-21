@@ -29,12 +29,12 @@ class VGGConfig(ModelConfig):
     prebuilt: bool = True
     prebuilt_level: int = -1
 
-    def make_model(self):
+    def make_model(self) -> 'VGG':
         return VGG(self)
 
 
 class VGG(AdaptModel):
-    def __init__(self, config: 'VGGConfig'):
+    def __init__(self, config: 'VGGConfig') -> None:
         super().__init__()
         self.levels = len(config.small_channels)
 
@@ -73,7 +73,7 @@ class VGG(AdaptModel):
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             utils.flexible_model_copy(prebuilt, self)
 
-    def make_layers(self, cfg):
+    def make_layers(self, cfg) -> nn.Sequential:
         layers: List[nn.Module] = []
         in_channels = [3] * self.levels
         for v in cfg:

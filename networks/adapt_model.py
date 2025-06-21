@@ -3,7 +3,7 @@ import adapt_modules as am
 
 
 class AdaptModel(nn.Module):
-    def set_level_use(self, level):
+    def set_level_use(self, level) -> None:
         self.level = level
         for _, module in self.named_modules():
             if isinstance(module, am.Module):

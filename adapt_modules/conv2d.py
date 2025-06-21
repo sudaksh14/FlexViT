@@ -4,9 +4,11 @@ import torch
 from adapt_modules.module import Module
 import torch.nn.functional as F
 
+from typing import Iterable
+
 
 class Conv2d(Module):
-    def __init__(self, in_sizes, out_sizes, *args, **kwargs):
+    def __init__(self, in_sizes: Iterable[int], out_sizes: Iterable[int], *args, **kwargs) -> None:
         super().__init__()
         self.in_sizes = in_sizes
         self.out_sizes = out_sizes
@@ -41,7 +43,7 @@ class Conv2d(Module):
         x = x[:, :self.out_sizes[self.level]]
         return x
 
-    def set_level_use(self, level: int):
+    def set_level_use(self, level: int) -> None:
         assert (level >= 0)
         assert (level <= self.max_level())
         self.level = level
@@ -53,14 +55,14 @@ class Conv2d(Module):
         return len(self.in_sizes) - 1
 
     @staticmethod
-    def base_type():
+    def base_type() -> type[nn.Conv2d]:
         return nn.Conv2d
 
-    def copy_to_base(self, dest: nn.Conv2d):
+    def copy_to_base(self, dest: nn.Conv2d) -> None:
         dest.weight.data = self.conv.weight.data[:self.out_sizes[self.level],
                                                  :self.in_sizes[self.level]]
 
-    def load_from_base(self, src: nn.Conv2d):
+    def load_from_base(self, src: nn.Conv2d) -> None:
         self.conv.weight.data[:self.out_sizes[self.level],
                               :self.in_sizes[self.level]] = src.weight.data
 
@@ -70,7 +72,7 @@ class Conv2d(Module):
         self.copy_to_base(conv)
         return conv
 
-    def export_level_delta(self):
+    def export_level_delta(self) -> tuple[tuple[int, int], tuple[torch.Tensor, torch.Tensor]]:
         weights = self.conv.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
@@ -80,12 +82,12 @@ class Conv2d(Module):
         return prune_down, prune_up
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Conv2d, level_delta):
+    def apply_level_delta_down(model: nn.Conv2d, level_delta: tuple[int, int]) -> None:
         in_size, out_size = level_delta
         model.weight.data = model.weight.data[:out_size, :in_size]
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Conv2d, level_delta):
+    def apply_level_delta_up(model: nn.Conv2d, level_delta: tuple[torch.Tensor, torch.Tensor]) -> None:
         weights = model.weight.data
         lower_part, right_part = level_delta
         out_size, in_size, *_ = weights.size()

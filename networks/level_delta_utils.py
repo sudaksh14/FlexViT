@@ -29,7 +29,7 @@ def get_model_deltas(model: AdaptModel) -> tuple[dict[tuple[int, bool], list[Any
     return deltas, module_type_list
 
 
-def apply_delta_down(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]):
+def apply_delta_down(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]) -> None:
     dest_it = iter(model.modules())
     for delta, module_type in zip(deltas, module_type_list):
         while True:
@@ -40,7 +40,7 @@ def apply_delta_down(model: nn.Module, deltas: Iterable[Any], module_type_list: 
             break
 
 
-def apply_delta_up(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]):
+def apply_delta_up(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]) -> None:
     dest_it = iter(model.modules())
     for delta, module_type in zip(deltas, module_type_list):
         while True:
@@ -58,7 +58,7 @@ class BaseDeltaManager:
     def get_level_delta(self, level: int, up: bool) -> Iterable[Any]:
         raise NotImplemented()
 
-    def move_model_to(self, model: nn.Module, current_level: int, target_level: int):
+    def move_model_to(self, model: nn.Module, current_level: int, target_level: int) -> None:
         if target_level > current_level:
             for i in range(current_level + 1, target_level + 1):
                 apply_delta_up(model, self.get_level_delta(
@@ -70,7 +70,7 @@ class BaseDeltaManager:
 
 
 class InMemoryDeltaManager(BaseDeltaManager):
-    def __init__(self, deltas: dict[tuple[int, bool], list[Any]], module_type_list: list[type[Module]]):
+    def __init__(self, deltas: dict[tuple[int, bool], list[Any]], module_type_list: list[type[Module]]) -> None:
         super().__init__()
         self.deltas = deltas
         self.module_type_lists = module_type_list

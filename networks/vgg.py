@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-from typing import Union, List, Dict, cast
+from typing import Union, List, Dict, cast, Callable, Hashable
 
 import utils
 import dataclasses
@@ -24,18 +24,18 @@ class VGGConfig(ModelConfig):
     num_classes: int = 10
     prebuilt: bool = True
 
-    def make_model(self):
+    def make_model(self) -> 'VGG':
         return VGG(self)
 
 
-LAYER_CONFIGS = {
+LAYER_CONFIGS: Dict[int, Callable[[int, int, int, int], list[Union[int, str]]]] = {
     11: lambda a, b, c, d: [a, 'M', b, 'M', c, c, 'M', d, d, 'M', d, d, 'M'],
     13: lambda a, b, c, d: [a, a, 'M', b, b, 'M', c, c, 'M', d, d, 'M', d, d, 'M'],
     16: lambda a, b, c, d: [a, a, 'M', b, b, 'M', c, c, c, 'M', d, d, d, 'M', d, d, d, 'M'],
     19: lambda a, b, c, d: [a, a, 'M', b, b, 'M', c, c, c, c, 'M', d, d, d, d, 'M', d, d, d, d, 'M'],
 }
 
-KNOWN_MODEL_PRETRAINED = {
+KNOWN_MODEL_PRETRAINED: Dict[Hashable, Callable[[], nn.Module]] = {
     (10, 11, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg11_bn", pretrained=True),
     (10, 13, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg13_bn", pretrained=True),
     (10, 16, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True),
@@ -48,7 +48,7 @@ KNOWN_MODEL_PRETRAINED = {
 
 
 class VGG(nn.Module):
-    def __init__(self, config: VGGConfig):
+    def __init__(self, config: VGGConfig) -> None:
         super().__init__()
         self.features = self.make_layers(LAYER_CONFIGS[config.version](
             config.small_channels, config.mid_channels, config.large_channels, config.max_channels))
@@ -78,7 +78,7 @@ class VGG(nn.Module):
         x = self.classifier(x)
         return x
 
-    def make_layers(self, cfg):
+    def make_layers(self, cfg) -> nn.Sequential:
         layers: List[nn.Module] = []
         in_channels = 3
         for v in cfg:

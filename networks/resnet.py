@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import utils
 
 import dataclasses
-from typing import Iterable
+from typing import Iterable, Dict, Callable, Hashable
 
 from networks.config import ModelConfig
 
@@ -21,11 +21,11 @@ class ResnetConfig(ModelConfig):
     large_channels: Iterable[int] = 64
     prebuilt: bool = True
 
-    def make_model(self):
+    def make_model(self) -> 'Resnet':
         return Resnet(self)
 
 
-KNOWN_MODEL_PRETRAINED = {
+KNOWN_MODEL_PRETRAINED: Dict[Hashable, Callable[[], nn.Module]] = {
     (10, (3, 3, 3), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet20", pretrained=True),
     (10, (5, 5, 5), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True),
     (10, (7, 7, 7), (16, 32, 64)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet44", pretrained=True),
@@ -38,7 +38,7 @@ KNOWN_MODEL_PRETRAINED = {
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, in_channels, mid_channels, out_channels, stride=1):
+    def __init__(self, in_channels: int, mid_channels: int, out_channels: int, stride=1) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(
             in_channels, mid_channels,
@@ -57,7 +57,7 @@ class BasicBlock(nn.Module):
                 nn.BatchNorm2d(out_channels)
             )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = self.downsample(x)
 
         out = self.conv1(x)
@@ -72,11 +72,11 @@ class BasicBlock(nn.Module):
 
 
 class Resnet(nn.Module):
-    def __init__(self, config: 'ResnetConfig'):
+    def __init__(self, config: ResnetConfig) -> None:
         super().__init__()
         self.build_net(config)
 
-    def build_net(self, config: 'ResnetConfig'):
+    def build_net(self, config: ResnetConfig) -> None:
         self.conv1 = nn.Conv2d(
             3, config.small_channels,
             kernel_size=3, padding=1, bias=False)
@@ -101,7 +101,7 @@ class Resnet(nn.Module):
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             utils.flexible_model_copy(prebuilt, self)
 
-    def _make_base_layer(self, in_channels, out_channels, blocks, stride=1):
+    def _make_base_layer(self, in_channels, out_channels, blocks, stride=1) -> nn.Sequential:
         layers = []
         layers.append(BasicBlock(
             in_channels, out_channels, out_channels, stride))
@@ -110,7 +110,7 @@ class Resnet(nn.Module):
             layers.append(BasicBlock(in_channels, out_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.conv1(x)
         out = F.relu(self.bn1(out))
         out = self.layer1(out)
