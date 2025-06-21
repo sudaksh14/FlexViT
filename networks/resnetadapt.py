@@ -28,12 +28,12 @@ class ResnetConfig(ModelConfig):
     prebuilt: bool = True
     prebuilt_level: int = -1
 
-    def make_model(self):
+    def make_model(self) -> 'Resnet':
         return Resnet(self)
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, in_channels, mid_channels, out_channels, stride=1):
+    def __init__(self, in_channels: Iterable[int], mid_channels: Iterable[int], out_channels: Iterable[int], stride=1) -> None:
         super().__init__()
         self.conv1 = am.Conv2d(
             in_channels, mid_channels,
@@ -52,7 +52,7 @@ class BasicBlock(nn.Module):
                 am.BatchNorm2d(out_channels)
             )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = self.downsample(x)
 
         out = self.conv1(x)
@@ -67,11 +67,11 @@ class BasicBlock(nn.Module):
 
 
 class Resnet(AdaptModel):
-    def __init__(self, config: 'ResnetConfig'):
+    def __init__(self, config: ResnetConfig) -> None:
         super().__init__()
         self.build_net(config)
 
-    def build_net(self, config: 'ResnetConfig'):
+    def build_net(self, config: ResnetConfig) -> None:
         self.levels = len(config.small_channels)
 
         self.conv1 = am.Conv2d(
@@ -107,7 +107,7 @@ class Resnet(AdaptModel):
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             utils.flexible_model_copy(prebuilt, self)
 
-    def _make_base_layer(self, in_channels, out_channels, blocks, stride=1):
+    def _make_base_layer(self, in_channels, out_channels, blocks, stride=1) -> nn.Sequential:
         layers = []
         layers.append(BasicBlock(
             in_channels, out_channels, out_channels, stride))
@@ -122,7 +122,7 @@ class Resnet(AdaptModel):
     def max_level(self) -> int:
         return self.levels - 1
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.conv1(x)
         out = F.relu(self.bn1(out))
         out = self.layer1(out)

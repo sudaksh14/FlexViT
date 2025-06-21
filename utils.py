@@ -22,7 +22,7 @@ import paths
 import adapt_modules as am
 
 
-def get_device():
+def get_device() -> 'str':
     return torch.device("mps" if torch.backends.mps.is_available() else
                         "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -52,7 +52,7 @@ class SelfDescripting:
                 res += f"_{val}"
         return res
 
-    def get_filename_safe_description(self):
+    def get_filename_safe_description(self) -> str:
         prefix_char = 'x'
         forbidden_chars = [
             ('/', 'xa'),
@@ -88,7 +88,7 @@ class SelfDescripting:
         return res
 
 
-def evaluate_model(model, dataloader, device):
+def evaluate_model(model: nn.Module, dataloader: DataLoader, device: str) -> torch.Tensor:
     """
     Evaluates the model on the given dataloader and returns accuracy and F1 score.
     """
@@ -113,56 +113,16 @@ def evaluate_model(model, dataloader, device):
     return accuracy
 
 
-def count_parameters(model):
+def count_parameters(model: nn.Module) -> int:
     """Counts the number of trainable parameters in the model."""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def model_size_in_mb(model):
+def model_size_in_mb(model: nn.Module) -> int:
     torch.save(model.state_dict(), "temp.p")
     size_mb = os.path.getsize("temp.p") / (1024 * 1024)
     os.remove("temp.p")
     return size_mb
-
-
-def dummy_data(data_dir=paths.DATA_PATH):
-    val_split = 0.2
-    batch_size = 64
-
-    train_transform = Compose([
-        RandomHorizontalFlip(p=0.5),
-        RandomRotation(degrees=15),
-        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
-    test_transform = Compose([
-        ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406],
-                  std=[0.229, 0.224, 0.225])
-    ])
-
-    train_dataset = CIFAR10(root=data_dir, train=True,
-                            download=True, transform=train_transform)
-    test_dataset = CIFAR10(root=data_dir, train=False,
-                           download=True, transform=test_transform)
-
-    # Split the train dataset into train/val
-    # train_size = int((1 - val_split) * len(train_dataset))
-    # val_size = len(train_dataset) - train_size
-
-    train_dataset, val_dataset, _ = random_split(
-        train_dataset, [100 * 8, 8 * 8, len(train_dataset) - 108 * 8])
-
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, num_workers=4, shuffle=False)
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
-
-    return train_dataloader, val_dataloader, test_dataloader
 
 
 def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
@@ -219,9 +179,9 @@ def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val
 def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
     # Data transformations for training
     train_transform = Compose([
-        # RandomHorizontalFlip(p=0.5),
-        # RandomRotation(degrees=15),
-        # ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        RandomHorizontalFlip(p=0.5),
+        RandomRotation(degrees=15),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ToTensor(),
         Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
     ])
@@ -299,7 +259,7 @@ def load_imagenette(data_dir="./data/imagenette2",
     return loader(train_ds, True), loader(val_ds, False), loader(test_ds, False)
 
 
-def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
+def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
     MODULE_TYPES = (
         torch.nn.Conv2d,
         torch.nn.Linear,
@@ -369,11 +329,11 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0):
         last_copied_from = src_module
 
 
-def save_model(model, model_description, prefix=''):
+def save_model(model: nn.Module, model_description: str, prefix: str = '') -> None:
     with open(paths.TRAINED_MODELS / f"{model_description}.pth", "wb") as file:
         torch.save(model, file)
 
 
-def load_model(model_description, prefix=''):
+def load_model(model_description: str, prefix: str = '') -> nn.Module:
     with open(paths.TRAINED_MODELS / f"{model_description}.pth", "rb") as file:
         return torch.load(file, weights_only=False)
