@@ -132,11 +132,17 @@ def make_zero_grad_optimizer(optimizer, model: AdaptModel, freeze_level, *args, 
             super().__init__(*args, **kwargs)
 
         def step(self, closure=None):
+            p = []
             for module in model.modules():
                 if not isinstance(module, am.Module):
+                    p.append(None)
                     continue
-                module.zero_out_gradients(freeze_level)
-            return super().step(closure)
+                p.append(module.get_frozen_params(freeze_level))
+            super().step(closure)
+            for module, par in zip(model.modules(), p):
+                if not isinstance(module, am.Module):
+                    continue
+                module.restore_frozen_params(freeze_level, par)
 
     return zerograd(*args, **kwargs)
 
@@ -196,12 +202,12 @@ class ZeroOutTrainer(pl.LightningModule, BaseTrainer):
 
         with wandb.init(project="a", name=conf_description, config=self.model_config.get_flat_dict(), dir=paths.LOG_PATH):
             for i in range(model.max_level() + 1):
-                model.set_level_use(i)
+                self.level_use = i
                 self.training_context.zero_out_level = i - 1
                 trainer = finetune(trainer, self.training_context)
 
         utils.save_model(
-            trainer, self.model_config.get_filename_safe_description())
+            trainer, self.model_config.get_filename_safe_description(), prefix='zerout')
 
 
 def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.LightningModule:

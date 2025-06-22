@@ -160,6 +160,15 @@ CONFIGS = {
         'vgg11.3_levels.cifar100': lambda: ZeroOutTrainer(
             vggadapt.VGGConfig()
             .set_num_classes(100), ModelTraining100ZeroOut()),
+        'resnet20.6_levels.cifar100': lambda: ZeroOutTrainer(
+            resnetadapt.ResnetConfig()
+            .set_small_channels((6, 8, 10, 12, 14, 16))
+            .set_mid_channels((12, 16, 20, 24, 28, 32))
+            .set_large_channels((24, 32, 40, 48, 56, 64))
+            .set_num_classes(100), ModelTraining100ZeroOut()),
+        'resnet20.3_levels.cifar100': lambda: ZeroOutTrainer(
+            resnetadapt.ResnetConfig()
+            .set_num_classes(100), ModelTraining100ZeroOut()),
     }
 }
 
@@ -198,6 +207,8 @@ def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
 
 if __name__ == "__main__":
     command, conf = sys.argv[1:]
+    # command = "run"
+    # conf = "zeroout,vgg11.3_levels.cifar100"
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)

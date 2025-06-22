@@ -5,6 +5,7 @@ from adapt_modules.module import Module
 import torch.nn.functional as F
 
 from typing import Iterable
+import copy
 
 
 class Conv2d(Module):
@@ -97,11 +98,19 @@ class Conv2d(Module):
         weights[out_size:, :in_size] = right_part
         model.weight.data = weights
 
-    def zero_out_gradients(self, level: int) -> None:
+        model.zero_grad()
+
+    def get_frozen_params(self, level: int):
+        if level < 0:
+            return None
+        cpy = self.conv.weight.data[:self.out_sizes[level],
+                                    :self.in_sizes[level]]
+        cpy = copy.deepcopy(cpy)
+        cpy = cpy.detach()
+        return cpy
+
+    def restore_frozen_params(self, level: int, params) -> None:
         if level < 0:
             return
-        with torch.no_grad():
-            if self.conv.weight.grad is None:
-                return
-            self.conv.weight.grad[:self.out_sizes[level],
-                                  :self.in_sizes[level], :, :] = 0
+        self.conv.weight.data[:self.out_sizes[level],
+                              :self.in_sizes[level]] = params
