@@ -15,7 +15,7 @@ import utils
 api = wandb.Api()
 
 # Get all runs from the project
-runs = api.runs("robbieman4-university-of-amsterdam/a")
+runs = api.runs("robbieman4-university-of-amsterdam/b")
 
 # Pattern to match 'test_levelX' keys
 pattern = re.compile(r"test_level(\d+)_acc")

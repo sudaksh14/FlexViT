@@ -15,7 +15,7 @@ from typing import Callable, Generator
 
 class ModelTraining(AdaptiveTrainingContext):
     def __init__(self):
-        super().__init__(utils.load_data, patience=20, epochs=-1)
+        super().__init__(utils.load_data, patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -26,7 +26,7 @@ class ModelTraining(AdaptiveTrainingContext):
 
 class ModelTraining100(AdaptiveTrainingContext):
     def __init__(self):
-        super().__init__(utils.load_data100, patience=20, epochs=-1)
+        super().__init__(utils.load_data100, patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -37,7 +37,7 @@ class ModelTraining100(AdaptiveTrainingContext):
 
 class ModelTraining100ZeroOut(ZeroOutTrainingContext):
     def __init__(self):
-        super().__init__(utils.load_data100, patience=20, epochs=-1)
+        super().__init__(utils.load_data100, patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return make_zero_grad_optimizer(optim.Adam, model, self.zero_out_level, model.parameters(), lr=1e-5)
