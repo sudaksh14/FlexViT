@@ -14,7 +14,7 @@ class TestConv2d(unittest.TestCase):
 
     def setUp(self):
         self.aconv = am.Conv2d(
-            self.IN_CHANNELS, self.OUT_CHANNELS, kernel_size=3, bias=False)
+            self.IN_CHANNELS, self.OUT_CHANNELS, kernel_size=3, bias=True)
         self.rand_init_conv()
 
     def rand_init_conv(self):
@@ -36,7 +36,7 @@ class TestConv2d(unittest.TestCase):
             self.rand_init_conv()
             self.aconv.set_level_use(i)
             conv = nn.Conv2d(
-                self.IN_CHANNELS[i], self.OUT_CHANNELS[i], kernel_size=3, bias=False)
+                self.IN_CHANNELS[i], self.OUT_CHANNELS[i], kernel_size=3, bias=True)
             self.aconv.copy_to_base(conv)
             x = torch.rand(10, self.IN_CHANNELS[i], 100, 100)
             self.assertTrue(self.check_equiv(self.aconv(x), conv(x)))
@@ -46,7 +46,7 @@ class TestConv2d(unittest.TestCase):
             self.rand_init_conv()
             self.aconv.set_level_use(i)
             conv = nn.Conv2d(
-                self.IN_CHANNELS[i], self.OUT_CHANNELS[i], kernel_size=3, bias=False)
+                self.IN_CHANNELS[i], self.OUT_CHANNELS[i], kernel_size=3, bias=True)
             self.aconv.load_from_base(conv)
             x = torch.rand(10, self.IN_CHANNELS[i], 100, 100)
             self.assertTrue(self.check_equiv(self.aconv(x), conv(x)))
@@ -62,7 +62,7 @@ class TestConv2d(unittest.TestCase):
     def test_level_deltas(self):
         self.aconv.set_level_use(self.aconv.max_level())
         conv = nn.Conv2d(
-            self.IN_CHANNELS[-1], self.OUT_CHANNELS[-1], kernel_size=3, bias=False)
+            self.IN_CHANNELS[-1], self.OUT_CHANNELS[-1], kernel_size=3, bias=True)
         self.aconv.copy_to_base(conv)
 
         x = torch.rand(10, self.IN_CHANNELS[-1], 100, 100)

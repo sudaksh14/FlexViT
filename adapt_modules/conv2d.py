@@ -17,7 +17,6 @@ class Conv2d(Module):
         self._args = args
         self._kwargs = kwargs
 
-        assert (not kwargs.get('bias', False))
         assert (len(self.in_sizes) > 0)
         assert (len(self.out_sizes) > 0)
         assert (len(self.in_sizes) == len(self.out_sizes))
@@ -33,7 +32,6 @@ class Conv2d(Module):
         self._zeros_cache = None
 
         self.set_level_use(self.max_level())
-        kwargs['bias'] = False
         self.conv = nn.Conv2d(
             self.max_in_size, self.max_out_size, *args, **kwargs)
 
@@ -62,10 +60,14 @@ class Conv2d(Module):
     def copy_to_base(self, dest: nn.Conv2d) -> None:
         dest.weight.data = self.conv.weight.data[:self.out_sizes[self.level],
                                                  :self.in_sizes[self.level]]
+        if self.conv.bias is not None:
+            dest.bias.data = self.conv.bias.data[:self.out_sizes[self.level]]
 
     def load_from_base(self, src: nn.Conv2d) -> None:
         self.conv.weight.data[:self.out_sizes[self.level],
                               :self.in_sizes[self.level]] = src.weight.data
+        if src.bias is not None:
+            self.conv.bias.data[:self.out_sizes[self.level]] = src.bias.data
 
     def make_base_copy(self) -> nn.Conv2d:
         conv = nn.Conv2d(
@@ -78,7 +80,11 @@ class Conv2d(Module):
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
         right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
-        prune_up = (lower_part, right_part)
+        bias_part = None
+        if self.conv.bias is not None:
+            bias_part = self.conv.bias.data[
+                self.out_sizes[self.level-1]:self.out_sizes[self.level]]
+        prune_up = (lower_part, right_part, bias_part)
         prune_down = (self.in_sizes[self.level], self.out_sizes[self.level])
         return prune_down, prune_up
 
@@ -86,18 +92,21 @@ class Conv2d(Module):
     def apply_level_delta_down(model: nn.Conv2d, level_delta: tuple[int, int]) -> None:
         in_size, out_size = level_delta
         model.weight.data = model.weight.data[:out_size, :in_size]
+        if model.bias is not None:
+            model.bias.data = model.bias.data[:out_size]
 
     @staticmethod
     def apply_level_delta_up(model: nn.Conv2d, level_delta: tuple[torch.Tensor, torch.Tensor]) -> None:
         weights = model.weight.data
-        lower_part, right_part = level_delta
+        lower_part, right_part, bias_part = level_delta
         out_size, in_size, *_ = weights.size()
         weights = F.pad(
             weights, (0, 0, 0, 0, 0, lower_part.size(1), 0, right_part.size(0)))
         weights[:, in_size:] = lower_part
         weights[out_size:, :in_size] = right_part
+        if model.bias is not None:
+            model.bias.data = torch.cat([model.bias.data, bias_part])
         model.weight.data = weights
-
         model.zero_grad()
 
     def get_frozen_params(self, level: int):
