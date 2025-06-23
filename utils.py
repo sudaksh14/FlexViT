@@ -125,103 +125,60 @@ def model_size_in_mb(model: nn.Module) -> int:
     return size_mb
 
 
-def load_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
-    # Data transformations for training
-    train_transform = Compose([
+def try_make_dir(path):
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
+
+
+def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=None, batch_size=64):
+    normalizers = {
+        CIFAR10: {'mean': [0.485, 0.456, 0.406],
+                  'std': [0.229, 0.224, 0.225], },
+        CIFAR100: {'mean': [0.5070, 0.4865, 0.4409],
+                   'std': [0.2673, 0.2564, 0.2761], }
+    }
+
+    train_transform = [
         RandomHorizontalFlip(p=0.5),
         RandomRotation(degrees=15),
         ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+        Normalize(**normalizers[dataset])
+    ]
 
-    # Data transformations for validation/test
-    test_transform = Compose([
-        # Resize((224, 224)),
+    test_transform = [
         ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406],
-                  std=[0.229, 0.224, 0.225])
-    ])
+        Normalize(**normalizers[dataset])
+    ]
 
-    if tmp_dir is not None:
-        try:
-            os.makedirs(tmp_dir)
-        except FileExistsError:
-            pass
-        try:
-            os.makedirs(data_dir)
-        except FileExistsError:
-            pass
+    if resize:
+        test_transform.insert(0, Resize(resize))
+        train_transform.insert(0, Resize(resize))
+
+    test_transform = Compose(test_transform)
+    train_transform = Compose(train_transform)
+
+    if tmp_dir:
+        try_make_dir(data_dir)
+        try_make_dir(tmp_dir)
         shutil.copytree(data_dir, tmp_dir, dirs_exist_ok=True)
-    train_dataset = CIFAR10(root=data_dir if tmp_dir is None else tmp_dir, train=True,
-                            download=True, transform=train_transform)
-    test_dataset = CIFAR10(root=data_dir if tmp_dir is None else tmp_dir, train=False,
-                           download=True, transform=test_transform)
+    train_dataset = CIFAR10(
+        root=data_dir if tmp_dir is None else tmp_dir,
+        train=True, download=True, transform=train_transform)
+    test_dataset = CIFAR10(
+        root=data_dir if tmp_dir is None else tmp_dir,
+        train=False, download=True, transform=test_transform)
     if tmp_dir is not None:
         shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
 
-    # Split the train dataset into train/val
-    # train_size = int((1 - val_split) * len(train_dataset))
-    # val_size = len(train_dataset) - train_size
-    # train_dataset, val_dataset = random_split(
-    #     train_dataset, [train_size, val_size])
-
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
     val_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=8)
     test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
-
-    return train_dataloader, val_dataloader, test_dataloader
-
-
-def load_data100(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=64, val_split=0.2):
-    # Data transformations for training
-    train_transform = Compose([
-        RandomHorizontalFlip(p=0.5),
-        RandomRotation(degrees=15),
-        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        ToTensor(),
-        Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
-    ])
-
-    # Data transformations for validation/test
-    test_transform = Compose([
-        # Resize((224, 224)),
-        ToTensor(),
-        Normalize(mean=[0.5070, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
-    ])
-
-    if tmp_dir is not None:
-        try:
-            os.makedirs(tmp_dir)
-        except FileExistsError:
-            pass
-        try:
-            os.makedirs(data_dir)
-        except FileExistsError:
-            pass
-        shutil.copytree(data_dir, tmp_dir, dirs_exist_ok=True)
-    train_dataset = CIFAR100(root=data_dir if tmp_dir is None else tmp_dir, train=True,
-                             download=True, transform=train_transform)
-    test_dataset = CIFAR100(root=data_dir if tmp_dir is None else tmp_dir, train=False,
-                            download=True, transform=test_transform)
-    if tmp_dir is not None:
-        shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
-
-    # Split the train dataset into train/val
-    # train_size = int((1 - val_split) * len(train_dataset))
-    # val_size = len(train_dataset) - train_size
-    # train_dataset, val_dataset = random_split(
-    #     train_dataset, [train_size, val_size])
-
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    val_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=8)
 
     return train_dataloader, val_dataloader, test_dataloader
 

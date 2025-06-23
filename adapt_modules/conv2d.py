@@ -5,6 +5,7 @@ from adapt_modules.module import Module
 import torch.nn.functional as F
 
 from typing import Iterable
+import copy
 
 
 class Conv2d(Module):
@@ -96,3 +97,20 @@ class Conv2d(Module):
         weights[:, in_size:] = lower_part
         weights[out_size:, :in_size] = right_part
         model.weight.data = weights
+
+        model.zero_grad()
+
+    def get_frozen_params(self, level: int):
+        if level < 0:
+            return None
+        cpy = self.conv.weight.data[:self.out_sizes[level],
+                                    :self.in_sizes[level]]
+        cpy = copy.deepcopy(cpy)
+        cpy = cpy.detach()
+        return cpy
+
+    def restore_frozen_params(self, level: int, params) -> None:
+        if level < 0:
+            return
+        self.conv.weight.data[:self.out_sizes[level],
+                              :self.in_sizes[level]] = params

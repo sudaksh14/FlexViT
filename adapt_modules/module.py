@@ -1,5 +1,7 @@
 from torch import nn
 from typing import Union, Any
+import torch
+import copy
 
 
 class Module(nn.Module):
@@ -35,3 +37,9 @@ class Module(nn.Module):
     @staticmethod
     def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
         raise NotImplemented()
+
+    def get_frozen_params(self, level: int) -> Any:
+        return None
+
+    def restore_frozen_params(self, level: int, params: Any) -> None:
+        return

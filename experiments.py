@@ -2,7 +2,7 @@
 from networks import resnetadapt, vggadapt, resnet, vgg
 import sys
 
-from training import TrainingContext, AdaptiveTrainingContext, AdaptiveModelTrainer, BaseTrainer
+from training import TrainingContext, AdaptiveTrainingContext, AdaptiveModelTrainer, BaseTrainer, ZeroOutTrainer, make_zero_grad_optimizer, ZeroOutTrainingContext
 
 from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau
 import torch.optim as optim
@@ -12,10 +12,16 @@ import utils
 
 from typing import Callable, Generator
 
+from functools import partial
+from torchvision.datasets import CIFAR10, CIFAR100
+
+import hardware
+
 
 class ModelTraining(AdaptiveTrainingContext):
-    def __init__(self):
-        super().__init__(utils.load_data, patience=20, epochs=-1)
+    def __init__(self, *args, **kwargs):
+        super().__init__(partial(utils.load_data, CIFAR10,
+                                 *args, **kwargs), patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -25,11 +31,23 @@ class ModelTraining(AdaptiveTrainingContext):
 
 
 class ModelTraining100(AdaptiveTrainingContext):
-    def __init__(self):
-        super().__init__(utils.load_data100, patience=20, epochs=-1)
+    def __init__(self, *args, **kwargs):
+        super().__init__(partial(utils.load_data, CIFAR100,
+                                 *args, **kwargs), patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
+
+    def make_scheduler(self, optimizer):
+        return CosineAnnealingLR(optimizer, T_max=1e-5)
+
+
+class ModelTraining100ZeroOut(ZeroOutTrainingContext):
+    def __init__(self):
+        super().__init__(utils.load_data100, patience=50, epochs=-1)
+
+    def make_optimizer(self, model):
+        return make_zero_grad_optimizer(optim.Adam, model, self.zero_out_level, model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
         return CosineAnnealingLR(optimizer, T_max=1e-5)
@@ -145,13 +163,31 @@ CONFIGS = {
             .set_max_channels((512, 768, 1024))
             .set_num_classes(100)
             .set_prebuilt_level(0), ModelTraining100().set_incremental_training(True)),
+    }, "zeroout": {
+        'vgg11.3_levels.cifar100': lambda: ZeroOutTrainer(
+            vggadapt.VGGConfig()
+            .set_num_classes(100), ModelTraining100ZeroOut()),
+        'resnet20.6_levels.cifar100': lambda: ZeroOutTrainer(
+            resnetadapt.ResnetConfig()
+            .set_small_channels((6, 8, 10, 12, 14, 16))
+            .set_mid_channels((12, 16, 20, 24, 28, 32))
+            .set_large_channels((24, 32, 40, 48, 56, 64))
+            .set_num_classes(100), ModelTraining100ZeroOut()),
+        'resnet20.3_levels.cifar100': lambda: ZeroOutTrainer(
+            resnetadapt.ResnetConfig()
+            .set_num_classes(100), ModelTraining100ZeroOut()),
     }
 }
 
+DEFAULT_HARDWARE_CONFIG = hardware.HardwareConfig()
+HARDWARE = {
 
-def resolve_from_str(config) -> Callable[[], BaseTrainer]:
+}
+
+
+def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Callable[[], BaseTrainer]:
     config = config.split(',')
-    SUBPART = CONFIGS
+    subpart = start
     for i in config:
         if i == 'all':
             continue
@@ -159,8 +195,13 @@ def resolve_from_str(config) -> Callable[[], BaseTrainer]:
             i = int(i)
         except ValueError:
             pass
-        SUBPART = SUBPART[i]
-    return SUBPART
+        try:
+            subpart = subpart[i]
+        except KeyError as e:
+            if not return_on_index_error:
+                raise e
+            return subpart
+    return subpart
 
 
 def iter_over_conf(conf, basestr) -> Generator[str, None, None]:
@@ -181,10 +222,22 @@ def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
         print(s, file=file)
 
 
+def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
+    for s in iter_over_conf(conf, basestr):
+        hconf = resolve_from_str(s, HARDWARE, return_on_index_error=True)
+        if hconf is HARDWARE:
+            hconf = DEFAULT_HARDWARE_CONFIG
+        print(f"{hconf.format_as_slurm_args()} experiment_job.sh {s}", file=file)
+
+
 if __name__ == "__main__":
     command, conf = sys.argv[1:]
+    # command = "run"
+    # conf = "zeroout,vgg11.3_levels.cifar100"
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
         res().run_training(conf)
+    elif command == "listcommand":
+        print_all_conf_commands(res, conf)
