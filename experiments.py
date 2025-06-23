@@ -12,10 +12,14 @@ import utils
 
 from typing import Callable, Generator
 
+from functools import partial
+from torchvision.datasets import CIFAR10, CIFAR100
+
 
 class ModelTraining(AdaptiveTrainingContext):
-    def __init__(self):
-        super().__init__(utils.load_data, patience=50, epochs=-1)
+    def __init__(self, *args, **kwargs):
+        super().__init__(partial(utils.load_data, CIFAR10,
+                                 *args, **kwargs), patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -25,8 +29,9 @@ class ModelTraining(AdaptiveTrainingContext):
 
 
 class ModelTraining100(AdaptiveTrainingContext):
-    def __init__(self):
-        super().__init__(utils.load_data100, patience=50, epochs=-1)
+    def __init__(self, *args, **kwargs):
+        super().__init__(partial(utils.load_data, CIFAR100,
+                                 *args, **kwargs), patience=50, epochs=-1)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
