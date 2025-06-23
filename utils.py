@@ -164,10 +164,10 @@ def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=No
         try_make_dir(data_dir)
         try_make_dir(tmp_dir)
         shutil.copytree(data_dir, tmp_dir, dirs_exist_ok=True)
-    train_dataset = CIFAR10(
+    train_dataset = dataset(
         root=data_dir if tmp_dir is None else tmp_dir,
         train=True, download=True, transform=train_transform)
-    test_dataset = CIFAR10(
+    test_dataset = dataset(
         root=data_dir if tmp_dir is None else tmp_dir,
         train=False, download=True, transform=test_transform)
     if tmp_dir is not None:
