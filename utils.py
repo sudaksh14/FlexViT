@@ -174,11 +174,11 @@ def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=No
         shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
     val_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=8)
     test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, num_workers=4)
+        test_dataset, batch_size=batch_size, num_workers=8)
 
     return train_dataloader, val_dataloader, test_dataloader
 
