@@ -1,6 +1,7 @@
+#!/usr/bin/bash
 mkdir -p ~/jobs
-for config in $(python3 experiments.py list $1);
+python3 experiments.py listcommand $1 | while read config
 do
     echo $config
-    sbatch experiment_job.sh "$config"
+    sbatch $config
 done

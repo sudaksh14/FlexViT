@@ -15,6 +15,8 @@ from typing import Callable, Generator
 from functools import partial
 from torchvision.datasets import CIFAR10, CIFAR100
 
+import hardware
+
 
 class ModelTraining(AdaptiveTrainingContext):
     def __init__(self, *args, **kwargs):
@@ -177,10 +179,15 @@ CONFIGS = {
     }
 }
 
+DEFAULT_HARDWARE_CONFIG = hardware.HardwareConfig()
+HARDWARE = {
 
-def resolve_from_str(config) -> Callable[[], BaseTrainer]:
+}
+
+
+def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Callable[[], BaseTrainer]:
     config = config.split(',')
-    SUBPART = CONFIGS
+    subpart = start
     for i in config:
         if i == 'all':
             continue
@@ -188,8 +195,13 @@ def resolve_from_str(config) -> Callable[[], BaseTrainer]:
             i = int(i)
         except ValueError:
             pass
-        SUBPART = SUBPART[i]
-    return SUBPART
+        try:
+            subpart = subpart[i]
+        except KeyError as e:
+            if not return_on_index_error:
+                raise e
+            return subpart
+    return subpart
 
 
 def iter_over_conf(conf, basestr) -> Generator[str, None, None]:
@@ -210,6 +222,14 @@ def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
         print(s, file=file)
 
 
+def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
+    for s in iter_over_conf(conf, basestr):
+        hconf = resolve_from_str(s, HARDWARE, return_on_index_error=True)
+        if hconf is HARDWARE:
+            hconf = DEFAULT_HARDWARE_CONFIG
+        print(f"{hconf.format_as_slurm_args()} experiment_job.sh {s}", file=file)
+
+
 if __name__ == "__main__":
     command, conf = sys.argv[1:]
     # command = "run"
@@ -219,3 +239,5 @@ if __name__ == "__main__":
         print_all_conf_paths(res, conf)
     elif command == "run":
         res().run_training(conf)
+    elif command == "listcommand":
+        print_all_conf_commands(res, conf)
