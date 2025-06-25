@@ -19,7 +19,7 @@ class BatchNorm2d(AdaptSelect):
     def base_type() -> type[nn.BatchNorm2d]:
         return nn.BatchNorm2d
 
-    def make_base_copy(self) -> nn.Linear:
+    def make_base_copy(self) -> nn.BatchNorm2d:
         m = nn.BatchNorm2d(
             self._channels[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)

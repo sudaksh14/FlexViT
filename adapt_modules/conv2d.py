@@ -28,9 +28,6 @@ class Conv2d(Module):
         self.max_in_size = self.in_sizes[-1]
         self.max_out_size = self.out_sizes[-1]
 
-        self._cached = (-1, -1, -1)
-        self._zeros_cache = None
-
         self.set_level_use(self.max_level())
         self.conv = nn.Conv2d(
             self.max_in_size, self.max_out_size, *args, **kwargs)

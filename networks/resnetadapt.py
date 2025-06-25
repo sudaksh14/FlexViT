@@ -38,18 +38,18 @@ class BasicBlock(nn.Module):
         self.conv1 = am.Conv2d(
             in_channels, mid_channels,
             kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = am.BatchNorm2d(mid_channels)
+        self.bn1 = am.BatchNorm2dSelect(mid_channels)
 
         self.conv2 = am.Conv2d(mid_channels, out_channels,
                                kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = am.BatchNorm2d(out_channels)
+        self.bn2 = am.BatchNorm2dSelect(out_channels)
 
         self.downsample = nn.Sequential()
         if stride != 1 or in_channels != out_channels:
             self.downsample = nn.Sequential(
                 am.Conv2d(
                     in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
-                am.BatchNorm2d(out_channels)
+                am.BatchNorm2dSelect(out_channels)
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -78,7 +78,7 @@ class Resnet(AdaptModel):
             [3] * self.levels,
             config.small_channels,
             kernel_size=3, padding=1, bias=False)
-        self.bn1 = am.BatchNorm2d(config.small_channels)
+        self.bn1 = am.BatchNorm2dSelect(config.small_channels)
 
         self.layer1 = self._make_base_layer(
             config.small_channels, config.small_channels, config.num_blocks[0])
@@ -87,7 +87,7 @@ class Resnet(AdaptModel):
         self.layer3 = self._make_base_layer(
             config.mid_channels, config.large_channels, config.num_blocks[2], stride=2)
 
-        self.fc = am.Linear(
+        self.fc = am.LinearSelect(
             config.large_channels,
             [config.num_classes] * self.levels)
 

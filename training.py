@@ -22,7 +22,7 @@ from networks.config import ModelConfig
 import adapt_modules as am
 
 import wandb
-from typing import Callable
+from typing import Callable, Optional
 
 
 @utils.fluent_setters
@@ -61,6 +61,7 @@ class BaseTrainer:
 @dataclasses.dataclass
 class AdaptiveTrainingContext(TrainingContext):
     incremental_training: bool = False
+    load_from: Optional[ModelConfig] = None
 
 
 class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
@@ -84,13 +85,14 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
             logits = self(x)
             loss = F.cross_entropy(logits, y)
             acc = (logits.argmax(1) == y).float().mean()
-            self.log(f"{stage}_level{i}_loss", loss, prog_bar=False)
+            self.log(f"{stage}_level{i}_loss", loss,
+                     prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
-                     prog_bar=(stage != 'train'))
+                     prog_bar=(stage != 'train'), sync_dist=True)
             if self.upto >= i:
                 total_loss += loss
 
-        self.log(f"{stage}_loss", total_loss, prog_bar=False)
+        self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
         return total_loss
 
     def training_step(self, b, _) -> torch.Tensor:
@@ -104,6 +106,11 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
 
     def run_training(self, conf_description: str) -> None:
         torch.set_float32_matmul_precision('high')
+
+        if self.training_context.load_from is not None:
+            lmodel = utils.load_model(
+                self.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
+            utils.flexible_model_copy(lmodel, self.submodel)
 
         model = self.submodel
         trainer = self
@@ -175,14 +182,15 @@ class ZeroOutTrainer(pl.LightningModule, BaseTrainer):
             logits = self(x)
             loss = F.cross_entropy(logits, y)
             acc = (logits.argmax(1) == y).float().mean()
-            self.log(f"{stage}_level{i}_loss", loss, prog_bar=False)
+            self.log(f"{stage}_level{i}_loss", loss,
+                     prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
-                     prog_bar=(stage != 'train'))
+                     prog_bar=(stage != 'train'), sync_dist=True)
 
             if self.level_use == i:
                 total_loss = loss
 
-        self.log(f"{stage}_loss", total_loss, prog_bar=False)
+        self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
         return total_loss
 
     def training_step(self, b, _) -> torch.Tensor:
@@ -226,9 +234,9 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         logits = self(x)
         loss = F.cross_entropy(logits, y)
         acc = (logits.argmax(1) == y).float().mean()
-        self.log(f"{stage}_loss", loss, prog_bar=False)
+        self.log(f"{stage}_loss", loss, prog_bar=False, sync_dist=True)
         self.log(f"{stage}_acc",  acc,
-                 prog_bar=(stage != 'train'))
+                 prog_bar=(stage != 'train'), sync_dist=True)
         return loss
 
     def training_step(self, b, _) -> torch.Tensor:
@@ -245,6 +253,9 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         model = self.submodel
         trainer = self
         trainer = finetune(trainer, self.training_context)
+
+        utils.save_model(
+            trainer, self.model_config.get_filename_safe_description(), 'pretrained')
 
     def configure_optimizers(self) -> None:
         pass
