@@ -60,6 +60,18 @@ class ViTTraining(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=1e-5)
 
 
+class ViTTraining100(AdaptiveTrainingContext):
+    def __init__(self, *args, **kwargs):
+        super().__init__(partial(utils.load_data, CIFAR100,
+                                 resize=(224, 224)), patience=20, epochs=-1)
+
+    def make_optimizer(self, model):
+        return optim.Adam(model.parameters(), lr=1e-5)
+
+    def make_scheduler(self, optimizer):
+        return CosineAnnealingLR(optimizer, T_max=1e-5)
+
+
 CONFIGS = {
     "resnetadapt": {
         'resnet20.3_levels.cifar10': lambda: AdaptiveModelTrainer(
@@ -186,18 +198,38 @@ CONFIGS = {
     }, "vitprebuild": {
         "cifar10": lambda: SimpleTrainer(
             vit.ViTConfig()
-            .set_num_classes(10), ViTTraining())
+            .set_num_classes(10), ViTTraining()),
+        "cifar100": lambda: SimpleTrainer(
+            vit.ViTConfig()
+            .set_num_classes(100), ViTTraining100())
     }, "vitadapt": {
         "cifar10": lambda: AdaptiveModelTrainer(
             vitadapt.ViTConfig().set_num_classes(10),
             ViTTraining().set_load_from(vit.ViTConfig().set_num_classes(10))
+        ),
+        "cifar10.5levels": lambda: AdaptiveModelTrainer(
+            vitadapt.ViTConfig()
+            .set_num_classes(10)
+            .set_num_heads((12, 12, 12, 12, 12))
+            .set_hidden_dims(
+                (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
+            )
+            .set_mlp_dims(
+                (32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)
+            ),
+            ViTTraining().set_load_from(vit.ViTConfig().set_num_classes(10))
+        ),
+        "cifar100": lambda: AdaptiveModelTrainer(
+            vitadapt.ViTConfig().set_num_classes(100),
+            ViTTraining100().set_load_from(vit.ViTConfig().set_num_classes(100))
         )
     }
 }
 
 DEFAULT_HARDWARE_CONFIG = hardware.HardwareConfig()
 HARDWARE = {
-    "vitprebuild": hardware.HardwareConfig().set_gpu_count(2)
+    "vitprebuild": hardware.HardwareConfig().set_gpu_count(2),
+    "vitadapt": hardware.HardwareConfig().set_gpu_count(2),
 }
 
 
@@ -213,7 +245,7 @@ def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Call
             pass
         try:
             subpart = subpart[i]
-        except KeyError as e:
+        except (KeyError, TypeError) as e:
             if not return_on_index_error:
                 raise e
             return subpart

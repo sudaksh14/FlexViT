@@ -31,8 +31,11 @@ class ViTStructureConfig(utils.SelfDescripting):
     hidden_dim: int
     mlp_dim: int
 
+    def __hash__(self):
+        return hash(self.get_description())
 
-class ViTStructure(Enum):
+
+class ViTStructure:
     b16 = ViTStructureConfig(224, 16, 12, 12, 768, 3072)
     b32 = ViTStructureConfig(224, 32, 12, 12, 768, 3072)
     l16 = ViTStructureConfig(224, 16, 24, 16, 1024, 4096)
@@ -54,7 +57,7 @@ DEFAULT_NUM_CLASSES = 1000
 @utils.fluent_setters
 @dataclasses.dataclass
 class ViTConfig(ModelConfig):
-    structure: ViTStructure = ViTStructure.b16
+    structure: ViTStructureConfig = ViTStructure.b16
     prebuilt: ViTPrebuilt = ViTPrebuilt.default
     num_classes: int = DEFAULT_NUM_CLASSES
     dropout: float = 0.0
@@ -169,11 +172,13 @@ class EncoderBlock(nn.Module):
         ) == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
         x = self.ln_1(input)
         x, _ = self.self_attention(x, x, x, need_weights=False)
+
         x = self.dropout(x)
         x = x + input
 
         y = self.ln_2(x)
         y = self.mlp(y)
+
         return x + y
 
 
@@ -224,12 +229,12 @@ class VisionTransformer(nn.Module):
         self,
         config: ViTConfig,
     ):
-        image_size = config.structure.value.image_size
-        patch_size = config.structure.value.patch_size
-        num_layers = config.structure.value.num_layers
-        num_heads = config.structure.value.num_heads
-        hidden_dim = config.structure.value.hidden_dim
-        mlp_dim = config.structure.value.mlp_dim
+        image_size = config.structure.image_size
+        patch_size = config.structure.patch_size
+        num_layers = config.structure.num_layers
+        num_heads = config.structure.num_heads
+        hidden_dim = config.structure.hidden_dim
+        mlp_dim = config.structure.mlp_dim
 
         num_classes = config.num_classes
         dropout = config.dropout

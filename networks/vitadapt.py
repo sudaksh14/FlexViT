@@ -27,9 +27,16 @@ from adapt_modules.linear import Linear
 from adapt_modules.conv2d import Conv2d
 from adapt_modules.layer_norm import LayerNorm
 from adapt_modules.multihead_attention import SelfAttention
+import adapt_modules as am
+
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
 
+def scale_with_heads_list(heads, max_hidden_dims):
+    max_num_heads = heads[-1]
+    if max_hidden_dims % max_num_heads:
+        raise RuntimeError()
+    return [max_hidden_dims // max_num_heads * i for i in heads]
 
 @utils.fluent_setters
 @dataclasses.dataclass
@@ -41,6 +48,7 @@ class ViTConfig(ModelConfig):
     attention_dropout: float = 0.0
 
     hidden_dims: Iterable[int] = ((768 // 3) * 2, 768)
+    num_heads: Iterable[int] = (8, 12)
     mlp_dims: Iterable[int] = ((3072 // 3) * 2, 3072)
 
     def make_model(self):
@@ -79,7 +87,7 @@ class EncoderBlock(nn.Module):
         # Attention block
         self.ln_1 = LayerNorm(hidden_dim, eps=1e-6)
         self.self_attention = SelfAttention(
-            hidden_dim, num_heads, dropout=attention_dropout, batch_first=True)
+            hidden_dim, num_heads, dropout=attention_dropout)
         self.dropout = nn.Dropout(dropout)
 
         # MLP block
@@ -91,11 +99,13 @@ class EncoderBlock(nn.Module):
         ) == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
         x = self.ln_1(input)
         x = self.self_attention(x)
+
         x = self.dropout(x)
         x = x + input
 
         y = self.ln_2(x)
         y = self.mlp(y)
+
         return x + y
 
 
@@ -143,10 +153,10 @@ class VisionTransformer(AdaptModel):
         self,
         config: ViTConfig,
     ):
-        image_size = config.structure.value.image_size
-        patch_size = config.structure.value.patch_size
-        num_layers = config.structure.value.num_layers
-        num_heads = config.structure.value.num_heads
+        image_size = config.structure.image_size
+        patch_size = config.structure.patch_size
+        num_layers = config.structure.num_layers
+        num_heads = config.num_heads
         hidden_dim = config.hidden_dims
         mlp_dim = config.mlp_dims
 
@@ -187,7 +197,7 @@ class VisionTransformer(AdaptModel):
 
         self.seq_length = seq_length
 
-        self.heads = Linear(
+        self.heads = am.LinearSelect(
             hidden_dim, [DEFAULT_NUM_CLASSES] * len(hidden_dim))
 
         self.set_level_use(self.max_level())
@@ -197,13 +207,14 @@ class VisionTransformer(AdaptModel):
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            utils.flexible_model_copy(prebuilt, self, verbose=2)
+            utils.flexible_model_copy(prebuilt, self)
             self.class_token.token = copy.deepcopy(prebuilt.class_token)
             self.encoder.pos_embedding.embedding = copy.deepcopy(
                 prebuilt.encoder.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
-            self.heads = Linear(hidden_dim, [num_classes] * len(hidden_dim))
+            self.heads = am.LinearSelect(
+                hidden_dim, [num_classes] * len(hidden_dim))
 
     def current_level(self) -> int:
         return self.level
