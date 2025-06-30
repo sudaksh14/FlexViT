@@ -46,13 +46,13 @@ class VGG(AdaptModel):
                 config.max_channels))
 
         self.classifier = nn.Sequential(
-            am.Linear(config.max_channels, config.max_channels),
+            am.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.Linear(config.max_channels, config.max_channels),
+            am.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.Linear(
+            am.LinearSelect(
                 config.max_channels,
                 [config.num_classes] * self.levels),
         )
@@ -82,7 +82,7 @@ class VGG(AdaptModel):
             else:
                 v = cast(int, v)
                 conv2d = am.Conv2d(in_channels, v, kernel_size=3, padding=1)
-                layers += [conv2d, am.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                layers += [conv2d, am.BatchNorm2dSelect(v), nn.ReLU(inplace=True)]
                 in_channels = v
         return nn.Sequential(*layers)
 

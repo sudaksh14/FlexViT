@@ -11,6 +11,8 @@ from networks import vggadapt, resnetadapt
 import numpy as np
 import utils
 
+from torchvision.datasets import CIFAR10, CIFAR100
+
 # Initialize API and target project
 api = wandb.Api()
 
@@ -18,7 +20,7 @@ api = wandb.Api()
 runs = api.runs("robbieman4-university-of-amsterdam/b")
 
 # Pattern to match 'test_levelX' keys
-pattern = re.compile(r"test_level(\d+)_acc")
+pattern = re.compile(r"val_level(\d+)_acc")
 
 
 fig = plt.figure()
@@ -31,8 +33,8 @@ sizes = np.array([6, 8, 10, 12, 14, 16])
 sizes = sizes * sizes
 sizes = sizes / sizes.max()
 
-_, _, test_loader = utils.load_data()
-_, _, test_loader100 = utils.load_data100()
+_, _, test_loader = utils.load_data(CIFAR10)
+_, _, test_loader100 = utils.load_data(CIFAR100)
 
 for run in runs:
     # You can also use run.history() to get intermediate steps,
