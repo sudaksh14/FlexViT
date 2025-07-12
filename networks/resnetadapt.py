@@ -15,6 +15,7 @@ from networks.adapt_model import AdaptModel
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
 from networks.config import ModelConfig
+import networks.resnet
 
 
 @utils.fluent_setters
@@ -30,6 +31,19 @@ class ResnetConfig(ModelConfig):
 
     def make_model(self) -> 'Resnet':
         return Resnet(self)
+    
+    def no_prebuilt(self):
+        self.prebuilt = False
+        return self
+
+    def create_base_config(self, level) -> ModelConfig:
+        return networks.resnet.ResnetConfig(
+            self.num_blocks,
+            self.num_classes,
+            self.small_channels[level],
+            self.mid_channels[level],
+            self.large_channels[level],
+            self.prebuilt)
 
 
 class BasicBlock(nn.Module):

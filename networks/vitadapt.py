@@ -20,6 +20,7 @@ import copy
 from networks.adapt_model import AdaptModel
 
 from networks.vit import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
+import networks.vit
 
 from adapt_modules.pos_embedding import PosEmbeddingLayer
 from adapt_modules.class_token import ClassTokenLayer
@@ -38,6 +39,7 @@ def scale_with_heads_list(heads, max_hidden_dims):
         raise RuntimeError()
     return [max_hidden_dims // max_num_heads * i for i in heads]
 
+
 @utils.fluent_setters
 @dataclasses.dataclass
 class ViTConfig(ModelConfig):
@@ -53,6 +55,21 @@ class ViTConfig(ModelConfig):
 
     def make_model(self):
         return VisionTransformer(self)
+
+    def no_prebuilt(self):
+        self.prebuilt = ViTPrebuilt.noprebuild
+        return self
+
+    def create_base_config(self, level) -> ModelConfig:
+        return networks.vit.ViTConfig(
+            self.structure,
+            self.prebuilt,
+            self.num_classes,
+            self.dropout,
+            self.attention_dropout,
+            self.hidden_dims[level],
+            self.num_heads[level],
+            self.mlp_dims[level])
 
 
 class MLPBlock(nn.Sequential):

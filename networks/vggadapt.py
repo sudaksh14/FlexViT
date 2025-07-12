@@ -15,6 +15,7 @@ from networks.adapt_model import AdaptModel
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
 from networks.config import ModelConfig
+import networks.vgg
 
 
 @utils.fluent_setters
@@ -31,6 +32,20 @@ class VGGConfig(ModelConfig):
 
     def make_model(self) -> 'VGG':
         return VGG(self)
+    
+    def no_prebuilt(self):
+        self.prebuilt = False
+        return self
+
+    def create_base_config(self, level) -> ModelConfig:
+        return networks.vgg.VGGConfig(
+            self.version,
+            self.small_channels[level],
+            self.mid_channels[level],
+            self.large_channels[level],
+            self.max_channels[level],
+            self.num_classes,
+            self.prebuilt)
 
 
 class VGG(AdaptModel):
@@ -62,7 +77,8 @@ class VGG(AdaptModel):
 
         if config.prebuilt:
             if config.prebuilt_level < 0:
-                self.set_level_use(self.max_level() + 1 + config.prebuilt_level)
+                self.set_level_use(self.max_level() + 1 +
+                                   config.prebuilt_level)
             else:
                 self.set_level_use(config.prebuilt_level)
             prebuild_config = (
@@ -82,7 +98,8 @@ class VGG(AdaptModel):
             else:
                 v = cast(int, v)
                 conv2d = am.Conv2d(in_channels, v, kernel_size=3, padding=1)
-                layers += [conv2d, am.BatchNorm2dSelect(v), nn.ReLU(inplace=True)]
+                layers += [conv2d,
+                           am.BatchNorm2dSelect(v), nn.ReLU(inplace=True)]
                 in_channels = v
         return nn.Sequential(*layers)
 

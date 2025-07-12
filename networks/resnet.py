@@ -23,6 +23,10 @@ class ResnetConfig(ModelConfig):
 
     def make_model(self) -> 'Resnet':
         return Resnet(self)
+    
+    def no_prebuilt(self):
+        self.prebuilt = False
+        return self
 
 
 KNOWN_MODEL_PRETRAINED: Dict[Hashable, Callable[[], nn.Module]] = {
