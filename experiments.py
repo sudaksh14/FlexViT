@@ -92,7 +92,12 @@ class VitTrainingImagenet(AdaptiveTrainingContext):
             ], milestones=[self.warmup_epochs])
 
 
+@dataclasses.dataclass
 class TrainerBuilder:
+    training_method: type[BaseTrainer]
+    model_config: ModelConfig
+    training_context: TrainingContext
+
     def __init__(self, training_method: type[BaseTrainer], model_config: ModelConfig, training_context: TrainingContext):
         self.training_method = training_method
         self.model_config = model_config
