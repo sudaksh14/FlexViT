@@ -43,7 +43,7 @@ def scale_with_heads_list(heads, max_hidden_dims):
 @utils.fluent_setters
 @dataclasses.dataclass
 class ViTConfig(ModelConfig):
-    structure: ViTStructure = ViTStructure.b16
+    structure: ViTStructureConfig = ViTStructure.b16
     prebuilt: ViTPrebuilt = ViTPrebuilt.default
     num_classes: int = DEFAULT_NUM_CLASSES
     dropout: float = 0.0
@@ -62,14 +62,18 @@ class ViTConfig(ModelConfig):
 
     def create_base_config(self, level) -> ModelConfig:
         return networks.vit.ViTConfig(
-            self.structure,
+            networks.vit.ViTStructureConfig(
+                self.structure.image_size,
+                self.structure.patch_size,
+                self.structure.num_layers,
+                self.num_heads[level],
+                self.hidden_dims[level],
+                self.mlp_dims[level]),
             self.prebuilt,
             self.num_classes,
             self.dropout,
-            self.attention_dropout,
-            self.hidden_dims[level],
-            self.num_heads[level],
-            self.mlp_dims[level])
+            self.attention_dropout
+        )
 
 
 class MLPBlock(nn.Sequential):
