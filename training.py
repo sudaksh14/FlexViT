@@ -24,16 +24,19 @@ import adapt_modules as am
 import wandb
 from typing import Callable, Optional
 
+import hardware
+import datetime
+
 
 @utils.fluent_setters
 @dataclasses.dataclass
 class TrainingContext:
     loader_function: Callable[[], tuple[DataLoader, DataLoader, DataLoader]]
-
     patience: int = 5
     epochs: int = 10
-
     max_time: str = '01:23:00:00'
+    label_smoothing: float = 0.0
+    gradient_clip_val: Optional[float] = None
 
     def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplemented()
@@ -83,7 +86,8 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
         for i in range(self.submodel.max_level() + 1):
             self.submodel.set_level_use(i)
             logits = self(x)
-            loss = F.cross_entropy(logits, y)
+            loss = F.cross_entropy(
+                logits, y, label_smoothing=self.training_context.label_smoothing)
             acc = (logits.argmax(1) == y).float().mean()
             self.log(f"{stage}_level{i}_loss", loss,
                      prog_bar=False, sync_dist=True)
@@ -266,8 +270,14 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
     config.wrap_model(model)
 
     with tempfile.TemporaryDirectory() as tdir:
+        hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
         early_stopping = EarlyStopping(
             monitor='val_loss', patience=config.patience, mode='min', verbose=True)
+
+        hours, minutes, seconds = map(int, hw.time.split(':'))
+        dur = datetime.timedelta(
+            hours=hours, minutes=minutes, seconds=seconds)
+        dur -= datetime.timedelta(minutes=15)
 
         checkpoint_callback = ModelCheckpoint(
             dirpath=tdir,
@@ -277,7 +287,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
             save_top_k=1
         )
 
-        timer = Timer(config.max_time)
+        timer = Timer(dur)
 
         trainer = pl.Trainer(
             max_epochs=config.epochs,

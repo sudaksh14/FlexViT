@@ -1,2 +1,2 @@
 #!/usr/bin/bash
-python3 $HOME/experiments.py run $1
+srun python3 $HOME/experiments.py run $1

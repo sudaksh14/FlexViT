@@ -4,21 +4,19 @@ from torch import nn
 from sklearn.metrics import accuracy_score, f1_score
 import os
 
-from torchvision import datasets, transforms
-from torchvision.datasets import CIFAR10, CIFAR100
-from torchvision.datasets import ImageFolder
+from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 
 from torchvision.transforms import (
-    Compose, RandomResizedCrop, RandomHorizontalFlip, RandomRotation,
-    ColorJitter, ToTensor, Normalize, Resize, CenterCrop
+    Compose, RandomHorizontalFlip, RandomRotation,
+    ColorJitter, ToTensor, Normalize, Resize, CenterCrop, ConvertImageDtype
 )
 
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 import shutil
 
-from dataclasses import dataclass
-
 import paths
+
+import tqdm
 
 
 def get_device() -> 'str':
@@ -98,7 +96,7 @@ def evaluate_model(model: nn.Module, dataloader: DataLoader, device: str) -> tor
     model.eval()
 
     with torch.no_grad():
-        for images, labels in dataloader:
+        for images, labels in tqdm.tqdm(dataloader):
             # Ensure images are on the same device and data type
             images = images.to(device).to(torch.float32)
             labels = labels.to(device)
@@ -129,6 +127,32 @@ def try_make_dir(path):
         os.makedirs(path)
     except FileExistsError:
         pass
+
+
+IMAGENET_TRANSFORMS = [
+    Resize(256),
+    CenterCrop(224),
+    ToTensor(),
+    ConvertImageDtype(torch.float),
+    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+]
+
+
+def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=128):
+    transform = Compose(IMAGENET_TRANSFORMS)
+
+    train_dataset = ImageFolder(data_dir / "train", transform=transform)
+    test_dataset = ImageFolder(data_dir / "val", transform=transform)
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=16)
+    val_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, num_workers=16)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, num_workers=16)
+
+    print("made dataloaders")
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=None, batch_size=64):
@@ -180,39 +204,6 @@ def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=No
         test_dataset, batch_size=batch_size, num_workers=8)
 
     return train_dataloader, val_dataloader, test_dataloader
-
-
-def load_imagenette(data_dir="./data/imagenette2",
-                    batch_size=128,
-                    val_split=0.1,
-                    num_workers=8):
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    train_tf = transforms.Compose([
-        transforms.Resize(40),          # small augmentation
-        transforms.RandomCrop(32),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    val_tf = transforms.Compose([
-        transforms.Resize(32),
-        transforms.CenterCrop(32),
-        transforms.ToTensor(),
-        normalize,
-    ])
-
-    full_train = datasets.ImageFolder(f"{data_dir}/train", transform=train_tf)
-    n_val = int(len(full_train) * val_split)
-    train_ds, val_ds = random_split(full_train, [len(full_train)-n_val, n_val])
-    test_ds = datasets.ImageFolder(f"{data_dir}/val", transform=val_tf)
-
-    def loader(ds, shuffle):
-        return DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
-                          num_workers=num_workers, pin_memory=True)
-
-    return loader(train_ds, True), loader(val_ds, False), loader(test_ds, False)
 
 
 class ClassTokenLayer(nn.Module):

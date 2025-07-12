@@ -41,3 +41,10 @@ DATA_PATH = make_path(f"{PROJECT_DIR}/data")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
 TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
+
+try:
+    IMAGENET_PATH = make_path("/scratch-nvme/ml-datasets/imagenet/torchvision_ImageFolder")
+except PermissionError:
+# Not on cluster
+    IMAGENET_PATH = None
+
