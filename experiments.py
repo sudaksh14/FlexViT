@@ -73,8 +73,6 @@ class ViTTraining100(AdaptiveTrainingContext):
 
 
 class VitTrainingImagenet(AdaptiveTrainingContext):
-    warmup_epochs = 30
-
     def __init__(self, *args, **kwargs):
         super().__init__(utils.load_imagenet, patience=50, epochs=300,
                          label_smoothing=0.11, gradient_clip_val=1.0)
@@ -84,6 +82,25 @@ class VitTrainingImagenet(AdaptiveTrainingContext):
 
     def make_scheduler(self, optimizer):
         return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0),
+
+
+class VitTrainingImagenetWarmup(AdaptiveTrainingContext):
+    warmup_epochs: int = 30
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(utils.load_imagenet, patience=50, epochs=300,
+                         label_smoothing=0.11, gradient_clip_val=1.0)
+
+    def make_optimizer(self, model):
+        return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
+
+    def make_scheduler(self, optimizer):
+        return SequentialLR(optimizer, [
+            LinearLR(optimizer, start_factor=0.033,
+                     total_iters=self.warmup_epochs),
+            CosineAnnealingLR(optimizer, T_max=self.epochs -
+                              self.warmup_epochs, eta_min=0.0)
+        ], milestones=[self.warmup_epochs])
 
 
 @dataclasses.dataclass
@@ -382,8 +399,10 @@ if __name__ == "__main__":
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
-        hardware.CurrentDevice.set_hardware(resolve_from_str(
-            conf, HARDWARE, return_on_index_error=True))
+        hw = resolve_from_str(
+            conf, HARDWARE, return_on_index_error=True)
+        if isinstance(hw, hardware.HardwareConfig):
+            hardware.CurrentDevice.set_hardware(hw)
         res(conf)
     elif command == "listcommand":
         print_all_conf_commands(res, conf)
