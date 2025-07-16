@@ -15,7 +15,7 @@ class HardwareConfig(utils.SelfDescripting):
 
 
 class CurrentDevice:
-    hardware: HardwareConfig
+    hardware: HardwareConfig = None
 
     @staticmethod
     def set_hardware(hw: HardwareConfig):

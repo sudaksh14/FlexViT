@@ -382,8 +382,10 @@ if __name__ == "__main__":
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
-        hardware.CurrentDevice.set_hardware(resolve_from_str(
-            conf, HARDWARE, return_on_index_error=True))
+        hw = resolve_from_str(
+            conf, HARDWARE, return_on_index_error=True)
+        if isinstance(hw, hardware.HardwareConfig):
+            hardware.CurrentDevice.set_hardware(hw)
         res(conf)
     elif command == "listcommand":
         print_all_conf_commands(res, conf)
