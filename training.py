@@ -85,7 +85,12 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
         x, y = batch
 
         if self.distill_net is not None:
+            self.distill_net.eval()
+            for p in self.distill_net.parameters():
+                p.requires_grad_(False)
             y_loss = self.distill_net(x)
+        else:
+            y_loss = y
 
         total_loss = 0.0
 
@@ -96,7 +101,7 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
                 logits, y_loss, label_smoothing=self.training_context.label_smoothing)
             acc = (logits.argmax(1) == y).float().mean()
             self.log(f"{stage}_level{i}_loss", loss,
-                     prog_bar=True, sync_dist=True)
+                     prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
                      prog_bar=(stage != 'train'), sync_dist=True)
             if self.upto >= i:
