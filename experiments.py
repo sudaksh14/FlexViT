@@ -22,7 +22,7 @@ class ModelTraining(AdaptiveTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class ModelTraining100(AdaptiveTrainingContext):
@@ -34,7 +34,7 @@ class ModelTraining100(AdaptiveTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class ModelTraining100ZeroOut(ZeroOutTrainingContext):
@@ -45,7 +45,7 @@ class ModelTraining100ZeroOut(ZeroOutTrainingContext):
         return make_zero_grad_optimizer(optim.Adam, model, self.zero_out_level, model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class ViTTraining(AdaptiveTrainingContext):
@@ -57,7 +57,7 @@ class ViTTraining(AdaptiveTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class ViTTraining100(AdaptiveTrainingContext):
@@ -69,7 +69,7 @@ class ViTTraining100(AdaptiveTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class VitTrainingImagenet(AdaptiveTrainingContext):
@@ -83,13 +83,7 @@ class VitTrainingImagenet(AdaptiveTrainingContext):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return SequentialLR(
-            optimizer, [
-                CosineAnnealingLR(optimizer, T_max=self.epochs -
-                                  self.warmup_epochs, eta_min=0.0),
-                LinearLR(optimizer, start_factor=0.033,
-                         total_iters=self.warmup_epochs),
-            ], milestones=[self.warmup_epochs])
+        return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0),
 
 
 @dataclasses.dataclass
