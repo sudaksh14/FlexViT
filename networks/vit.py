@@ -66,6 +66,10 @@ class ViTConfig(ModelConfig):
     def make_model(self):
         return VisionTransformer(self)
 
+    def no_prebuilt(self):
+        self.prebuilt = ViTPrebuilt.noprebuild
+        return self
+
 
 KNOWN_MODEL_PRETRAINED = {
     (ViTStructure.b16, ViTPrebuilt.imagenet1k_v1):

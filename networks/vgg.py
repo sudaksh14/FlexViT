@@ -26,6 +26,10 @@ class VGGConfig(ModelConfig):
 
     def make_model(self) -> 'VGG':
         return VGG(self)
+    
+    def no_prebuilt(self):
+        self.prebuilt = False
+        return self
 
 
 LAYER_CONFIGS: Dict[int, Callable[[int, int, int, int], list[Union[int, str]]]] = {
