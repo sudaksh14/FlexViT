@@ -81,7 +81,7 @@ class VitTrainingImagenet(AdaptiveTrainingContext):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0),
+        return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0)
 
 
 class VitTrainingImagenetWarmup(AdaptiveTrainingContext):
