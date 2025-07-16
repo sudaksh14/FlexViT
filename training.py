@@ -65,7 +65,7 @@ class BaseTrainer:
 class AdaptiveTrainingContext(TrainingContext):
     incremental_training: bool = False
     load_from: Optional[ModelConfig] = None
-    distill: bool = True
+    distill: bool = False
 
 
 class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
