@@ -54,24 +54,28 @@ class Conv2d(Module):
     def base_type() -> type[nn.Conv2d]:
         return nn.Conv2d
 
+    @torch.no_grad()
     def copy_to_base(self, dest: nn.Conv2d) -> None:
         dest.weight.data = self.conv.weight.data[:self.out_sizes[self.level],
                                                  :self.in_sizes[self.level]]
         if self.conv.bias is not None:
             dest.bias.data = self.conv.bias.data[:self.out_sizes[self.level]]
 
+    @torch.no_grad()
     def load_from_base(self, src: nn.Conv2d) -> None:
         self.conv.weight.data[:self.out_sizes[self.level],
                               :self.in_sizes[self.level]] = src.weight.data
         if src.bias is not None:
             self.conv.bias.data[:self.out_sizes[self.level]] = src.bias.data
 
+    @torch.no_grad()
     def make_base_copy(self) -> nn.Conv2d:
         conv = nn.Conv2d(
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
         self.copy_to_base(conv)
         return conv
 
+    @torch.no_grad()
     def export_level_delta(self) -> tuple[tuple[int, int], tuple[torch.Tensor, torch.Tensor]]:
         weights = self.conv.weight.data
         lower_part = weights[:self.out_sizes[self.level],
@@ -86,6 +90,7 @@ class Conv2d(Module):
         return prune_down, prune_up
 
     @staticmethod
+    @torch.no_grad()
     def apply_level_delta_down(model: nn.Conv2d, level_delta: tuple[int, int]) -> None:
         in_size, out_size = level_delta
         model.weight.data = model.weight.data[:out_size, :in_size]
@@ -93,6 +98,7 @@ class Conv2d(Module):
             model.bias.data = model.bias.data[:out_size]
 
     @staticmethod
+    @torch.no_grad()
     def apply_level_delta_up(model: nn.Conv2d, level_delta: tuple[torch.Tensor, torch.Tensor]) -> None:
         weights = model.weight.data
         lower_part, right_part, bias_part = level_delta
@@ -105,18 +111,3 @@ class Conv2d(Module):
             model.bias.data = torch.cat([model.bias.data, bias_part])
         model.weight.data = weights
         model.zero_grad()
-
-    def get_frozen_params(self, level: int):
-        if level < 0:
-            return None
-        cpy = self.conv.weight.data[:self.out_sizes[level],
-                                    :self.in_sizes[level]]
-        cpy = copy.deepcopy(cpy)
-        cpy = cpy.detach()
-        return cpy
-
-    def restore_frozen_params(self, level: int, params) -> None:
-        if level < 0:
-            return
-        self.conv.weight.data[:self.out_sizes[level],
-                              :self.in_sizes[level]] = params

@@ -34,33 +34,40 @@ class PosEmbeddingLayer(Module):
     def base_type() -> type[nn.Module]:
         return utils.PosEmbeddingLayer
 
+    @torch.no_grad()
     def copy_to_base(self, dest: utils.PosEmbeddingLayer) -> None:
         dest.embedding.data = self.embedding.data[
             :, :, :self.hidden_dims[self.level]]
 
+    @torch.no_grad()
     def load_from_base(self, src: utils.PosEmbeddingLayer) -> None:
         self.embedding.data[
             :, :, :self.hidden_dims[self.level]] = src.embedding.data
 
+    @torch.no_grad()
     def make_base_copy(self) -> nn.Module:
         dest = utils.PosEmbeddingLayer(
             self.seq_length, self.hidden_dims[self.level])
         self.copy_to_base(dest)
         return dest
 
+    @torch.no_grad()
     def export_level_delta(self) -> tuple[Any, Any]:
-        raise NotImplemented()
+        return (
+            self.hidden_dims[self.level],
+            self.embedding[
+                :, :,
+                self.hidden_dims[self.level - 1]:self.hidden_dims[self.level]
+            ]
+        )
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta: Any) -> None:
-        raise NotImplemented()
+    @torch.no_grad()
+    def apply_level_delta_down(model: utils.PosEmbeddingLayer, level_delta: Any) -> None:
+        model.embedding.data = model.embedding.data[:, :, :level_delta]
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
-        raise NotImplemented()
-
-    def get_frozen_params(self, level: int) -> Any:
-        return None
-
-    def restore_frozen_params(self, level: int, params: Any) -> None:
-        return
+    @torch.no_grad()
+    def apply_level_delta_up(model: utils.PosEmbeddingLayer, level_delta: Any) -> None:
+        model.embedding.data = torch.cat(
+            [model.embedding.data, level_delta], dim=2)

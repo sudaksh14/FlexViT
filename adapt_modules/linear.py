@@ -4,7 +4,7 @@ import torch
 from adapt_modules.module import Module
 import torch.nn.functional as F
 
-from typing import Iterable
+from typing import Iterable, Any
 import copy
 
 
@@ -47,13 +47,13 @@ class Linear(Module):
 
     def copy_to_base(self, dest: nn.Linear) -> None:
         dest.weight.data = self.linear.weight.data[:self.out_sizes[self.level],
-                                                 :self.in_sizes[self.level]]
+                                                   :self.in_sizes[self.level]]
         if self.linear.bias is not None:
             dest.bias.data = self.linear.bias.data[:self.out_sizes[self.level]]
 
     def load_from_base(self, src: nn.Linear) -> None:
         self.linear.weight.data[:self.out_sizes[self.level],
-                              :self.in_sizes[self.level]] = src.weight.data
+                                :self.in_sizes[self.level]] = src.weight.data
         if src.bias is not None:
             self.linear.bias.data[:self.out_sizes[self.level]] = src.bias.data
 
@@ -62,3 +62,38 @@ class Linear(Module):
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
         self.copy_to_base(lin)
         return lin
+
+    def export_level_delta(self) -> tuple[Any, Any]:
+        weights = self.linear.weight.data
+        lower_part = weights[:self.out_sizes[self.level],
+                             self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
+        right_part = weights[self.out_sizes[self.level-1]
+            :self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        bias_part = None
+        if self.linear.bias is not None:
+            bias_part = self.linear.bias.data[
+                self.out_sizes[self.level-1]:self.out_sizes[self.level]]
+        prune_up = (lower_part, right_part, bias_part)
+        prune_down = (self.in_sizes[self.level], self.out_sizes[self.level])
+        return prune_down, prune_up
+
+    @staticmethod
+    def apply_level_delta_down(model: nn.Module, level_delta: Any) -> None:
+        in_size, out_size = level_delta
+        model.weight.data = model.weight.data[:out_size, :in_size]
+        if model.bias is not None:
+            model.bias.data = model.bias.data[:out_size]
+
+    @staticmethod
+    def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
+        weights = model.weight.data
+        lower_part, right_part, bias_part = level_delta
+        out_size, in_size, *_ = weights.size()
+        weights = F.pad(
+            weights, (0, lower_part.size(1), 0, right_part.size(0)))
+        weights[:, in_size:] = lower_part
+        weights[out_size:, :in_size] = right_part
+        if model.bias is not None:
+            model.bias.data = torch.cat([model.bias.data, bias_part])
+        model.weight.data = weights
+        model.zero_grad()

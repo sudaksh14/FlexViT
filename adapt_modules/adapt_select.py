@@ -2,10 +2,12 @@ from torch import nn
 import torch
 
 from adapt_modules.module import Module
+from typing import Iterable
+import copy
 
 
 class AdaptSelect(Module):
-    def __init__(self, layers) -> None:
+    def __init__(self, layers: Iterable[nn.Module]) -> None:
         super().__init__()
         self.layers = layers
         for level, l in enumerate(self.layers):
@@ -27,8 +29,35 @@ class AdaptSelect(Module):
     def max_level(self) -> int:
         return len(self.layers) - 1
 
+    @torch.no_grad()
     def copy_to_base(self, dest: nn.Module) -> None:
         dest.load_state_dict(self.current_layer().state_dict())
 
+    @torch.no_grad()
     def load_from_base(self, src: nn.Module) -> None:
         self.current_layer().load_state_dict(src.state_dict())
+
+    @torch.no_grad()
+    def export_level_delta(self):
+        deltas = self.current_layer().parameters()
+        deltas = map(lambda t: t.data, deltas)
+        deltas = tuple(deltas)
+        return deltas, deltas
+
+    @staticmethod
+    @torch.no_grad()
+    def _apply_level_delta(model: nn.Module, level_delta: tuple[torch.Tensor, ...]):
+        for p, src_p in zip(model.parameters(), level_delta):
+            p.data = src_p[:]
+        for name, b in model.named_buffers():
+            setattr(model, name, None)
+
+    @staticmethod
+    @torch.no_grad()
+    def apply_level_delta_down(model: nn.Module, level_delta: tuple[torch.Tensor, torch.Tensor]):
+        return __class__._apply_level_delta(model, level_delta)
+
+    @staticmethod
+    @torch.no_grad()
+    def apply_level_delta_up(model: nn.Module, level_delta: tuple[torch.Tensor, torch.Tensor]):
+        return __class__._apply_level_delta(model, level_delta)

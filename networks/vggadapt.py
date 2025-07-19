@@ -99,9 +99,13 @@ class VGG(AdaptModel):
                 v = cast(int, v)
                 conv2d = am.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 layers += [conv2d,
-                           am.BatchNorm2dSelect(v), nn.ReLU(inplace=True)]
+                           am.BatchNorm2d(v), nn.ReLU(inplace=True)]
                 in_channels = v
         return nn.Sequential(*layers)
+
+    @staticmethod
+    def base_type() -> type[nn.Module]:
+        return networks.vgg.VGG
 
     def current_level(self) -> int:
         return self.level

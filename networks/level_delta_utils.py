@@ -11,7 +11,8 @@ def get_model_deltas(model: AdaptModel) -> tuple[dict[tuple[int, bool], list[Any
     deltas = dict()
     for module in model.modules():
         if not isinstance(module, Module):
-            continue
+            if not isinstance(module, AdaptModel):
+                continue
         module_type_list.append(type(module))
     for level in range(model.max_level() + 1):
         delta_downs = []
@@ -19,10 +20,12 @@ def get_model_deltas(model: AdaptModel) -> tuple[dict[tuple[int, bool], list[Any
         model.set_level_use(level)
         for module in model.modules():
             if not isinstance(module, Module):
-                continue
+                if not isinstance(module, AdaptModel):
+                    continue
             delta_down, delta_up = module.export_level_delta()
             delta_downs.append(delta_down)
             delta_ups.append(delta_up)
+
         deltas[(level, False)] = delta_downs
         deltas[(level, True)] = delta_ups
 
@@ -53,10 +56,10 @@ def apply_delta_up(model: nn.Module, deltas: Iterable[Any], module_type_list: It
 
 class BaseDeltaManager:
     def get_module_list(self) -> Iterable[type[Module]]:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def get_level_delta(self, level: int, up: bool) -> Iterable[Any]:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def move_model_to(self, model: nn.Module, current_level: int, target_level: int) -> None:
         if target_level > current_level:

@@ -39,10 +39,10 @@ class TrainingContext:
     gradient_clip_val: Optional[float] = None
 
     def make_optimizer(self, model) -> torch.optim.Optimizer:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def make_scheduler(self, optimizer) -> torch.optim.lr_scheduler.LRScheduler:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def wrap_model(self, model: pl.LightningModule) -> pl.LightningModule:
         def configure_optimizers():
@@ -57,7 +57,7 @@ class TrainingContext:
 
 class BaseTrainer:
     def run_training(self, conf_description: str) -> None:
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
 @utils.fluent_setters
@@ -154,91 +154,6 @@ class AdaptiveModelTrainer(pl.LightningModule, BaseTrainer):
 
     def configure_optimizers(self) -> None:
         pass
-
-
-def make_zero_grad_optimizer(optimizer, model: AdaptModel, freeze_level, *args, **kwargs):
-    class zerograd(optimizer):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-        def step(self, closure=None):
-            p = []
-            for module in model.modules():
-                if not isinstance(module, am.Module):
-                    p.append(None)
-                    continue
-                p.append(module.get_frozen_params(freeze_level))
-            super().step(closure)
-            for module, par in zip(model.modules(), p):
-                if not isinstance(module, am.Module):
-                    continue
-                module.restore_frozen_params(freeze_level, par)
-
-    return zerograd(*args, **kwargs)
-
-
-@utils.fluent_setters
-@dataclasses.dataclass
-class ZeroOutTrainingContext(TrainingContext):
-    zero_out_level: int = -1
-
-
-class ZeroOutTrainer(pl.LightningModule, BaseTrainer):
-    def __init__(self, model_config: ModelConfig, training_context: ZeroOutTrainingContext) -> None:
-        super().__init__()
-        self.save_hyperparameters()
-        self.model_config = model_config
-        self.training_context = training_context
-        self.submodel: AdaptModel = utils.load_model(
-            self.model_config.get_filename_safe_description()).submodel
-        self.level_use = 0
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.submodel(x)
-
-    def _step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
-        x, y = batch
-        total_loss = 0.0
-
-        for i in range(self.submodel.max_level() + 1):
-            self.submodel.set_level_use(i)
-            logits = self(x)
-            loss = F.cross_entropy(logits, y)
-            acc = (logits.argmax(1) == y).float().mean()
-            self.log(f"{stage}_level{i}_loss", loss,
-                     prog_bar=False, sync_dist=True)
-            self.log(f"{stage}_level{i}_acc",  acc,
-                     prog_bar=(stage != 'train'), sync_dist=True)
-
-            if self.level_use == i:
-                total_loss = loss
-
-        self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
-        return total_loss
-
-    def training_step(self, b, _) -> torch.Tensor:
-        return self._step(b, "train")
-
-    def validation_step(self, b, _) -> torch.Tensor:
-        return self._step(b, "val")
-
-    def test_step(self, b, _) -> torch.Tensor:
-        return self._step(b, "test")
-
-    def run_training(self, conf_description: str) -> None:
-        torch.set_float32_matmul_precision('high')
-
-        model = self.submodel
-        trainer = self
-
-        with wandb.init(project="a", name=conf_description, config=self.model_config.get_flat_dict(), dir=paths.LOG_PATH):
-            for i in range(model.max_level() + 1):
-                self.level_use = i
-                self.training_context.zero_out_level = i - 1
-                trainer = finetune(trainer, self.training_context)
-
-        utils.save_model(
-            trainer, self.model_config.get_filename_safe_description(), prefix='zerout')
 
 
 class SimpleTrainer(pl.LightningModule, BaseTrainer):
