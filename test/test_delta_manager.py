@@ -1,20 +1,20 @@
 import unittest
 
 from torch import nn
-from adapt_modules.module import Module
+from flex_modules.module import Module
 import torch
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import FlexModel
 
 import networks.level_delta_utils as levels
 
 import networks.vgg as vgg
-import networks.vggadapt as vgga
+import networks.flexvgg as vgga
 
 import networks.resnet as resnet
-import networks.resnetadapt as resneta
+import networks.flexresnet as resneta
 
-import networks.vitadapt as vita
+import networks.vitflex as vita
 import networks.vit as vit
 
 import networks.config
@@ -27,14 +27,14 @@ class TestDeltaManager():
     def check_equiv(a, b, error=1e5):
         return (torch.abs(a - b) < error).all()
 
-    def get_adapt_config(self) -> networks.config.AdaptConfig:
+    def get_flex_config(self) -> networks.config.FlexModelConfig:
         raise NotImplementedError()
 
     def make_input(self) -> torch.Tensor:
         raise NotImplementedError()
 
     def test_deltas(self):
-        aconfig = self.get_adapt_config()
+        aconfig = self.get_flex_config()
         model = aconfig.make_model().to(utils.get_device())
         model.set_level_use(model.max_level())
         reg_model = aconfig.create_base_config(
@@ -59,7 +59,7 @@ class TestDeltaManager():
 
 
 class TestDeltaResnet(TestDeltaManager, unittest.TestCase):
-    def get_adapt_config(self) -> networks.config.AdaptConfig:
+    def get_flex_config(self) -> networks.config.FlexModelConfig:
         return resneta.ResnetConfig()
 
     def make_input(self) -> torch.Tensor:
@@ -67,7 +67,7 @@ class TestDeltaResnet(TestDeltaManager, unittest.TestCase):
 
 
 class TestDeltaViT(TestDeltaManager, unittest.TestCase):
-    def get_adapt_config(self) -> networks.config.AdaptConfig:
+    def get_flex_config(self) -> networks.config.FlexModelConfig:
         return vita.ViTConfig()
 
     def make_input(self) -> torch.Tensor:
@@ -76,7 +76,7 @@ class TestDeltaViT(TestDeltaManager, unittest.TestCase):
 
 
 class TestDeltaVGG(TestDeltaManager, unittest.TestCase):
-    def get_adapt_config(self) -> networks.config.AdaptConfig:
+    def get_flex_config(self) -> networks.config.FlexModelConfig:
         return vgga.VGGConfig()
 
     def make_input(self) -> torch.Tensor:

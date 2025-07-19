@@ -5,7 +5,7 @@ import copy
 
 import utils
 
-from adapt_modules.module import Module
+from flex_modules.module import Module
 
 
 class PosEmbeddingLayer(Module):

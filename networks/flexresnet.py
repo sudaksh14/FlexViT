@@ -9,9 +9,9 @@ import dataclasses
 
 from training import TrainingContext
 
-import adapt_modules as am
+import flex_modules as am
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import FlexModel
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
 from networks.config import ModelConfig
@@ -80,7 +80,7 @@ class BasicBlock(nn.Module):
         return F.relu(out)
 
 
-class Resnet(AdaptModel):
+class Resnet(FlexModel):
     def __init__(self, config: ResnetConfig) -> None:
         super().__init__()
         self.build_net(config)

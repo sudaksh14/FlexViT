@@ -1,8 +1,8 @@
 from torch import nn
 import torch
 
-from adapt_modules.module import Module
-from adapt_modules.adapt_select import AdaptSelect
+from flex_modules.module import Module
+from flex_modules.flexselect import AdaptSelect
 
 
 class BatchNorm2d(AdaptSelect):

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import training
 
-from networks import vggadapt, resnetadapt
+from networks import flexresnet, flexvgg
 import numpy as np
 import utils
 
@@ -61,12 +61,12 @@ for run in runs:
 
     model = experiments.resolve_from_str(run.name)
     model = model()
-    model: training.AdaptiveModelTrainer
+    model: training.FlexModelTrainer
 
     label = run.name.split(',')[-1]
 
     if model.model_config.num_classes == 10:
-        if isinstance(model.model_config, vggadapt.VGGConfig):
+        if isinstance(model.model_config, flexvgg.VGGConfig):
             line, *_ = ax10.plot(levels, values, label=label)
             acc = utils.evaluate_model(model, test_loader, utils.get_device())
             ax10.plot([0,1],[acc, acc], color=line.get_color(), ls='--')
@@ -75,7 +75,7 @@ for run in runs:
             acc = utils.evaluate_model(model, test_loader, utils.get_device())
             ax10res.plot([0,1],[acc, acc], color=line.get_color(), ls='--')
     else:
-        if isinstance(model.model_config, vggadapt.VGGConfig):
+        if isinstance(model.model_config, flexvgg.VGGConfig):
             line, *_ = ax100.plot(levels, values, label=label)
             acc = utils.evaluate_model(model, test_loader100, utils.get_device())
             ax100.plot([0,1],[acc, acc], color=line.get_color(), ls='--')

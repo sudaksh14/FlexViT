@@ -9,9 +9,9 @@ import dataclasses
 
 from training import TrainingContext
 
-import adapt_modules as am
+import flex_modules as am
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import FlexModel
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
 from networks.config import ModelConfig
@@ -48,7 +48,7 @@ class VGGConfig(ModelConfig):
             self.prebuilt)
 
 
-class VGG(AdaptModel):
+class VGG(FlexModel):
     def __init__(self, config: 'VGGConfig') -> None:
         super().__init__()
         self.levels = len(config.small_channels)

@@ -11,7 +11,6 @@ import utils
 
 import dataclasses
 from networks.config import ModelConfig
-# from networks.adapt_model import AdaptModel
 
 from enum import Enum
 from torchvision.models import vision_transformer
