@@ -1,4 +1,4 @@
-from networks.adapt_model import AdaptModel
+from networks.flex_model import AdaptModel
 import utils
 
 class ModelConfig(utils.SelfDescripting):

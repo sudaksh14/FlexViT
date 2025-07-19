@@ -7,13 +7,13 @@ import utils
 import paths
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau, CosineAnnealingWarmRestarts, LinearLR, SequentialLR
-from networks import resnetadapt, vggadapt, resnet, vgg, vit, vitadapt
+from networks import flexresnet, flexvgg, resnet, vgg, vit, vitflex
 import sys
 
 from training import *
 
 
-class ModelTraining(AdaptiveTrainingContext):
+class ModelTraining(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR10,
                                  *args, **kwargs), patience=50, epochs=-1)
@@ -25,7 +25,7 @@ class ModelTraining(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
-class ModelTraining100(AdaptiveTrainingContext):
+class ModelTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR100,
                                  *args, **kwargs), patience=50, epochs=-1)
@@ -37,7 +37,7 @@ class ModelTraining100(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
-class ViTTraining(AdaptiveTrainingContext):
+class ViTTraining(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR10,
                                  resize=(224, 224)), patience=20, epochs=-1)
@@ -49,7 +49,7 @@ class ViTTraining(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
-class ViTTraining100(AdaptiveTrainingContext):
+class ViTTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR100,
                                  resize=(224, 224)), patience=20, epochs=-1)
@@ -61,7 +61,7 @@ class ViTTraining100(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
-class VitTrainingImagenet(AdaptiveTrainingContext):
+class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(utils.load_imagenet, patience=50, epochs=300,
                          label_smoothing=0.11, gradient_clip_val=1.0)
@@ -73,7 +73,7 @@ class VitTrainingImagenet(AdaptiveTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0)
 
 
-class VitTrainingImagenetWarmup(AdaptiveTrainingContext):
+class VitTrainingImagenetWarmup(FlexTrainingContext):
     warmup_epochs: int = 30
 
     def __init__(self, *args, **kwargs):
@@ -115,25 +115,25 @@ class TrainerBuilder:
 CONFIGS = {
     "resnetadapt": {
         'resnet20.3_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig(),
+            FlexModelTrainer,
+            flexresnet.ResnetConfig(),
             ModelTraining()),
         'resnet20.3_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_classes(100),
             ModelTraining100()),
 
         'resnet20.6_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_small_channels((6, 8, 10, 12, 14, 16))
             .set_mid_channels((12, 16, 20, 24, 28, 32))
             .set_large_channels((24, 32, 40, 48, 56, 64)),
             ModelTraining()),
         'resnet20.6_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_small_channels((6, 8, 10, 12, 14, 16))
             .set_mid_channels((12, 16, 20, 24, 28, 32))
             .set_large_channels((24, 32, 40, 48, 56, 64))
@@ -141,28 +141,28 @@ CONFIGS = {
             ModelTraining100()),
 
         'resnet56.3_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_blocks((9, 9, 9)),
             ModelTraining()),
         'resnet56.3_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_blocks((9, 9, 9))
             .set_num_classes(100),
             ModelTraining100()),
 
         'resnet56.6_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_blocks((9, 9, 9))
             .set_small_channels((6, 8, 10, 12, 14, 16))
             .set_mid_channels((12, 16, 20, 24, 28, 32))
             .set_large_channels((24, 32, 40, 48, 56, 64)),
             ModelTraining()),
         'resnet56.6_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_blocks((9, 9, 9))
             .set_small_channels((6, 8, 10, 12, 14, 16))
             .set_mid_channels((12, 16, 20, 24, 28, 32))
@@ -172,26 +172,26 @@ CONFIGS = {
     },
     "vggadapt": {
         'vgg11.3_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig(),
+            FlexModelTrainer,
+            flexvgg.VGGConfig(),
             ModelTraining()),
         'vgg11.3_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_num_classes(100),
             ModelTraining100()),
 
         'vgg11.6_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_small_channels((24, 32, 40, 48, 56, 64))
             .set_mid_channels((48, 64, 80, 96, 112, 128))
             .set_large_channels((96, 128, 160, 192, 224, 256))
             .set_max_channels((192, 256, 320, 384, 448, 512)),
             ModelTraining()),
         'vgg11.6_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_num_classes(100)
             .set_small_channels((24, 32, 40, 48, 56, 64))
             .set_mid_channels((48, 64, 80, 96, 112, 128))
@@ -200,18 +200,18 @@ CONFIGS = {
             ModelTraining100()),
 
         'vgg19.3_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_version(19), ModelTraining()),
         'vgg19.3_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_num_classes(100),
             ModelTraining100()),
 
         'vgg19.6_levels.cifar10': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_version(19)
             .set_small_channels((24, 32, 40, 48, 56, 64))
             .set_mid_channels((48, 64, 80, 96, 112, 128))
@@ -219,8 +219,8 @@ CONFIGS = {
             .set_max_channels((192, 256, 320, 384, 448, 512)),
             ModelTraining()),
         'vgg19.6_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_version(19)
             .set_num_classes(100)
             .set_small_channels((24, 32, 40, 48, 56, 64))
@@ -231,18 +231,18 @@ CONFIGS = {
     },
     "incremental": {
         "incr.resnet20.3_levels.cifar100": TrainerBuilder(
-            AdaptiveModelTrainer,
-            resnetadapt.ResnetConfig()
+            FlexModelTrainer,
+            flexresnet.ResnetConfig()
             .set_num_classes(100),
             ModelTraining100().set_incremental_training(True)),
         'incr.vgg11.3_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_num_classes(100),
             ModelTraining100().set_incremental_training(True)),
         'incr.vgg11.6_levels.cifar100': TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_num_classes(100)
             .set_small_channels((24, 32, 40, 48, 56, 64))
             .set_mid_channels((48, 64, 80, 96, 112, 128))
@@ -252,8 +252,8 @@ CONFIGS = {
     },
     "upscale": {
         "upscale.vgg11.cifar100": TrainerBuilder(
-            AdaptiveModelTrainer,
-            vggadapt.VGGConfig()
+            FlexModelTrainer,
+            flexvgg.VGGConfig()
             .set_small_channels((64, 96, 128))
             .set_mid_channels((128, 192, 256))
             .set_large_channels((256, 384, 512))
@@ -272,13 +272,13 @@ CONFIGS = {
             .set_num_classes(100), ViTTraining100())
     }, "vitadapt": {
         "cifar10": TrainerBuilder(
-            AdaptiveModelTrainer,
-            vitadapt.ViTConfig().set_num_classes(10),
+            FlexModelTrainer,
+            vitflex.ViTConfig().set_num_classes(10),
             ViTTraining().set_load_from(vit.ViTConfig().set_num_classes(10))
         ),
         "cifar10.5levels": TrainerBuilder(
-            AdaptiveModelTrainer,
-            vitadapt.ViTConfig()
+            FlexModelTrainer,
+            vitflex.ViTConfig()
             .set_num_classes(10)
             .set_num_heads((12, 12, 12, 12, 12))
             .set_hidden_dims(
@@ -290,13 +290,13 @@ CONFIGS = {
             ViTTraining().set_load_from(vit.ViTConfig().set_num_classes(10))
         ),
         "cifar100": TrainerBuilder(
-            AdaptiveModelTrainer,
-            vitadapt.ViTConfig().set_num_classes(100),
+            FlexModelTrainer,
+            vitflex.ViTConfig().set_num_classes(100),
             ViTTraining100().set_load_from(vit.ViTConfig().set_num_classes(100))
         ),
         "imagenet": TrainerBuilder(
-            AdaptiveModelTrainer,
-            vitadapt.ViTConfig().set_num_classes(1000)
+            FlexModelTrainer,
+            vitflex.ViTConfig().set_num_classes(1000)
             .set_num_heads((12, 12, 12, 12, 12))
             .set_hidden_dims(
                 (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)

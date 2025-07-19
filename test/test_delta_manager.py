@@ -4,17 +4,17 @@ from torch import nn
 from adapt_modules.module import Module
 import torch
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import AdaptModel
 
 import networks.level_delta_utils as levels
 
 import networks.vgg as vgg
-import networks.vggadapt as vgga
+import networks.flexvgg as vgga
 
 import networks.resnet as resnet
-import networks.resnetadapt as resneta
+import networks.flexresnet as resneta
 
-import networks.vitadapt as vita
+import networks.vitflex as vita
 import networks.vit as vit
 
 import networks.config

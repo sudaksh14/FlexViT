@@ -7,7 +7,7 @@ from adapt_modules.module import Module
 import torch.nn.functional as F
 
 import adapt_modules as am
-import adapt_modules.multihead_attention
+import adapt_modules.selfattention
 
 import utils
 

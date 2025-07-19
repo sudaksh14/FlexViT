@@ -2,7 +2,7 @@ from torch import nn
 from adapt_modules.module import Module
 import torch
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import AdaptModel
 from typing import Iterable, Any
 
 

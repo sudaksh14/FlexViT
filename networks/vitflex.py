@@ -17,7 +17,7 @@ from enum import Enum
 from torchvision.models import vision_transformer
 
 import copy
-from networks.adapt_model import AdaptModel
+from networks.flex_model import AdaptModel
 
 from networks.vit import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
 import networks.vit
@@ -27,7 +27,7 @@ from adapt_modules.class_token import ClassTokenLayer
 from adapt_modules.linear import Linear
 from adapt_modules.conv2d import Conv2d
 from adapt_modules.layer_norm import LayerNorm
-from adapt_modules.multihead_attention import SelfAttention
+from adapt_modules.selfattention import SelfAttention
 import adapt_modules as am
 
 

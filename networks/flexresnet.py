@@ -11,7 +11,7 @@ from training import TrainingContext
 
 import adapt_modules as am
 
-from networks.adapt_model import AdaptModel
+from networks.flex_model import AdaptModel
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
 from networks.config import ModelConfig

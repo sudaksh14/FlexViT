@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 from adapt_modules.module import Module
-from adapt_modules.adapt_select import AdaptSelect
+from adapt_modules.flexselect import AdaptSelect
 
 
 class LinearSelect(AdaptSelect):
