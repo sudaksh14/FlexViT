@@ -237,6 +237,10 @@ class VisionTransformer(AdaptModel):
             self.heads = am.LinearSelect(
                 hidden_dim, [num_classes] * len(hidden_dim))
 
+    @staticmethod
+    def base_type() -> type[nn.Module]:
+        return networks.vit.VisionTransformer
+
     def current_level(self) -> int:
         return self.level
 
@@ -280,3 +284,15 @@ class VisionTransformer(AdaptModel):
         x = self.heads(x)
 
         return x
+
+    @torch.no_grad()
+    def export_level_delta(self) -> tuple[int, int]:
+        return self.hidden_dim[self.level], self.hidden_dim[self.level]
+
+    @staticmethod
+    def apply_level_delta_down(model: networks.vit.VisionTransformer, level_delta: int) -> None:
+        model.hidden_dim = level_delta
+
+    @staticmethod
+    def apply_level_delta_up(model: networks.vit.VisionTransformer, level_delta: int) -> None:
+        model.hidden_dim = level_delta

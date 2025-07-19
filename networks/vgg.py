@@ -26,7 +26,7 @@ class VGGConfig(ModelConfig):
 
     def make_model(self) -> 'VGG':
         return VGG(self)
-    
+
     def no_prebuilt(self):
         self.prebuilt = False
         return self
@@ -40,14 +40,14 @@ LAYER_CONFIGS: Dict[int, Callable[[int, int, int, int], list[Union[int, str]]]] 
 }
 
 KNOWN_MODEL_PRETRAINED: Dict[Hashable, Callable[[], nn.Module]] = {
-    (10, 11, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg11_bn", pretrained=True),
-    (10, 13, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg13_bn", pretrained=True),
-    (10, 16, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True),
-    (10, 19, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg19_bn", pretrained=True),
-    (100, 11, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg11_bn", pretrained=True),
-    (100, 13, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg13_bn", pretrained=True),
-    (100, 16, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True),
-    (100, 19, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg19_bn", pretrained=True),
+    (10, 11, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg11_bn", pretrained=True, verbose=False),
+    (10, 13, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg13_bn", pretrained=True, verbose=False),
+    (10, 16, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True, verbose=False),
+    (10, 19, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg19_bn", pretrained=True, verbose=False),
+    (100, 11, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg11_bn", pretrained=True, verbose=False),
+    (100, 13, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg13_bn", pretrained=True, verbose=False),
+    (100, 16, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True, verbose=False),
+    (100, 19, (64, 128, 256, 512)): lambda: torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg19_bn", pretrained=True, verbose=False),
 }
 
 
