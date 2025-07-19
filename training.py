@@ -11,15 +11,15 @@ from torch.optim import AdamW, Adam, lr_scheduler, SGD
 import pytorch_lightning as pl
 
 import paths
-from networks.flex_model import AdaptModel
+from networks.flex_model import FlexModel
 import torch.nn.functional as F
 import utils
 
 import tempfile
-from networks.flex_model import AdaptModel
-from networks.config import ModelConfig, AdaptConfig
+from networks.flex_model import FlexModel
+from networks.config import ModelConfig, FlexModelConfig
 
-import adapt_modules as am
+import flex_modules as am
 
 import wandb
 from typing import Callable, Optional
@@ -129,7 +129,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         if self.training_context.distill:
             distill_config = self.model_config.no_prebuilt()
-            if isinstance(distill_config, AdaptConfig):
+            if isinstance(distill_config, FlexModelConfig):
                 distill_config = distill_config.create_base_config(
                     self.submodel.max_level())
             self.distill_net = distill_config.make_model()

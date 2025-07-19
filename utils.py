@@ -1,4 +1,4 @@
-from adapt_modules.module import Module
+from flex_modules.module import Module
 import torch
 from torch import nn
 from sklearn.metrics import accuracy_score, f1_score
@@ -250,8 +250,8 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
     last_copied_to: nn.Module = None
 
     for src_name, src_module in src.named_modules():
-        src_is_adaptable = isinstance(src_module, Module)
-        if src_is_adaptable:
+        src_is_flexible = isinstance(src_module, Module)
+        if src_is_flexible:
             src_instance_type = src_module.base_type()
         else:
             src_instance_type = find_instance_type(src_module, *MODULE_TYPES)
@@ -267,9 +267,9 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
 
         while True:
             dest_name, dest_module = next(dest_iter)
-            dest_is_adaptable = isinstance(dest_module, Module)
+            dest_is_flexible = isinstance(dest_module, Module)
 
-            if dest_is_adaptable:
+            if dest_is_flexible:
                 if src_instance_type != dest_module.base_type():
                     if verbose >= 2:
                         print(f"Cannot copy {src_name} to {dest_name}")
@@ -285,13 +285,13 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
 
             if verbose >= 1:
                 print(f"copy from {src_name} to {dest_name}")
-            if src_is_adaptable:
-                if dest_is_adaptable:
+            if src_is_flexible:
+                if dest_is_flexible:
                     dest_module.load_from_base(src_module.make_base_copy())
                 else:
                     src_module.copy_to_base(dest_module)
             else:
-                if dest_is_adaptable:
+                if dest_is_flexible:
                     dest_module.load_from_base(src_module)
                 else:
                     dest_module.load_state_dict(src_module.state_dict())

@@ -1,11 +1,11 @@
 from torch import nn
-import adapt_modules as am
+import flex_modules as am
 
 from typing import Any
 import torch
 
 
-class AdaptModel(nn.Module):
+class FlexModel(nn.Module):
     def set_level_use(self, level) -> None:
         self.level = level
         for _, module in self.named_modules():

@@ -17,18 +17,18 @@ from enum import Enum
 from torchvision.models import vision_transformer
 
 import copy
-from networks.flex_model import AdaptModel
+from networks.flex_model import FlexModel
 
 from networks.vit import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
 import networks.vit
 
-from adapt_modules.pos_embedding import PosEmbeddingLayer
-from adapt_modules.class_token import ClassTokenLayer
-from adapt_modules.linear import Linear
-from adapt_modules.conv2d import Conv2d
-from adapt_modules.layer_norm import LayerNorm
-from adapt_modules.selfattention import SelfAttention
-import adapt_modules as am
+from flex_modules.pos_embedding import PosEmbeddingLayer
+from flex_modules.class_token import ClassTokenLayer
+from flex_modules.linear import Linear
+from flex_modules.conv2d import Conv2d
+from flex_modules.layer_norm import LayerNorm
+from flex_modules.selfattention import SelfAttention
+import flex_modules as am
 
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
@@ -167,7 +167,7 @@ class Encoder(nn.Module):
         return self.ln(self.layers(self.dropout(input)))
 
 
-class VisionTransformer(AdaptModel):
+class VisionTransformer(FlexModel):
     """Vision Transformer as per https://arxiv.org/abs/2010.11929."""
 
     def __init__(

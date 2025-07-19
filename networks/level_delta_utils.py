@@ -1,17 +1,17 @@
 from torch import nn
-from adapt_modules.module import Module
+from flex_modules.module import Module
 import torch
 
-from networks.flex_model import AdaptModel
+from networks.flex_model import FlexModel
 from typing import Iterable, Any
 
 
-def get_model_deltas(model: AdaptModel) -> tuple[dict[tuple[int, bool], list[Any]], list[type[Module]]]:
+def get_model_deltas(model: FlexModel) -> tuple[dict[tuple[int, bool], list[Any]], list[type[Module]]]:
     module_type_list = []
     deltas = dict()
     for module in model.modules():
         if not isinstance(module, Module):
-            if not isinstance(module, AdaptModel):
+            if not isinstance(module, FlexModel):
                 continue
         module_type_list.append(type(module))
     for level in range(model.max_level() + 1):
@@ -20,7 +20,7 @@ def get_model_deltas(model: AdaptModel) -> tuple[dict[tuple[int, bool], list[Any
         model.set_level_use(level)
         for module in model.modules():
             if not isinstance(module, Module):
-                if not isinstance(module, AdaptModel):
+                if not isinstance(module, FlexModel):
                     continue
             delta_down, delta_up = module.export_level_delta()
             delta_downs.append(delta_down)

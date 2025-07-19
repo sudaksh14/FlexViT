@@ -1,7 +1,7 @@
 from torch import nn
 import torch
 
-from adapt_modules.module import Module
+from flex_modules.module import Module
 import torch.nn.functional as F
 
 from typing import Iterable, Any

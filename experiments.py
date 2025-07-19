@@ -113,7 +113,7 @@ class TrainerBuilder:
 
 
 CONFIGS = {
-    "resnetadapt": {
+    "flexresnet": {
         'resnet20.3_levels.cifar10': TrainerBuilder(
             FlexModelTrainer,
             flexresnet.ResnetConfig(),
@@ -170,7 +170,7 @@ CONFIGS = {
             .set_num_classes(100),
             ModelTraining100()),
     },
-    "vggadapt": {
+    "flexvgg": {
         'vgg11.3_levels.cifar10': TrainerBuilder(
             FlexModelTrainer,
             flexvgg.VGGConfig(),
@@ -270,7 +270,7 @@ CONFIGS = {
             SimpleTrainer,
             vit.ViTConfig()
             .set_num_classes(100), ViTTraining100())
-    }, "vitadapt": {
+    }, "flexvit": {
         "cifar10": TrainerBuilder(
             FlexModelTrainer,
             vitflex.ViTConfig().set_num_classes(10),
@@ -312,7 +312,7 @@ CONFIGS = {
 DEFAULT_HARDWARE_CONFIG = hardware.HardwareConfig()
 HARDWARE = {
     "vitprebuild": hardware.HardwareConfig().set_gpu_count(2),
-    "vitadapt": hardware.HardwareConfig().set_gpu_count(4).set_time('72:00:00'),
+    "flexvit": hardware.HardwareConfig().set_gpu_count(4).set_time('72:00:00'),
 }
 
 
