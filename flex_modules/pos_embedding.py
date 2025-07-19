@@ -3,9 +3,8 @@ from typing import Union, Any, Iterable
 import torch
 import copy
 
-import utils
-
 from flex_modules.module import Module
+import vit_modules as vmod
 
 
 class PosEmbeddingLayer(Module):
@@ -32,21 +31,21 @@ class PosEmbeddingLayer(Module):
 
     @staticmethod
     def base_type() -> type[nn.Module]:
-        return utils.PosEmbeddingLayer
+        return vmod.PosEmbeddingLayer
 
     @torch.no_grad()
-    def copy_to_base(self, dest: utils.PosEmbeddingLayer) -> None:
+    def copy_to_base(self, dest: vmod.PosEmbeddingLayer) -> None:
         dest.embedding.data = self.embedding.data[
             :, :, :self.hidden_dims[self.level]]
 
     @torch.no_grad()
-    def load_from_base(self, src: utils.PosEmbeddingLayer) -> None:
+    def load_from_base(self, src: vmod.PosEmbeddingLayer) -> None:
         self.embedding.data[
             :, :, :self.hidden_dims[self.level]] = src.embedding.data
 
     @torch.no_grad()
     def make_base_copy(self) -> nn.Module:
-        dest = utils.PosEmbeddingLayer(
+        dest = vmod.PosEmbeddingLayer(
             self.seq_length, self.hidden_dims[self.level])
         self.copy_to_base(dest)
         return dest
@@ -63,11 +62,11 @@ class PosEmbeddingLayer(Module):
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: utils.PosEmbeddingLayer, level_delta: Any) -> None:
+    def apply_level_delta_down(model: vmod.PosEmbeddingLayer, level_delta: Any) -> None:
         model.embedding.data = model.embedding.data[:, :, :level_delta]
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: utils.PosEmbeddingLayer, level_delta: Any) -> None:
+    def apply_level_delta_up(model: vmod.PosEmbeddingLayer, level_delta: Any) -> None:
         model.embedding.data = torch.cat(
             [model.embedding.data, level_delta], dim=2)

@@ -3,8 +3,7 @@ from typing import Union, Any, Iterable
 import torch
 import copy
 
-import utils
-
+import vit_modules as vmod
 from flex_modules.module import Module
 
 
@@ -32,19 +31,19 @@ class ClassTokenLayer(Module):
 
     @staticmethod
     def base_type() -> type[nn.Module]:
-        return utils.ClassTokenLayer
+        return vmod.ClassTokenLayer
 
     @torch.no_grad()
-    def copy_to_base(self, dest: utils.ClassTokenLayer) -> None:
+    def copy_to_base(self, dest: vmod.ClassTokenLayer) -> None:
         dest.token.data = self.token.data[:, :, :self.hidden_dims[self.level]]
 
     @torch.no_grad()
-    def load_from_base(self, src: utils.ClassTokenLayer) -> None:
+    def load_from_base(self, src: vmod.ClassTokenLayer) -> None:
         self.token.data[:, :, :self.hidden_dims[self.level]] = src.token.data
 
     @torch.no_grad()
     def make_base_copy(self) -> nn.Module:
-        dest = utils.ClassTokenLayer(self.hidden_dims[self.level])
+        dest = vmod.ClassTokenLayer(self.hidden_dims[self.level])
         self.copy_to_base(dest)
         return dest
 
@@ -60,10 +59,10 @@ class ClassTokenLayer(Module):
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: utils.ClassTokenLayer, level_delta: int) -> None:
+    def apply_level_delta_down(model: vmod.ClassTokenLayer, level_delta: int) -> None:
         model.token.data = model.token.data[:, :, :level_delta]
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: utils.ClassTokenLayer, level_delta: Any) -> None:
+    def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: Any) -> None:
         model.token.data = torch.cat([model.token.data, level_delta], dim=2)

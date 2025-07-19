@@ -38,6 +38,8 @@ class TrainingContext:
     label_smoothing: float = 0.0
     gradient_clip_val: Optional[float] = None
 
+    wandb_project_name: str = "b"
+
     def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplementedError()
 
@@ -141,7 +143,11 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         if self.training_context.incremental_training:
             self.upto = 0
 
-        with wandb.init(project="b", name=conf_description, config=self.model_config.get_flat_dict(), dir=paths.LOG_PATH):
+        with wandb.init(
+                project=self.training_context.wandb_project_name,
+                name=conf_description,
+                config=self.model_config.get_flat_dict(),
+                dir=paths.LOG_PATH):
             if self.training_context.incremental_training:
                 for i in range(model.max_level() + 1):
                     trainer = finetune(trainer, self.training_context)
@@ -190,7 +196,12 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         torch.set_float32_matmul_precision('high')
         model = self.submodel
         trainer = self
-        trainer = finetune(trainer, self.training_context)
+        with wandb.init(
+                project=self.training_context.wandb_project_name,
+                name=conf_description,
+                config=self.model_config.get_flat_dict(),
+                dir=paths.LOG_PATH):
+            trainer = finetune(trainer, self.training_context)
 
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description(), 'pretrained')
