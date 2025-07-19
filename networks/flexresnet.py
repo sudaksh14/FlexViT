@@ -45,6 +45,9 @@ class ResnetConfig(ModelConfig):
             self.large_channels[level],
             self.prebuilt)
 
+    def max_level(self) -> int:
+        return len(self.small_channels) - 1
+
 
 class BasicBlock(nn.Module):
     def __init__(self, in_channels: Iterable[int], mid_channels: Iterable[int], out_channels: Iterable[int], stride=1) -> None:

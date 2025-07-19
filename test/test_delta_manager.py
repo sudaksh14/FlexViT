@@ -14,7 +14,7 @@ import networks.flexvgg as vgga
 import networks.resnet as resnet
 import networks.flexresnet as resneta
 
-import networks.vitflex as vita
+import networks.flexvit as vita
 import networks.vit as vit
 
 import networks.config

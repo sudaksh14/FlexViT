@@ -32,7 +32,7 @@ class VGGConfig(ModelConfig):
 
     def make_model(self) -> 'VGG':
         return VGG(self)
-    
+
     def no_prebuilt(self):
         self.prebuilt = False
         return self
@@ -46,6 +46,9 @@ class VGGConfig(ModelConfig):
             self.max_channels[level],
             self.num_classes,
             self.prebuilt)
+
+    def max_level(self) -> int:
+        return len(self.small_channels) - 1
 
 
 class VGG(FlexModel):

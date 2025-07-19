@@ -75,6 +75,9 @@ class ViTConfig(ModelConfig):
             self.attention_dropout
         )
 
+    def max_level(self) -> int:
+        return len(self.hidden_dims) - 1
+
 
 class MLPBlock(nn.Sequential):
     """Transformer MLP block."""

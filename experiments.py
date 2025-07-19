@@ -7,7 +7,7 @@ import utils
 import paths
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau, CosineAnnealingWarmRestarts, LinearLR, SequentialLR
-from networks import flexresnet, flexvgg, resnet, vgg, vit, vitflex
+from networks import flexresnet, flexvgg, flexvit, resnet, vgg, vit
 import sys
 
 from training import *
@@ -273,12 +273,12 @@ CONFIGS = {
     }, "flexvit": {
         "cifar10": TrainerBuilder(
             FlexModelTrainer,
-            vitflex.ViTConfig().set_num_classes(10),
+            flexvit.ViTConfig().set_num_classes(10),
             ViTTraining().set_load_from(vit.ViTConfig().set_num_classes(10))
         ),
         "cifar10.5levels": TrainerBuilder(
             FlexModelTrainer,
-            vitflex.ViTConfig()
+            flexvit.ViTConfig()
             .set_num_classes(10)
             .set_num_heads((12, 12, 12, 12, 12))
             .set_hidden_dims(
@@ -291,12 +291,12 @@ CONFIGS = {
         ),
         "cifar100": TrainerBuilder(
             FlexModelTrainer,
-            vitflex.ViTConfig().set_num_classes(100),
+            flexvit.ViTConfig().set_num_classes(100),
             ViTTraining100().set_load_from(vit.ViTConfig().set_num_classes(100))
         ),
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
-            vitflex.ViTConfig().set_num_classes(1000)
+            flexvit.ViTConfig().set_num_classes(1000)
             .set_num_heads((12, 12, 12, 12, 12))
             .set_hidden_dims(
                 (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
