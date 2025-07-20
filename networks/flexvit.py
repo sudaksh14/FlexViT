@@ -1,34 +1,17 @@
-import torch
-from torch import nn
-
-from typing import Callable, Iterable
-from functools import partial
-
-import math
-
 from collections import OrderedDict
-import utils
-
+from typing import Iterable
 import dataclasses
-from networks.config import ModelConfig
-# from networks.adapt_model import AdaptModel
-
-from enum import Enum
-from torchvision.models import vision_transformer
-
 import copy
-from networks.flex_model import FlexModel
+
+from torch import nn
+import torch
 
 from networks.vit import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
+from networks.flex_model import FlexModel
+from networks.config import ModelConfig
+import flex_modules as fm
 import networks.vit
-
-from flex_modules.pos_embedding import PosEmbeddingLayer
-from flex_modules.class_token import ClassTokenLayer
-from flex_modules.linear import Linear
-from flex_modules.conv2d import Conv2d
-from flex_modules.layer_norm import LayerNorm
-from flex_modules.selfattention import SelfAttention
-import flex_modules as am
+import utils
 
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
@@ -86,10 +69,10 @@ class MLPBlock(nn.Sequential):
 
     def __init__(self, in_dim: Iterable[int], mlp_dim: Iterable[int], dropout: float):
         super().__init__(
-            Linear(in_dim, mlp_dim, bias=True),
+            fm.Linear(in_dim, mlp_dim, bias=True),
             nn.GELU(),
             torch.nn.Dropout(dropout),
-            Linear(mlp_dim, in_dim, bias=True),
+            fm.Linear(mlp_dim, in_dim, bias=True),
             torch.nn.Dropout(dropout),
         )
 
@@ -109,13 +92,13 @@ class EncoderBlock(nn.Module):
         self.num_heads = num_heads
 
         # Attention block
-        self.ln_1 = LayerNorm(hidden_dim, eps=1e-6)
-        self.self_attention = SelfAttention(
+        self.ln_1 = fm.LayerNorm(hidden_dim, eps=1e-6)
+        self.self_attention = fm.SelfAttention(
             hidden_dim, num_heads, dropout=attention_dropout)
         self.dropout = nn.Dropout(dropout)
 
         # MLP block
-        self.ln_2 = LayerNorm(hidden_dim, eps=1e-6)
+        self.ln_2 = fm.LayerNorm(hidden_dim, eps=1e-6)
         self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
 
     def forward(self, input: torch.Tensor):
@@ -149,7 +132,7 @@ class Encoder(nn.Module):
         super().__init__()
         # Note that batch_size is on the first dim because
         # we have batch_first=True in nn.MultiAttention() by default
-        self.pos_embedding = PosEmbeddingLayer(seq_length, hidden_dim)
+        self.pos_embedding = fm.PosEmbeddingLayer(seq_length, hidden_dim)
         self.dropout = nn.Dropout(dropout)
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         for i in range(num_layers):
@@ -161,7 +144,7 @@ class Encoder(nn.Module):
                 attention_dropout
             )
         self.layers = nn.Sequential(layers)
-        self.ln = LayerNorm(hidden_dim, eps=1e-6)
+        self.ln = fm.LayerNorm(hidden_dim, eps=1e-6)
 
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim(
@@ -199,9 +182,9 @@ class VisionTransformer(FlexModel):
         self.dropout = dropout
         self.num_classes = num_classes
 
-        self.class_token = ClassTokenLayer(hidden_dim)
+        self.class_token = fm.ClassTokenLayer(hidden_dim)
 
-        self.conv_proj = Conv2d(
+        self.conv_proj = fm.Conv2d(
             [3] * len(hidden_dim), hidden_dim, kernel_size=patch_size, stride=patch_size)
 
         seq_length = (image_size // patch_size) ** 2
@@ -221,7 +204,7 @@ class VisionTransformer(FlexModel):
 
         self.seq_length = seq_length
 
-        self.heads = am.LinearSelect(
+        self.heads = fm.LinearSelect(
             hidden_dim, [DEFAULT_NUM_CLASSES] * len(hidden_dim))
 
         self.set_level_use(self.max_level())
@@ -237,7 +220,7 @@ class VisionTransformer(FlexModel):
                 prebuilt.encoder.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
-            self.heads = am.LinearSelect(
+            self.heads = fm.LinearSelect(
                 hidden_dim, [num_classes] * len(hidden_dim))
 
     @staticmethod

@@ -4,11 +4,7 @@ from torch import nn
 import torch
 
 from flex_modules.module import Module
-import torch.nn.functional as F
-
-import flex_modules as am
-import flex_modules.selfattention
-
+import flex_modules as fm
 import utils
 
 
@@ -107,7 +103,7 @@ class TestConv2d(LayerTester, unittest.TestCase):
     OUT_CHANNELS = [5, 9, 12]
 
     def make_flex_module(self) -> Module:
-        return am.conv2d.Conv2d(
+        return fm.conv2d.Conv2d(
             self.IN_CHANNELS, self.OUT_CHANNELS, kernel_size=3, bias=True)
 
     def make_reg_module(self, level) -> nn.Module:
@@ -123,7 +119,7 @@ class TestAttention(LayerTester, unittest.TestCase):
     HEADS = [5, 6, 8, 10]
 
     def make_flex_module(self) -> Module:
-        return am.SelfAttention(self.TOKEN_SIZE, self.HEADS)
+        return fm.SelfAttention(self.TOKEN_SIZE, self.HEADS)
 
     def make_reg_module(self, level) -> nn.Module:
         return nn.MultiheadAttention(
@@ -148,7 +144,7 @@ class TestLinear(LayerTester, unittest.TestCase):
     OUT_SIZE = [5, 15, 30, 50]
 
     def make_flex_module(self) -> Module:
-        return am.Linear(self.IN_SIZE, self.OUT_SIZE)
+        return fm.Linear(self.IN_SIZE, self.OUT_SIZE)
 
     def make_reg_module(self, level) -> nn.Module:
         return nn.Linear(self.IN_SIZE[level], self.OUT_SIZE[level])
@@ -161,7 +157,7 @@ class TestLayerNorm(LayerTester, unittest.TestCase):
     TOKEN_SIZE = [25, 30, 56, 100]
 
     def make_flex_module(self):
-        return am.LayerNorm(self.TOKEN_SIZE, eps=1e-6)
+        return fm.LayerNorm(self.TOKEN_SIZE, eps=1e-6)
 
     def make_reg_module(self, level):
         return nn.LayerNorm(self.TOKEN_SIZE[level], eps=1e-6)
@@ -174,7 +170,7 @@ class TestPosEmbedding(LayerTester, unittest.TestCase):
     TOKEN_SIZE = [25, 30, 56, 100]
 
     def make_flex_module(self):
-        return am.PosEmbeddingLayer(100, self.TOKEN_SIZE)
+        return fm.PosEmbeddingLayer(100, self.TOKEN_SIZE)
 
     def make_reg_module(self, level):
         return utils.PosEmbeddingLayer(100, self.TOKEN_SIZE[level])
@@ -188,7 +184,7 @@ class TestLinearSelect(LayerTester, unittest.TestCase):
     OUT_SIZE = [5, 15, 30, 50]
 
     def make_flex_module(self) -> Module:
-        return am.LinearSelect(self.IN_SIZE, self.OUT_SIZE)
+        return fm.LinearSelect(self.IN_SIZE, self.OUT_SIZE)
 
     def make_reg_module(self, level) -> nn.Module:
         return nn.Linear(self.IN_SIZE[level], self.OUT_SIZE[level])
@@ -201,7 +197,7 @@ class TestClassToken(LayerTester, unittest.TestCase):
     TOKEN_SIZE = [25, 30, 56, 100]
 
     def make_flex_module(self):
-        return am.ClassTokenLayer(self.TOKEN_SIZE)
+        return fm.ClassTokenLayer(self.TOKEN_SIZE)
 
     def make_reg_module(self, level):
         return utils.ClassTokenLayer(self.TOKEN_SIZE[level])
@@ -214,7 +210,7 @@ class TestBatchnorm2d(LayerTester, unittest.TestCase):
     CHANNELS = [5, 9, 12]
 
     def make_flex_module(self) -> Module:
-        return am.BatchNorm2d(self.CHANNELS)
+        return fm.BatchNorm2d(self.CHANNELS)
 
     def make_reg_module(self, level) -> nn.Module:
         return nn.BatchNorm2d(self.CHANNELS[level])

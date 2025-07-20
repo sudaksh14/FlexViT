@@ -1,13 +1,11 @@
 #!/usr/bin/python3
-from torchvision.datasets import CIFAR10, CIFAR100
 from typing import Callable, Generator
 import sys
 
-from training import *
-
-import config.hardware
 from config.hardware import HARDWARE, DEFAULT_HARDWARE_CONFIG
 from config.experiments import CONFIGS
+from training import BaseTrainer
+import config.hardware
 
 
 def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Callable[[], BaseTrainer]:

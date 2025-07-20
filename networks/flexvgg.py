@@ -1,20 +1,14 @@
+from typing import List, cast
+import dataclasses
+import utils
+
 from torch import nn
 import torch
-from typing import Union, Iterable, List, cast
-
-import torch.nn.functional as F
-
-import utils
-import dataclasses
-
-from training import TrainingContext
-
-import flex_modules as am
-
-from networks.flex_model import FlexModel
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
+from networks.flex_model import FlexModel
 from networks.config import ModelConfig
+import flex_modules as fm
 import networks.vgg
 
 
@@ -64,13 +58,13 @@ class VGG(FlexModel):
                 config.max_channels))
 
         self.classifier = nn.Sequential(
-            am.LinearSelect(config.max_channels, config.max_channels),
+            fm.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.LinearSelect(config.max_channels, config.max_channels),
+            fm.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.LinearSelect(
+            fm.LinearSelect(
                 config.max_channels,
                 [config.num_classes] * self.levels),
         )
@@ -100,9 +94,9 @@ class VGG(FlexModel):
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
                 v = cast(int, v)
-                conv2d = am.Conv2d(in_channels, v, kernel_size=3, padding=1)
+                conv2d = fm.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 layers += [conv2d,
-                           am.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                           fm.BatchNorm2d(v), nn.ReLU(inplace=True)]
                 in_channels = v
         return nn.Sequential(*layers)
 

@@ -1,7 +1,6 @@
 from torch import nn
 import torch
 
-from flex_modules.module import Module
 from flex_modules.flexselect import AdaptSelect
 
 

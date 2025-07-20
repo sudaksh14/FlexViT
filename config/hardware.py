@@ -1,5 +1,5 @@
-import utils
 import dataclasses
+import utils
 
 
 @utils.fluent_setters
