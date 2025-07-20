@@ -1,11 +1,12 @@
 # FlexViT
-## Install python modules
-Install python packages from `requirements.txt`.
-
-    pip3 install -r requirements.txt
 
 ## Replicating thesis results with SLURM
 First make sure you have the entire repository on a compute cluster with SLURM installed.
+
+### Install python modules
+Install python packages from `requirements.txt`.
+
+    pip3 install -r requirements.txt
 
 ### Configuration
 To run this on slurm you will probably first have to adjust some configurations. First of all you can find hardware configurations in the file `config/hardware.py`, where you can change the partition, amount of gpu's you want to allocate, and reservation time. Don't change the number of nodes, as support for multiple nodes is not added.
