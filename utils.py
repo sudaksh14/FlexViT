@@ -16,6 +16,8 @@ from flex_modules.module import Module
 from networks.vit_modules import ClassTokenLayer, PosEmbeddingLayer
 import config.paths as paths
 
+# Some of this code is from https://github.com/poojamangal15/Adaptive-Neural-Networks
+
 
 def get_device() -> 'str':
     return torch.device("mps" if torch.backends.mps.is_available() else
@@ -86,6 +88,8 @@ class SelfDescripting:
 def evaluate_model(model: nn.Module, dataloader: DataLoader, device: str) -> torch.Tensor:
     """
     Evaluates the model on the given dataloader and returns accuracy and F1 score.
+
+    from https://github.com/poojamangal15/Adaptive-Neural-Networks
     """
     all_preds = []
     all_labels = []
@@ -109,11 +113,20 @@ def evaluate_model(model: nn.Module, dataloader: DataLoader, device: str) -> tor
 
 
 def count_parameters(model: nn.Module) -> int:
-    """Counts the number of trainable parameters in the model."""
+    """
+    Counts the number of trainable parameters in the model.
+
+    from https://github.com/poojamangal15/Adaptive-Neural-Networks
+    """
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 def model_size_in_mb(model: nn.Module) -> int:
+    """
+    Gets the models file size.
+
+    from https://github.com/poojamangal15/Adaptive-Neural-Networks
+    """
     torch.save(model.state_dict(), "temp.p")
     size_mb = os.path.getsize("temp.p") / (1024 * 1024)
     os.remove("temp.p")
@@ -154,6 +167,11 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
 
 
 def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=None, batch_size=64):
+    """
+    Loads data for CIFAR10 or CIFAR100
+
+    Inspired by code from https://github.com/poojamangal15/Adaptive-Neural-Networks
+    """
     normalizers = {
         CIFAR10: {'mean': [0.485, 0.456, 0.406],
                   'std': [0.229, 0.224, 0.225], },
