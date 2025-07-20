@@ -26,6 +26,7 @@ from typing import Callable, Optional
 
 import config.hardware as hardware
 import datetime
+import config.wandb
 
 
 @utils.fluent_setters
@@ -38,7 +39,7 @@ class TrainingContext:
     label_smoothing: float = 0.0
     gradient_clip_val: Optional[float] = None
 
-    wandb_project_name: str = "b"
+    wandb_project_name: str = config.wandb.WANDB_PROJECT_NAME
 
     def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplementedError()

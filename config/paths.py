@@ -9,14 +9,7 @@ HOSTNAME = os.environ.get('HOSTNAME', default='localhost')
 HOME = os.environ.get('HOME', default='.')
 PWD = os.environ.get('PWD', default='.')
 TMPDIR = os.environ.get('TMPDIR', default='./tmp')
-SLURM_SUBMIT_DIR = os.environ.get('SLURM_SUBMIT_DIR', default='.')
 SLURM_JOBID = int(os.environ.get('SLURM_JOBID', default='0'))
-SLURM_JOB_NAME = os.environ.get('SLURM_JOB_NAME', default='job')
-
-SLURM_NODELIST = os.environ.get('SLURM_NODELIST', default=None)
-SLURM_ARRAY_TASK_ID = os.environ.get('SLURM_ARRAY_TASK_ID', default=None)
-SLURM_NTASKS = os.environ.get('SLURM_NTASKS', default=None)
-SLURM_NTASKS_PER_NODE = os.environ.get('SLURM_NTASKS_PER_NODE', default=None)
 
 
 def make_path(path: str) -> Path:
@@ -45,8 +38,9 @@ TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
 FIGURES = make_path(PROJECT_DIR / 'figures')
 
 try:
-    IMAGENET_PATH = make_path(
-        "/scratch-nvme/ml-datasets/imagenet/torchvision_ImageFolder")
+    snellius_imagenet = "/scratch-nvme/ml-datasets/imagenet/torchvision_ImageFolder"
+    IMAGENET_PATH = make_path(snellius_imagenet) if ON_CLUSTER else (
+        DATA_PATH / 'imagenet')
 except PermissionError:
     # Not on cluster
     IMAGENET_PATH = None
