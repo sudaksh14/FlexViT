@@ -1,16 +1,11 @@
-#!/usr/bin/python3
-import hardware
-from torchvision.datasets import CIFAR10, CIFAR100
+from training import *
+from networks import flexresnet, flexvgg, flexvit, resnet, vgg, vit
+
 from functools import partial
-from typing import Callable, Generator
-import utils
-import paths
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau, CosineAnnealingWarmRestarts, LinearLR, SequentialLR
-from networks import flexresnet, flexvgg, flexvit, resnet, vgg, vit
-import sys
 
-from training import *
+from torchvision.datasets import CIFAR10, CIFAR100
 
 
 class ModelTraining(FlexTrainingContext):
@@ -90,26 +85,6 @@ class VitTrainingImagenetWarmup(FlexTrainingContext):
             CosineAnnealingLR(optimizer, T_max=self.epochs -
                               self.warmup_epochs, eta_min=0.0)
         ], milestones=[self.warmup_epochs])
-
-
-@dataclasses.dataclass
-class TrainerBuilder:
-    training_method: type[BaseTrainer]
-    model_config: ModelConfig
-    training_context: TrainingContext
-
-    def __init__(self, training_method: type[BaseTrainer], model_config: ModelConfig, training_context: TrainingContext):
-        self.training_method = training_method
-        self.model_config = model_config
-        self.training_context = training_context
-
-    def run_training(self, conf: str):
-        trainer = self.training_method(
-            self.model_config, self.training_context)
-        return trainer.run_training(conf)
-
-    def __call__(self, conf: str):
-        return self.run_training(conf)
 
 
 CONFIGS = {
@@ -308,71 +283,3 @@ CONFIGS = {
         )
     }
 }
-
-DEFAULT_HARDWARE_CONFIG = hardware.HardwareConfig()
-HARDWARE = {
-    "vitprebuild": hardware.HardwareConfig().set_gpu_count(2),
-    "flexvit": hardware.HardwareConfig().set_gpu_count(4).set_time('72:00:00'),
-}
-
-
-def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Callable[[], BaseTrainer]:
-    config = config.split(',')
-    subpart = start
-    for i in config:
-        if i == 'all':
-            continue
-        try:
-            i = int(i)
-        except ValueError:
-            pass
-        try:
-            subpart = subpart[i]
-        except (KeyError, TypeError) as e:
-            if not return_on_index_error:
-                raise e
-            return subpart
-    return subpart
-
-
-def iter_over_conf(conf, basestr) -> Generator[str, None, None]:
-    if isinstance(conf, dict):
-        for key, val in conf.items():
-            for s in iter_over_conf(val, basestr + f",{key}"):
-                yield s
-    elif isinstance(conf, list):
-        for idx, val in enumerate(conf):
-            for s in iter_over_conf(val, basestr + f",{idx}"):
-                yield s
-    else:
-        yield basestr
-
-
-def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
-    for s in iter_over_conf(conf, basestr):
-        print(s, file=file)
-
-
-def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
-    for s in iter_over_conf(conf, basestr):
-        hconf = resolve_from_str(s, HARDWARE, return_on_index_error=True)
-        if hconf is HARDWARE:
-            hconf = DEFAULT_HARDWARE_CONFIG
-        print(f"{hconf.format_as_slurm_args()} experiment_job.sh {s}", file=file)
-
-
-if __name__ == "__main__":
-    command, conf = sys.argv[1:]
-    # command = "run"
-    # conf = "zeroout,vgg11.3_levels.cifar100"
-    res = resolve_from_str(conf)
-    if command == "list":
-        print_all_conf_paths(res, conf)
-    elif command == "run":
-        hw = resolve_from_str(
-            conf, HARDWARE, return_on_index_error=True)
-        if isinstance(hw, hardware.HardwareConfig):
-            hardware.CurrentDevice.set_hardware(hw)
-        res(conf)
-    elif command == "listcommand":
-        print_all_conf_commands(res, conf)

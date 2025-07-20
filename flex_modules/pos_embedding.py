@@ -4,7 +4,7 @@ import torch
 import copy
 
 from flex_modules.module import Module
-import vit_modules as vmod
+import networks.vit_modules as vmod
 
 
 class PosEmbeddingLayer(Module):
