@@ -7,7 +7,7 @@ import torch
 from networks.config import ModelConfig
 import utils
 
-# basic implementation from github.com/chenyaofo/pytorch-cifar-models
+# basic implementation from https://github.com/chenyaofo/pytorch-cifar-models
 
 
 @utils.fluent_setters
