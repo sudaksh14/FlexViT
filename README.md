@@ -1,4 +1,8 @@
 # FlexViT
+## Install python modules
+Install python packages from `requirements.txt`.
+
+    pip3 install -r requirements.txt
 
 ## Replicating thesis results with SLURM
 First make sure you have the entire repository on a compute cluster with SLURM installed.
