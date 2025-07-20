@@ -1,7 +1,6 @@
+from typing import Any
+
 from torch import nn
-from typing import Union, Any
-import torch
-import copy
 
 
 class Module(nn.Module):

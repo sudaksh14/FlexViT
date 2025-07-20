@@ -1,31 +1,16 @@
 #!/usr/bin/python3
-import matplotlib.axis
-import matplotlib.figure
-import wandb
-import re
-import run_experiment
+import itertools
+import sys
 
 import matplotlib.pyplot as plt
-
-import networks
 import numpy as np
-import networks.config
+import matplotlib
+import wandb
 import utils
 
-import itertools
-
-import matplotlib
-
 import config.paths as paths
-import pandas
-
-import sys
-import tqdm
+import run_experiment
 import training
-
-from config.experiments import ViTTraining
-
-import config
 
 
 class Wandb:

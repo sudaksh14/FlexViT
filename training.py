@@ -1,32 +1,21 @@
-import torch
-from torch.utils.data import DataLoader
+from typing import Callable, Optional
 import dataclasses
-
-import pytorch_lightning as pl
+import tempfile
+import datetime
 
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
-from pytorch_lightning.loggers import WandbLogger, CSVLogger
-
-from torch.optim import AdamW, Adam, lr_scheduler, SGD
-import pytorch_lightning as pl
-
-import config.paths as paths
-from networks.flex_model import FlexModel
+from pytorch_lightning.loggers import WandbLogger
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import utils
-
-import tempfile
-from networks.flex_model import FlexModel
-from networks.config import ModelConfig, FlexModelConfig
-
-import flex_modules as fm
-
+import pytorch_lightning as pl
+import torch
 import wandb
-from typing import Callable, Optional
 
+from networks.config import ModelConfig, FlexModelConfig
 import config.hardware as hardware
-import datetime
+import config.paths as paths
 import config.wandb
+import utils
 
 
 @utils.fluent_setters

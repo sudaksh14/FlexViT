@@ -1,24 +1,20 @@
-from flex_modules.module import Module
-import torch
-from torch import nn
-from sklearn.metrics import accuracy_score, f1_score
+import shutil
 import os
-
-from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 
 from torchvision.transforms import (
     Compose, RandomHorizontalFlip, RandomRotation,
     ColorJitter, ToTensor, Normalize, Resize, CenterCrop, ConvertImageDtype
 )
-
+from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
+from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader
-import shutil
-
-import config.paths as paths
-
+from torch import nn
+import torch
 import tqdm
 
+from flex_modules.module import Module
 from networks.vit_modules import ClassTokenLayer, PosEmbeddingLayer
+import config.paths as paths
 
 
 def get_device() -> 'str':

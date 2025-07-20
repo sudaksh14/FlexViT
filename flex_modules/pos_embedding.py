@@ -1,7 +1,7 @@
+from typing import Any, Iterable
+
 from torch import nn
-from typing import Union, Any, Iterable
 import torch
-import copy
 
 from flex_modules.module import Module
 import networks.vit_modules as vmod

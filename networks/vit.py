@@ -1,21 +1,17 @@
-import torch
-from torch import nn
-
-from typing import Callable
-from functools import partial
-
-import math
-
 from collections import OrderedDict
-import utils
-
-import dataclasses
-from networks.config import ModelConfig
-
+from functools import partial
+from typing import Callable
 from enum import Enum
-from torchvision.models import vision_transformer
-
+import dataclasses
+import math
 import copy
+
+from torchvision.models import vision_transformer
+from torch import nn
+import torch
+
+from networks.config import ModelConfig
+import utils
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
 

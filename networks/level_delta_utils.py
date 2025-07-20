@@ -1,6 +1,5 @@
 from torch import nn
 from flex_modules.module import Module
-import torch
 
 from networks.flex_model import FlexModel
 from typing import Iterable, Any

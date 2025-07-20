@@ -1,20 +1,15 @@
-from torch import nn
-import torch
-from typing import Union, Iterable
-
-import torch.nn.functional as F
-
-import utils
+from typing import Iterable
 import dataclasses
+import utils
 
-from training import TrainingContext
-
-import flex_modules as fm
-
-from networks.flex_model import FlexModel
+from torch import nn
+import torch.nn.functional as F
+import torch
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
+from networks.flex_model import FlexModel
 from networks.config import ModelConfig
+import flex_modules as fm
 import networks.resnet
 
 
@@ -31,7 +26,7 @@ class ResnetConfig(ModelConfig):
 
     def make_model(self) -> 'Resnet':
         return Resnet(self)
-    
+
     def no_prebuilt(self):
         self.prebuilt = False
         return self

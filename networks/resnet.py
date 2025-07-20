@@ -1,11 +1,11 @@
-from torch import nn
-import torch
-import torch.nn.functional as F
-import utils
-
-import dataclasses
 from typing import Iterable, Dict, Callable, Hashable
+import dataclasses
 
+from torch import nn
+import torch.nn.functional as F
+import torch
+
+import utils
 from networks.config import ModelConfig
 
 # basic implementation from github.com/chenyaofo/pytorch-cifar-models
@@ -23,7 +23,7 @@ class ResnetConfig(ModelConfig):
 
     def make_model(self) -> 'Resnet':
         return Resnet(self)
-    
+
     def no_prebuilt(self):
         self.prebuilt = False
         return self

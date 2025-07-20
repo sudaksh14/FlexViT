@@ -1,9 +1,9 @@
+from networks import flexresnet, flexvgg, flexvit, vit
 from training import *
-from networks import flexresnet, flexvgg, flexvit, resnet, vgg, vit
 
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from functools import partial
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, ReduceLROnPlateau, CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 
 from torchvision.datasets import CIFAR10, CIFAR100
 

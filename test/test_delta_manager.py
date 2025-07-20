@@ -1,24 +1,12 @@
 import unittest
 
-from torch import nn
-from flex_modules.module import Module
 import torch
 
-from networks.flex_model import FlexModel
-
 import networks.level_delta_utils as levels
-
-import networks.vgg as vgg
-import networks.flexvgg as vgga
-
-import networks.resnet as resnet
-import networks.flexresnet as resneta
-
-import networks.flexvit as vita
-import networks.vit as vit
-
+import networks.flexresnet as flexresnet
+import networks.flexvgg as flexvgg
+import networks.flexvit as flexvit
 import networks.config
-
 import utils
 
 
@@ -60,7 +48,7 @@ class TestDeltaManager():
 
 class TestDeltaResnet(TestDeltaManager, unittest.TestCase):
     def get_flex_config(self) -> networks.config.FlexModelConfig:
-        return resneta.ResnetConfig()
+        return flexresnet.ResnetConfig()
 
     def make_input(self) -> torch.Tensor:
         return torch.rand(10, 3, 32, 32, device=utils.get_device())
@@ -68,7 +56,7 @@ class TestDeltaResnet(TestDeltaManager, unittest.TestCase):
 
 class TestDeltaViT(TestDeltaManager, unittest.TestCase):
     def get_flex_config(self) -> networks.config.FlexModelConfig:
-        return vita.ViTConfig()
+        return flexvit.ViTConfig()
 
     def make_input(self) -> torch.Tensor:
         return torch.rand(
@@ -77,7 +65,7 @@ class TestDeltaViT(TestDeltaManager, unittest.TestCase):
 
 class TestDeltaVGG(TestDeltaManager, unittest.TestCase):
     def get_flex_config(self) -> networks.config.FlexModelConfig:
-        return vgga.VGGConfig()
+        return flexvgg.VGGConfig()
 
     def make_input(self) -> torch.Tensor:
         return torch.rand(10, 3, 32, 32, device=utils.get_device())

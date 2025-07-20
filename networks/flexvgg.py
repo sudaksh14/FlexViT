@@ -1,20 +1,14 @@
+from typing import List, cast
+import dataclasses
+import utils
+
 from torch import nn
 import torch
-from typing import Union, Iterable, List, cast
-
-import torch.nn.functional as F
-
-import utils
-import dataclasses
-
-from training import TrainingContext
-
-import flex_modules as fm
-
-from networks.flex_model import FlexModel
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
+from networks.flex_model import FlexModel
 from networks.config import ModelConfig
+import flex_modules as fm
 import networks.vgg
 
 

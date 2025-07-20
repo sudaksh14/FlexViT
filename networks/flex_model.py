@@ -1,8 +1,9 @@
-from torch import nn
-import flex_modules as fm
-
 from typing import Any
+
+from torch import nn
 import torch
+
+import flex_modules as fm
 
 
 class FlexModel(nn.Module):

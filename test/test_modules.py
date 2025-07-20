@@ -4,11 +4,7 @@ from torch import nn
 import torch
 
 from flex_modules.module import Module
-import torch.nn.functional as F
-
 import flex_modules as fm
-import flex_modules.selfattention
-
 import utils
 
 

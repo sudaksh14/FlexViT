@@ -1,10 +1,10 @@
-from torch import nn
-from typing import Union, Any, Iterable
-import torch
-import copy
+from typing import Any, Iterable
 
-import networks.vit_modules as vmod
+from torch import nn
+import torch
+
 from flex_modules.module import Module
+import networks.vit_modules as vmod
 
 
 class ClassTokenLayer(Module):

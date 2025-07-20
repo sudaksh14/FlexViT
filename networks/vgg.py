@@ -1,14 +1,11 @@
-import torch
-import torch.nn as nn
-
-
 from typing import Union, List, Dict, cast, Callable, Hashable
-
-import utils
 import dataclasses
 
+import torch.nn as nn
+import torch
 
 from networks.config import ModelConfig
+import utils
 
 # basic implementation from github.com/chenyaofo/pytorch-cifar-models
 

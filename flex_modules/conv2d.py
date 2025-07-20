@@ -1,11 +1,10 @@
+from typing import Iterable
+
 from torch import nn
 import torch
 
 from flex_modules.module import Module
 import torch.nn.functional as F
-
-from typing import Iterable
-import copy
 
 
 class Conv2d(Module):
@@ -80,7 +79,8 @@ class Conv2d(Module):
         weights = self.conv.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
-        right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        right_part = weights[self.out_sizes[self.level-1]
+            :self.out_sizes[self.level], :self.in_sizes[self.level-1]]
         bias_part = None
         if self.conv.bias is not None:
             bias_part = self.conv.bias.data[

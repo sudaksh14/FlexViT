@@ -1,5 +1,5 @@
-import os
 from pathlib import Path
+import os
 
 
 def make_path(path: str) -> Path:
