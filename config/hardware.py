@@ -5,12 +5,21 @@ import dataclasses
 @utils.fluent_setters
 @dataclasses.dataclass
 class HardwareConfig(utils.SelfDescripting):
-    partition = 'gpu_h100'
-    gpu_count = 1
-    time = '24:00:00'
-    node_count = 1
+    """
+    This class stores the hardware configuration of the node(s) running an experiment.
+    """
+    partition: str = 'gpu_h100'
+    gpu_count: int = 1
+    time: str = '24:00:00'
+
+    # do not change this as training code is currently not set up to handle multiple nodes
+    node_count: int = 1
 
     def format_as_slurm_args(self) -> str:
+        """
+        This formats the configuration into arguments as passed to sbatch or srun.
+        This is used to reserve nodes for experiments with their associated hardware requirements.
+        """
         return f"-N {self.node_count} -p {self.partition} -t {self.time} --gpus-per-node={self.gpu_count} --mem=0"
 
 
