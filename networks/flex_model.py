@@ -1,5 +1,5 @@
 from torch import nn
-import flex_modules as am
+import flex_modules as fm
 
 from typing import Any
 import torch
@@ -16,7 +16,7 @@ class FlexModel(nn.Module):
         """
         self.level = level
         for _, module in self.named_modules():
-            if isinstance(module, am.Module):
+            if isinstance(module, fm.Module):
                 module.set_level_use(level)
 
     def current_level(self) -> int:

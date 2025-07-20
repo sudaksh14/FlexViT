@@ -9,7 +9,7 @@ import dataclasses
 
 from training import TrainingContext
 
-import flex_modules as am
+import flex_modules as fm
 
 from networks.flex_model import FlexModel
 
@@ -64,13 +64,13 @@ class VGG(FlexModel):
                 config.max_channels))
 
         self.classifier = nn.Sequential(
-            am.LinearSelect(config.max_channels, config.max_channels),
+            fm.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.LinearSelect(config.max_channels, config.max_channels),
+            fm.LinearSelect(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            am.LinearSelect(
+            fm.LinearSelect(
                 config.max_channels,
                 [config.num_classes] * self.levels),
         )
@@ -100,9 +100,9 @@ class VGG(FlexModel):
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
                 v = cast(int, v)
-                conv2d = am.Conv2d(in_channels, v, kernel_size=3, padding=1)
+                conv2d = fm.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 layers += [conv2d,
-                           am.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                           fm.BatchNorm2d(v), nn.ReLU(inplace=True)]
                 in_channels = v
         return nn.Sequential(*layers)
 

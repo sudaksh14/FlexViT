@@ -28,7 +28,7 @@ from flex_modules.linear import Linear
 from flex_modules.conv2d import Conv2d
 from flex_modules.layer_norm import LayerNorm
 from flex_modules.selfattention import SelfAttention
-import flex_modules as am
+import flex_modules as fm
 
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
@@ -221,7 +221,7 @@ class VisionTransformer(FlexModel):
 
         self.seq_length = seq_length
 
-        self.heads = am.LinearSelect(
+        self.heads = fm.LinearSelect(
             hidden_dim, [DEFAULT_NUM_CLASSES] * len(hidden_dim))
 
         self.set_level_use(self.max_level())
@@ -237,7 +237,7 @@ class VisionTransformer(FlexModel):
                 prebuilt.encoder.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
-            self.heads = am.LinearSelect(
+            self.heads = fm.LinearSelect(
                 hidden_dim, [num_classes] * len(hidden_dim))
 
     @staticmethod

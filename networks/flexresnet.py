@@ -9,7 +9,7 @@ import dataclasses
 
 from training import TrainingContext
 
-import flex_modules as am
+import flex_modules as fm
 
 from networks.flex_model import FlexModel
 
@@ -52,21 +52,21 @@ class ResnetConfig(ModelConfig):
 class BasicBlock(nn.Module):
     def __init__(self, in_channels: Iterable[int], mid_channels: Iterable[int], out_channels: Iterable[int], stride=1) -> None:
         super().__init__()
-        self.conv1 = am.Conv2d(
+        self.conv1 = fm.Conv2d(
             in_channels, mid_channels,
             kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = am.BatchNorm2d(mid_channels)
+        self.bn1 = fm.BatchNorm2d(mid_channels)
 
-        self.conv2 = am.Conv2d(mid_channels, out_channels,
+        self.conv2 = fm.Conv2d(mid_channels, out_channels,
                                kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = am.BatchNorm2d(out_channels)
+        self.bn2 = fm.BatchNorm2d(out_channels)
 
         self.downsample = nn.Sequential()
         if stride != 1 or in_channels != out_channels:
             self.downsample = nn.Sequential(
-                am.Conv2d(
+                fm.Conv2d(
                     in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
-                am.BatchNorm2d(out_channels)
+                fm.BatchNorm2d(out_channels)
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -91,11 +91,11 @@ class Resnet(FlexModel):
     def build_net(self, config: ResnetConfig) -> None:
         self.levels = len(config.small_channels)
 
-        self.conv1 = am.Conv2d(
+        self.conv1 = fm.Conv2d(
             [3] * self.levels,
             config.small_channels,
             kernel_size=3, padding=1, bias=False)
-        self.bn1 = am.BatchNorm2d(config.small_channels)
+        self.bn1 = fm.BatchNorm2d(config.small_channels)
 
         self.layer1 = self._make_base_layer(
             config.small_channels, config.small_channels, config.num_blocks[0])
@@ -104,7 +104,7 @@ class Resnet(FlexModel):
         self.layer3 = self._make_base_layer(
             config.mid_channels, config.large_channels, config.num_blocks[2], stride=2)
 
-        self.fc = am.LinearSelect(
+        self.fc = fm.LinearSelect(
             config.large_channels,
             [config.num_classes] * self.levels)
 

@@ -19,7 +19,7 @@ import tempfile
 from networks.flex_model import FlexModel
 from networks.config import ModelConfig, FlexModelConfig
 
-import flex_modules as am
+import flex_modules as fm
 
 import wandb
 from typing import Callable, Optional
