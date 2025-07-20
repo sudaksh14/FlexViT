@@ -14,11 +14,11 @@ from torchvision.transforms import (
 from torch.utils.data import DataLoader
 import shutil
 
-import paths
+import config.paths as paths
 
 import tqdm
 
-from vit_modules import ClassTokenLayer, PosEmbeddingLayer
+from networks.vit_modules import ClassTokenLayer, PosEmbeddingLayer
 
 
 def get_device() -> 'str':

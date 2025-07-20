@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import WandbLogger, CSVLogger
 from torch.optim import AdamW, Adam, lr_scheduler, SGD
 import pytorch_lightning as pl
 
-import paths
+import config.paths as paths
 from networks.flex_model import FlexModel
 import torch.nn.functional as F
 import utils
@@ -24,7 +24,7 @@ import flex_modules as am
 import wandb
 from typing import Callable, Optional
 
-import hardware
+import config.hardware as hardware
 import datetime
 
 
@@ -60,6 +60,26 @@ class TrainingContext:
 class BaseTrainer:
     def run_training(self, conf_description: str) -> None:
         raise NotImplementedError()
+
+
+@dataclasses.dataclass
+class TrainerBuilder:
+    training_method: type[BaseTrainer]
+    model_config: ModelConfig
+    training_context: TrainingContext
+
+    def __init__(self, training_method: type[BaseTrainer], model_config: ModelConfig, training_context: TrainingContext):
+        self.training_method = training_method
+        self.model_config = model_config
+        self.training_context = training_context
+
+    def run_training(self, conf: str):
+        trainer = self.training_method(
+            self.model_config, self.training_context)
+        return trainer.run_training(conf)
+
+    def __call__(self, conf: str):
+        return self.run_training(conf)
 
 
 @utils.fluent_setters

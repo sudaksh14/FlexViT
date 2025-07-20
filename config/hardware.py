@@ -24,3 +24,10 @@ class CurrentDevice:
     @staticmethod
     def get_hardware() -> HardwareConfig:
         return CurrentDevice.hardware
+
+
+DEFAULT_HARDWARE_CONFIG = HardwareConfig()
+HARDWARE = {
+    "vitprebuild": HardwareConfig().set_gpu_count(4),
+    "flexvit": HardwareConfig().set_gpu_count(4).set_time('72:00:00'),
+}

@@ -3,7 +3,7 @@ from typing import Union, Any, Iterable
 import torch
 import copy
 
-import vit_modules as vmod
+import networks.vit_modules as vmod
 from flex_modules.module import Module
 
 

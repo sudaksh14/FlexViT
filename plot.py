@@ -3,7 +3,7 @@ import matplotlib.axis
 import matplotlib.figure
 import wandb
 import re
-import experiments
+import run_experiment
 
 import matplotlib.pyplot as plt
 
@@ -16,14 +16,16 @@ import itertools
 
 import matplotlib
 
-import paths
+import config.paths as paths
 import pandas
 
 import sys
 import tqdm
 import training
 
-from experiments import ViTTraining
+from config.experiments import ViTTraining
+
+import config
 
 
 class Wandb:
@@ -38,8 +40,8 @@ class Wandb:
 
 def get_experiment(name: str):
     print(f"retrieving experiment '{name}'", file=sys.stderr)
-    experiment: experiments.TrainerBuilder = experiments.resolve_from_str(name)
-    if not isinstance(experiment, experiments.TrainerBuilder):
+    experiment: training.TrainerBuilder = run_experiment.resolve_from_str(name)
+    if not isinstance(experiment, run_experiment.TrainerBuilder):
         return
     entity = Wandb.get().default_entity
     project = experiment.training_context.wandb_project_name
