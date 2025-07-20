@@ -23,6 +23,8 @@ import sys
 import tqdm
 import training
 
+from experiments import ViTTraining
+
 
 class Wandb:
     api: wandb.Api = None
@@ -161,7 +163,7 @@ if __name__ == "__main__":
     plot_acc_history("flexvit,imagenet")
     savefig("vit_imagenet_history")
 
-    plot_acc("flexvit,imagenet", "val")
+    plot_acc("flexvit,imagenet", "test")
     savefig("vit_imagenet_acc")
 
     plot_acc_val_and_train("flexvit,imagenet", 4)
