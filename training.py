@@ -31,7 +31,7 @@ class TrainingContext:
 
     wandb_project_name: str = config.wandb.WANDB_PROJECT_NAME
 
-    silent: bool = False
+    unittest_mode: bool = False
 
     def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplementedError()
@@ -266,7 +266,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
         else:
             kwargs['logger'] = None
 
-        if config.silent:
+        if config.unittest_mode:
             kwargs['fast_dev_run'] = True
             kwargs['enable_progress_bar'] = False
             logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
@@ -283,7 +283,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
 
         train_loader, val_loader, test_loader = config.loader_function()
         trainer.fit(model, train_loader, val_loader)
-        if not config.silent:
+        if not config.unittest_mode:
             model = type(model).load_from_checkpoint(
                 checkpoint_callback.best_model_path)
             config.wrap_model(model)
