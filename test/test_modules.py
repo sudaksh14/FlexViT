@@ -97,6 +97,38 @@ class LayerTester:
             self.assertTrue(self.check_equiv(
                 layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))
 
+    def test_level_deltas(self):
+        layer = self.make_flex_module()
+        layer.set_level_use(layer.max_level())
+        reg_layer = self.make_reg_module(layer.max_level())
+        layer.copy_to_base(reg_layer)
+
+        x = self.make_input(layer.max_level())
+        self.assertTrue(self.check_equiv(
+            layer(*x), self.augment_reg_output(
+                reg_layer(
+                    *self.augment_for_reg(
+                        x, layer.max_level()
+                    )
+                ),
+                layer.max_level())))
+
+        for i in range(layer.max_level() - 1, -1, -1):
+            layer.set_level_use(i)
+            delta_down, delta_up = layer.export_level_delta()
+            fm.LevelDeltas.apply_level_delta_down(reg_layer, delta_down)
+            x = self.make_input(i)
+            self.assertTrue(self.check_equiv(
+                layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))
+
+        for i in range(1, layer.max_level() + 1):
+            layer.set_level_use(i)
+            delta_down, delta_up = layer.export_level_delta()
+            fm.LevelDeltas.apply_level_delta_up(reg_layer, delta_up)
+            x = self.make_input(i)
+            self.assertTrue(self.check_equiv(
+                layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))
+
 
 class TestConv2d(LayerTester, unittest.TestCase):
     IN_CHANNELS = [5, 9, 12]
@@ -187,7 +219,7 @@ class TestLinearSelect(LayerTester, unittest.TestCase):
         return fm.LinearSelect(self.IN_SIZE, self.OUT_SIZE)
 
     def make_reg_module(self, level) -> nn.Module:
-        return nn.Linear(self.IN_SIZE[level], self.OUT_SIZE[level])
+        return utils.LinearHead(self.IN_SIZE[level], self.OUT_SIZE[level])
 
     def make_input(self, level) -> torch.Tensor:
         return torch.rand((100, self.IN_SIZE[level])),

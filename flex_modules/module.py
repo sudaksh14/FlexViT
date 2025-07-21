@@ -3,7 +3,51 @@ from typing import Any
 from torch import nn
 
 
-class Module(nn.Module):
+class LevelDeltaCompatible:
+    @staticmethod
+    def base_type() -> type[nn.Module]:
+        """
+        Queries the type of regular module this flexible module is based on.
+        """
+        raise NotImplementedError()
+
+    def export_level_delta(self) -> tuple[Any, Any]:
+        """
+        This function extracts part of the flexible layer into a down delta and an up delta. If
+        you have a regular layer that is equivalent to one below the current
+        level of the flexible layer. You can apply the up delta to it to make it equivalent
+        to the current level. Similarly if you have a regular layer equivalent to one above the
+        current level of the flexible layer, you can apply a delta down to make it equivalent
+        to the current level.
+
+        The functions to apply these deltas are apply_level_delta_down, and apply_level_delta_up
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def apply_level_delta_down(module: nn.Module, level_delta: Any) -> None:
+        """
+        Takes regular layer and applies a delta down to it.
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def apply_level_delta_up(module: nn.Module, level_delta: Any) -> None:
+        """
+        Takes regular layer and applies a delta up to it.
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def register_self(cls: type['LevelDeltaCompatible']) -> type['LevelDeltaCompatible']:
+        return LevelDeltas.register(cls)
+
+
+class Module(nn.Module, LevelDeltaCompatible):
+    def __init__(self):
+        nn.Module.__init__(self)
+        LevelDeltaCompatible.__init__(self)
+
     def set_level_use(self, level: int) -> None:
         """
         Sets the level the flexbible module will use.
@@ -19,13 +63,6 @@ class Module(nn.Module):
     def max_level(self) -> int:
         """
         Queries the highest level this module can be set to.
-        """
-        raise NotImplementedError()
-
-    @staticmethod
-    def base_type() -> type[nn.Module]:
-        """
-        Queries the type of regular module this flexible module is based on.
         """
         raise NotImplementedError()
 
@@ -59,29 +96,29 @@ class Module(nn.Module):
         """
         raise NotImplementedError()
 
-    def export_level_delta(self) -> tuple[Any, Any]:
-        """
-        This function extracts part of the flexible layer into a down delta and an up delta. If
-        you have a regular layer that is equivalent to one below the current
-        level of the flexible layer. You can apply the up delta to it to make it equivalent
-        to the current level. Similarly if you have a regular layer equivalent to one above the
-        current level of the flexible layer, you can apply a delta down to make it equivalent
-        to the current level.
 
-        The functions to apply these deltas are apply_level_delta_down, and apply_level_delta_up
-        """
-        raise NotImplementedError()
+class LevelDeltas:
+    registered: dict[type[nn.Module], LevelDeltaCompatible] = dict()
+
+    @staticmethod
+    def register(cls: type[LevelDeltaCompatible]) -> type[LevelDeltaCompatible]:
+        assert (not __class__.is_registered(cls.base_type()))
+        __class__.registered[cls.base_type()] = cls
+
+    @staticmethod
+    def is_registered(module_type: type[nn.Module]):
+        return module_type in __class__.registered
 
     @staticmethod
     def apply_level_delta_down(module: nn.Module, level_delta: Any) -> None:
         """
         Takes regular layer and applies a delta down to it.
         """
-        raise NotImplementedError()
+        return __class__.registered[type(module)].apply_level_delta_down(module, level_delta)
 
     @staticmethod
     def apply_level_delta_up(module: nn.Module, level_delta: Any) -> None:
         """
         Takes regular layer and applies a delta up to it.
         """
-        raise NotImplementedError()
+        return __class__.registered[type(module)].apply_level_delta_up(module, level_delta)

@@ -148,3 +148,6 @@ class Resnet(FlexModel):
         out = out.view(out.size(0), -1)
         out = self.fc(out)
         return out
+
+
+Resnet.register_self(Resnet)

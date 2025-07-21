@@ -55,13 +55,13 @@ class VGG(nn.Module):
             config.small_channels, config.mid_channels, config.large_channels, config.max_channels))
 
         self.classifier = nn.Sequential(
-            nn.Linear(config.max_channels, config.max_channels),
+            utils.LinearHead(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(config.max_channels, config.max_channels),
+            utils.LinearHead(config.max_channels, config.max_channels),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(config.max_channels, config.num_classes),
+            utils.LinearHead(config.max_channels, config.num_classes),
         )
 
         if config.prebuilt:

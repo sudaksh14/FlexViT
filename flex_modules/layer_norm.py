@@ -36,3 +36,6 @@ class LayerNorm(AdaptSelect):
     def apply_level_delta_up(model: nn.LayerNorm, level_delta: tuple[torch.Tensor, torch.Tensor]):
         AdaptSelect.apply_level_delta_up(model, level_delta)
         model.normalized_shape = level_delta[0].shape[0],
+
+
+LayerNorm.register_self(LayerNorm)

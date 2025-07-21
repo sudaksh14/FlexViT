@@ -275,7 +275,7 @@ class VisionTransformer(nn.Module):
 
         self.seq_length = seq_length
 
-        self.heads = nn.Linear(hidden_dim, DEFAULT_NUM_CLASSES)
+        self.heads = utils.LinearHead(hidden_dim, DEFAULT_NUM_CLASSES)
 
         # Weights initialisation
         fan_in = self.conv_proj.in_channels * \

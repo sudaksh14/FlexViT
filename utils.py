@@ -13,7 +13,7 @@ import torch
 import tqdm
 
 from flex_modules.module import Module
-from networks.vit_modules import ClassTokenLayer, PosEmbeddingLayer
+from networks.modules import ClassTokenLayer, PosEmbeddingLayer, LinearHead
 import config.paths as paths
 
 # Some of this code is from https://github.com/poojamangal15/Adaptive-Neural-Networks
@@ -229,6 +229,7 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
         torch.nn.BatchNorm2d,
         torch.nn.MultiheadAttention,
         torch.nn.LayerNorm,
+        LinearHead,
         ClassTokenLayer,
         PosEmbeddingLayer
     )
@@ -264,34 +265,38 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
             dest_name, dest_module = next(dest_iter)
             dest_is_flexible = isinstance(dest_module, Module)
 
-            if dest_is_flexible:
-                if src_instance_type != dest_module.base_type():
-                    if verbose >= 2:
-                        print(f"Cannot copy {src_name} to {dest_name}")
-                    continue
-            else:
-                if not isinstance(dest_module, src_instance_type):
-                    if verbose >= 2:
-                        print(f"Cannot copy {src_name} to {dest_name}")
-                    continue
+            # if dest_is_flexible:
+            #     if src_instance_type != dest_module.base_type():
+            #         if verbose >= 2:
+            #             print(f"Cannot copy {src_name} to {dest_name}")
+            #         continue
+            # else:
+            #     if not isinstance(dest_module, src_instance_type):
+            #         if verbose >= 2:
+            #             print(f"Cannot copy {src_name} to {dest_name}")
+            #         continue
 
             if last_copied_to is not None and dest_module in last_copied_to.modules():
                 continue
 
             if verbose >= 1:
                 print(f"copy from {src_name} to {dest_name}")
-            if src_is_flexible:
-                if dest_is_flexible:
-                    dest_module.load_from_base(src_module.make_base_copy())
+            try:
+                if src_is_flexible:
+                    if dest_is_flexible:
+                        dest_module.load_from_base(src_module.make_base_copy())
+                    else:
+                        src_module.copy_to_base(dest_module)
                 else:
-                    src_module.copy_to_base(dest_module)
-            else:
-                if dest_is_flexible:
-                    dest_module.load_from_base(src_module)
-                else:
-                    dest_module.load_state_dict(src_module.state_dict())
-            last_copied_to = dest_module
-            break
+                    if dest_is_flexible:
+                        dest_module.load_from_base(src_module)
+                    else:
+                        dest_module.load_state_dict(src_module.state_dict())
+                last_copied_to = dest_module
+                break
+            except Exception as e:
+                if verbose >= 2:
+                    print(type(e))
 
         last_copied_from = src_module
 

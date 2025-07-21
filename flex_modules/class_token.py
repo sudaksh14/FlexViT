@@ -4,7 +4,7 @@ from torch import nn
 import torch
 
 from flex_modules.module import Module
-import networks.vit_modules as vmod
+import networks.modules as vmod
 
 
 class ClassTokenLayer(Module):
@@ -66,3 +66,6 @@ class ClassTokenLayer(Module):
     @torch.no_grad()
     def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: Any) -> None:
         model.token.data = torch.cat([model.token.data, level_delta], dim=2)
+
+
+ClassTokenLayer.register_self(ClassTokenLayer)

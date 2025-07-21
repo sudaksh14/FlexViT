@@ -66,7 +66,7 @@ class Linear(Module):
         weights = self.linear.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
-        right_part = weights[self.out_sizes[self.level-1]                             :self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
         bias_part = None
         if self.linear.bias is not None:
             bias_part = self.linear.bias.data[
@@ -95,3 +95,6 @@ class Linear(Module):
             model.bias.data = torch.cat([model.bias.data, bias_part])
         model.weight.data = weights
         model.zero_grad()
+
+
+Linear.register_self(Linear)

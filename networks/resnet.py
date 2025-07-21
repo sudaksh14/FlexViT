@@ -93,7 +93,7 @@ class Resnet(nn.Module):
         self.layer3 = self._make_base_layer(
             config.mid_channels, config.large_channels, config.num_blocks[2], stride=2)
 
-        self.fc = nn.Linear(
+        self.fc = utils.LinearHead(
             config.large_channels, config.num_classes)
 
         if config.prebuilt:

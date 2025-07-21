@@ -21,3 +21,13 @@ class PosEmbeddingLayer(nn.Module):
 
     def forward(self, x):
         return x + self.embedding
+
+
+class LinearHead(nn.Linear):
+    """
+    This class only exists for compatibility with the level delta system, as we
+    need a distinct type for a linear select and a shared weights linear layer.
+    """
+
+    def __init__(self, in_features, out_features, bias=True, device=None, dtype=None):
+        super().__init__(in_features, out_features, bias, device, dtype)
