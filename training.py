@@ -2,6 +2,7 @@ from typing import Callable, Optional
 import dataclasses
 import tempfile
 import datetime
+import logging
 
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
 from pytorch_lightning.loggers import WandbLogger
@@ -29,6 +30,8 @@ class TrainingContext:
     gradient_clip_val: Optional[float] = None
 
     wandb_project_name: str = config.wandb.WANDB_PROJECT_NAME
+
+    silent: bool = False
 
     def make_optimizer(self, model) -> torch.optim.Optimizer:
         raise NotImplementedError()
@@ -153,17 +156,24 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         if self.training_context.incremental_training:
             self.upto = 0
 
-        with wandb.init(
-                project=self.training_context.wandb_project_name,
-                name=conf_description,
-                config=self.model_config.get_flat_dict(),
-                dir=paths.LOG_PATH):
+        def training():
+            nonlocal trainer
             if self.training_context.incremental_training:
                 for i in range(model.max_level() + 1):
                     trainer = finetune(trainer, self.training_context)
                     trainer.upto += 1
             else:
                 trainer = finetune(trainer, self.training_context)
+
+        if self.training_context.wandb_project_name is not None:
+            with wandb.init(
+                    project=self.training_context.wandb_project_name,
+                    name=conf_description,
+                    config=self.model_config.get_flat_dict(),
+                    dir=paths.LOG_PATH):
+                training()
+        else:
+            training()
 
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description())
@@ -206,11 +216,15 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         torch.set_float32_matmul_precision('high')
         model = self.submodel
         trainer = self
-        with wandb.init(
-                project=self.training_context.wandb_project_name,
-                name=conf_description,
-                config=self.model_config.get_flat_dict(),
-                dir=paths.LOG_PATH):
+
+        if self.training_context.wandb_project_name is not None:
+            with wandb.init(
+                    project=self.training_context.wandb_project_name,
+                    name=conf_description,
+                    config=self.model_config.get_flat_dict(),
+                    dir=paths.LOG_PATH):
+                trainer = finetune(trainer, self.training_context)
+        else:
             trainer = finetune(trainer, self.training_context)
 
         utils.save_model(
@@ -221,7 +235,6 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
 
 
 def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.LightningModule:
-    logger = WandbLogger(log_model=False, dir=paths.LOG_PATH)
     config.wrap_model(model)
 
     with tempfile.TemporaryDirectory() as tdir:
@@ -247,9 +260,20 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
             timer = Timer(dur)
             callbacks.append(timer)
 
+        kwargs = dict()
+        if config.wandb_project_name is not None:
+            kwargs['logger'] = WandbLogger(log_model=False, dir=paths.LOG_PATH)
+        else:
+            kwargs['logger'] = None
+
+        if config.silent:
+            kwargs['fast_dev_run'] = True
+            kwargs['enable_progress_bar'] = False
+            logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
+
         trainer = pl.Trainer(
+            **kwargs,
             max_epochs=config.epochs,
-            logger=logger,
             callbacks=callbacks,
             log_every_n_steps=10,
             enable_checkpointing=True,
@@ -259,10 +283,11 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
 
         train_loader, val_loader, test_loader = config.loader_function()
         trainer.fit(model, train_loader, val_loader)
-        model = type(model).load_from_checkpoint(
-            checkpoint_callback.best_model_path)
-        config.wrap_model(model)
-        trainer.test(model, dataloaders=test_loader)
+        if not config.silent:
+            model = type(model).load_from_checkpoint(
+                checkpoint_callback.best_model_path)
+            config.wrap_model(model)
+            trainer.test(model, dataloaders=test_loader)
 
     config.unwrap_model(model)
     return model
