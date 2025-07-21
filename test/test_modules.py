@@ -97,7 +97,7 @@ class LayerTester:
             self.assertTrue(self.check_equiv(
                 layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))
 
-    def test_level_deltas(self):
+    def test_level_deltas_LevelDeltas(self):
         layer = self.make_flex_module()
         layer.set_level_use(layer.max_level())
         reg_layer = self.make_reg_module(layer.max_level())
