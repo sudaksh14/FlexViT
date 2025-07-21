@@ -32,8 +32,8 @@ class TestDeltaManager():
         x = self.make_input()
         self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
-        deltas, type_list = levels.get_model_deltas(model)
-        delta_manager = levels.InMemoryDeltaManager(deltas, type_list)
+        deltas = levels.get_model_deltas(model)
+        delta_manager = levels.InMemoryDeltaManager(deltas)
 
         for i in range(model.max_level() - 1, -1, -1):
             model.set_level_use(i)

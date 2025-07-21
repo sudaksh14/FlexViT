@@ -6,10 +6,14 @@ import torch
 import flex_modules as fm
 
 
-class FlexModel(nn.Module):
+class FlexModel(nn.Module, fm.LevelDeltaCompatible):
     """
     Defines an interface followed by all flexible models.
     """
+
+    def __init__(self, *args, **kwargs):
+        nn.Module.__init__(self)
+        fm.LevelDeltaCompatible.__init__(self)
 
     def set_level_use(self, level) -> None:
         """

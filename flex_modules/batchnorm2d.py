@@ -24,3 +24,6 @@ class BatchNorm2d(AdaptSelect):
             self._channels[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)
         return m
+
+
+BatchNorm2d.register_self(BatchNorm2d)

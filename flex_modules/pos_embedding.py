@@ -4,7 +4,7 @@ from torch import nn
 import torch
 
 from flex_modules.module import Module
-import networks.vit_modules as vmod
+import networks.modules as vmod
 
 
 class PosEmbeddingLayer(Module):
@@ -70,3 +70,6 @@ class PosEmbeddingLayer(Module):
     def apply_level_delta_up(model: vmod.PosEmbeddingLayer, level_delta: Any) -> None:
         model.embedding.data = torch.cat(
             [model.embedding.data, level_delta], dim=2)
+
+
+PosEmbeddingLayer.register_self(PosEmbeddingLayer)

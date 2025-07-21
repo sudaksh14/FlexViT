@@ -282,3 +282,6 @@ class VisionTransformer(FlexModel):
     @staticmethod
     def apply_level_delta_up(model: networks.vit.VisionTransformer, level_delta: int) -> None:
         model.hidden_dim = level_delta
+
+
+VisionTransformer.register_self(VisionTransformer)

@@ -2,6 +2,7 @@ from torch import nn
 import torch
 
 from flex_modules.flexselect import AdaptSelect
+from networks.modules import LinearHead
 
 
 class LinearSelect(AdaptSelect):
@@ -17,7 +18,7 @@ class LinearSelect(AdaptSelect):
 
     @staticmethod
     def base_type() -> type[nn.Linear]:
-        return nn.Linear
+        return LinearHead
 
     @torch.no_grad()
     def make_base_copy(self) -> nn.Linear:
@@ -25,3 +26,6 @@ class LinearSelect(AdaptSelect):
             self._in_sizes[self.current_level()], self._out_sizes[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)
         return m
+
+
+LinearSelect.register_self(LinearSelect)

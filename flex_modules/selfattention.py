@@ -201,8 +201,7 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]
-            :self.token_size[target_level]]
+        out_bias = self.out_bias[self.token_size[cur_level]                                 :self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
@@ -283,3 +282,6 @@ class SelfAttention(Module):
         b.num_heads = nheads
         b.head_dim = nhead_dim
         b.embed_dim = nembed_dim
+
+
+SelfAttention.register_self(SelfAttention)

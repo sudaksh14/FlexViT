@@ -1,18 +1,13 @@
 from torch import nn
-from flex_modules.module import Module
+from flex_modules.module import Module, LevelDeltas
 
 from networks.flex_model import FlexModel
 from typing import Iterable, Any
 
 
-def get_model_deltas(model: FlexModel) -> tuple[dict[tuple[int, bool], list[Any]], list[type[Module]]]:
-    module_type_list = []
+def get_model_deltas(model: FlexModel) -> dict[tuple[int, bool], list[Any]]:
     deltas = dict()
-    for module in model.modules():
-        if not isinstance(module, Module):
-            if not isinstance(module, FlexModel):
-                continue
-        module_type_list.append(type(module))
+
     for level in range(model.max_level() + 1):
         delta_downs = []
         delta_ups = []
@@ -28,35 +23,32 @@ def get_model_deltas(model: FlexModel) -> tuple[dict[tuple[int, bool], list[Any]
         deltas[(level, False)] = delta_downs
         deltas[(level, True)] = delta_ups
 
-    return deltas, module_type_list
+    return deltas
 
 
-def apply_delta_down(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]) -> None:
+def apply_delta_down(model: nn.Module, deltas: Iterable[Any]) -> None:
     dest_it = iter(model.modules())
-    for delta, module_type in zip(deltas, module_type_list):
+    for delta in deltas:
         while True:
             module = next(dest_it)
-            if not isinstance(module, module_type.base_type()):
+            if not LevelDeltas.is_registered(type(module)):
                 continue
-            module_type.apply_level_delta_down(module, delta)
+            LevelDeltas.apply_level_delta_down(module, delta)
             break
 
 
-def apply_delta_up(model: nn.Module, deltas: Iterable[Any], module_type_list: Iterable[type[Module]]) -> None:
+def apply_delta_up(model: nn.Module, deltas: Iterable[Any]) -> None:
     dest_it = iter(model.modules())
-    for delta, module_type in zip(deltas, module_type_list):
+    for delta in deltas:
         while True:
             module = next(dest_it)
-            if not isinstance(module, module_type.base_type()):
+            if not LevelDeltas.is_registered(type(module)):
                 continue
-            module_type.apply_level_delta_up(module, delta)
+            LevelDeltas.apply_level_delta_up(module, delta)
             break
 
 
 class BaseDeltaManager:
-    def get_module_list(self) -> Iterable[type[Module]]:
-        raise NotImplementedError()
-
     def get_level_delta(self, level: int, up: bool) -> Iterable[Any]:
         raise NotImplementedError()
 
@@ -64,21 +56,17 @@ class BaseDeltaManager:
         if target_level > current_level:
             for i in range(current_level + 1, target_level + 1):
                 apply_delta_up(model, self.get_level_delta(
-                    i, True), self.get_module_list())
+                    i, True))
         elif target_level < current_level:
             for i in range(current_level - 1, target_level - 1, -1):
                 apply_delta_down(model, self.get_level_delta(
-                    i, False), self.get_module_list())
+                    i, False))
 
 
 class InMemoryDeltaManager(BaseDeltaManager):
-    def __init__(self, deltas: dict[tuple[int, bool], list[Any]], module_type_list: list[type[Module]]) -> None:
+    def __init__(self, deltas: dict[tuple[int, bool], list[Any]]) -> None:
         super().__init__()
         self.deltas = deltas
-        self.module_type_lists = module_type_list
-
-    def get_module_list(self) -> Iterable[type[Module]]:
-        return self.module_type_lists
 
     def get_level_delta(self, level: int, up: bool) -> Iterable[Any]:
         return self.deltas[(level, up)]
