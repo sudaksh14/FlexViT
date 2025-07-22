@@ -116,7 +116,7 @@ class LayerTester:
         for i in range(layer.max_level() - 1, -1, -1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
-            fm.LevelDeltas.apply_level_delta_down(reg_layer, delta_down)
+            delta_down.apply(reg_layer)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(
                 layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))
@@ -124,7 +124,7 @@ class LayerTester:
         for i in range(1, layer.max_level() + 1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
-            fm.LevelDeltas.apply_level_delta_up(reg_layer, delta_up)
+            delta_up.apply(reg_layer)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(
                 layer(*x), self.augment_reg_output(reg_layer(*self.augment_for_reg(x, i)), i)))

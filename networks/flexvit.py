@@ -8,7 +8,7 @@ import torch
 
 from networks.vit import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
 from networks.flex_model import FlexModel
-from networks.config import ModelConfig
+from networks.config import FlexModelConfig, ModelConfig
 import flex_modules as fm
 import networks.vit
 import utils
@@ -25,7 +25,7 @@ def scale_with_heads_list(heads, max_hidden_dims):
 
 @utils.fluent_setters
 @dataclasses.dataclass
-class ViTConfig(ModelConfig):
+class ViTConfig(FlexModelConfig):
     structure: ViTStructureConfig = ViTStructure.b16
     prebuilt: ViTPrebuilt = ViTPrebuilt.default
     num_classes: int = DEFAULT_NUM_CLASSES
@@ -273,15 +273,20 @@ class VisionTransformer(FlexModel):
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[int, int]:
-        return self.hidden_dim[self.level], self.hidden_dim[self.level]
+        delta_down, delta_up = super().export_level_delta()
+        return fm.DownDelta((self.hidden_dim[self.level], delta_down)), fm.UpDelta((self.hidden_dim[self.level], delta_up))
 
     @staticmethod
-    def apply_level_delta_down(model: networks.vit.VisionTransformer, level_delta: int) -> None:
-        model.hidden_dim = level_delta
+    def apply_level_delta_down(model: networks.vit.VisionTransformer, level_delta: fm.DownDelta[int]) -> None:
+        hidden_dim, module_deltas = level_delta.delta
+        FlexModel.apply_level_delta_down(model, module_deltas)
+        model.hidden_dim = hidden_dim
 
     @staticmethod
-    def apply_level_delta_up(model: networks.vit.VisionTransformer, level_delta: int) -> None:
-        model.hidden_dim = level_delta
+    def apply_level_delta_up(model: networks.vit.VisionTransformer, level_delta: fm.UpDelta[int]) -> None:
+        hidden_dim, module_deltas = level_delta.delta
+        FlexModel.apply_level_delta_up(model, module_deltas)
+        model.hidden_dim = hidden_dim
 
 
 VisionTransformer.register_self(VisionTransformer)

@@ -3,7 +3,7 @@ from typing import Iterable
 from torch import nn
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, LevelDelta, UpDelta, DownDelta
 
 
 class AdaptSelect(Module):
@@ -38,26 +38,26 @@ class AdaptSelect(Module):
         self.current_layer().load_state_dict(src.state_dict())
 
     @torch.no_grad()
-    def export_level_delta(self):
+    def export_level_delta(self) -> tuple[DownDelta[tuple[torch.Tensor, ...]], UpDelta[tuple[torch.Tensor, ...]]]:
         deltas = self.current_layer().parameters()
         deltas = map(lambda t: t.data, deltas)
         deltas = tuple(deltas)
-        return deltas, deltas
+        return DownDelta(deltas), UpDelta(deltas)
 
     @staticmethod
     @torch.no_grad()
-    def _apply_level_delta(model: nn.Module, level_delta: tuple[torch.Tensor, ...]):
-        for p, src_p in zip(model.parameters(), level_delta):
+    def _apply_level_delta(model: nn.Module, level_delta: LevelDelta[tuple[torch.Tensor, ...]]):
+        for p, src_p in zip(model.parameters(), level_delta.delta):
             p.data = src_p[:]
         for name, b in model.named_buffers():
             setattr(model, name, None)
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: nn.Module, level_delta: tuple[torch.Tensor, torch.Tensor]):
+    def apply_level_delta_down(model: nn.Module, level_delta: DownDelta[tuple[torch.Tensor, ...]]):
         return __class__._apply_level_delta(model, level_delta)
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: nn.Module, level_delta: tuple[torch.Tensor, torch.Tensor]):
+    def apply_level_delta_up(model: nn.Module, level_delta: UpDelta[tuple[torch.Tensor, ...]]):
         return __class__._apply_level_delta(model, level_delta)
