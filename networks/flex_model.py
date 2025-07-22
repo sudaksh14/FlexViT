@@ -44,23 +44,56 @@ class FlexModel(nn.Module, fm.LevelDeltaCompatible):
         raise NotImplementedError()
 
     @torch.no_grad()
-    def export_level_delta(self) -> Any:
+    def export_level_delta(self) -> tuple[fm.DownDelta, fm.UpDelta]:
         """
         Level deltas on the model level are used for some
         specific parts not covered by the deltas of the modules.
         """
-        return None, None
+        delta_downs = []
+        delta_ups = []
+        for module in self.modules():
+            if module is self:
+                continue
+            if not isinstance(module, fm.LevelDeltaCompatible):
+                continue
+            delta_down, delta_up = module.export_level_delta()
+            delta_downs.append(delta_down)
+            delta_ups.append(delta_up)
+        delta_downs = tuple(delta_downs)
+        delta_ups = tuple(delta_ups)
+        return fm.DownDelta(delta_downs), fm.UpDelta(delta_ups)
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_down(model: nn.Module, level_delta: fm.DownDelta[tuple[fm.DownDelta, ...]]) -> None:
         """
         Takes regular layer and applies a delta down to it.
         """
-        return
+        dest_it = iter(model.modules())
+        for delta in level_delta.delta:
+            while True:
+                module = next(dest_it)
+                if module is model:
+                    continue
+
+                try:
+                    delta.apply(module)
+                    break
+                except KeyError:
+                    pass
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_up(model: nn.Module, level_delta: fm.DownDelta[tuple[fm.UpDelta, ...]]) -> None:
         """
         Takes regular layer and applies a delta up to it.
         """
-        return
+        dest_it = iter(model.modules())
+        for delta in level_delta.delta:
+            while True:
+                module = next(dest_it)
+                if module is model:
+                    continue
+                try:
+                    delta.apply(module)
+                    break
+                except KeyError:
+                    pass

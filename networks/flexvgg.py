@@ -7,14 +7,14 @@ import torch
 
 from networks.vgg import KNOWN_MODEL_PRETRAINED, LAYER_CONFIGS
 from networks.flex_model import FlexModel
-from networks.config import ModelConfig
+from networks.config import FlexModelConfig, ModelConfig
 import flex_modules as fm
 import networks.vgg
 
 
 @utils.fluent_setters
 @dataclasses.dataclass
-class VGGConfig(ModelConfig):
+class VGGConfig(FlexModelConfig):
     version: int = 11
     small_channels: int = (32, 48, 64)
     mid_channels: int = (64, 96, 128)

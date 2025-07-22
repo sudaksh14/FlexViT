@@ -3,7 +3,7 @@ from typing import Any, Iterable
 from torch import nn
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, DownDelta, UpDelta
 import networks.modules as vmod
 
 
@@ -48,24 +48,25 @@ class ClassTokenLayer(Module):
         return dest
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[Any, Any]:
+    def export_level_delta(self) -> tuple[DownDelta[int], UpDelta[torch.Tensor]]:
         return (
-            self.hidden_dims[self.level],
-            self.token.data[
+            DownDelta(self.hidden_dims[self.level]),
+            UpDelta(self.token.data[
                 :, :,
                 self.hidden_dims[self.level - 1]:self.hidden_dims[self.level]
-            ]
+            ])
         )
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: vmod.ClassTokenLayer, level_delta: int) -> None:
-        model.token.data = model.token.data[:, :, :level_delta]
+    def apply_level_delta_down(model: vmod.ClassTokenLayer, level_delta: DownDelta[int]) -> None:
+        model.token.data = model.token.data[:, :, :level_delta.delta]
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: Any) -> None:
-        model.token.data = torch.cat([model.token.data, level_delta], dim=2)
+    def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: UpDelta[torch.Tensor]) -> None:
+        model.token.data = torch.cat(
+            [model.token.data, level_delta.delta], dim=2)
 
 
 ClassTokenLayer.register_self(ClassTokenLayer)

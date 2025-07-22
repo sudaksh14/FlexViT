@@ -3,7 +3,7 @@ from typing import Iterable
 from torch import nn
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, UpDelta, DownDelta, LevelDelta
 import torch.nn.functional as F
 
 
@@ -75,7 +75,7 @@ class Conv2d(Module):
         return conv
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[tuple[int, int], tuple[torch.Tensor, torch.Tensor]]:
+    def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor]]]:
         weights = self.conv.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
@@ -86,22 +86,23 @@ class Conv2d(Module):
             bias_part = self.conv.bias.data[
                 self.out_sizes[self.level-1]:self.out_sizes[self.level]]
         prune_up = (lower_part, right_part, bias_part)
-        prune_down = (self.in_sizes[self.level], self.out_sizes[self.level])
-        return prune_down, prune_up
+        prune_down = (self.in_sizes[self.level],
+                      self.out_sizes[self.level])
+        return DownDelta(prune_down), UpDelta(prune_up)
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: nn.Conv2d, level_delta: tuple[int, int]) -> None:
-        in_size, out_size = level_delta
+    def apply_level_delta_down(model: nn.Conv2d, level_delta: DownDelta[tuple[int, int]]) -> None:
+        in_size, out_size = level_delta.delta
         model.weight.data = model.weight.data[:out_size, :in_size]
         if model.bias is not None:
             model.bias.data = model.bias.data[:out_size]
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: nn.Conv2d, level_delta: tuple[torch.Tensor, torch.Tensor]) -> None:
+    def apply_level_delta_up(model: nn.Conv2d, level_delta: UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]) -> None:
         weights = model.weight.data
-        lower_part, right_part, bias_part = level_delta
+        lower_part, right_part, bias_part = level_delta.delta
         out_size, in_size, *_ = weights.size()
         weights = F.pad(
             weights, (0, 0, 0, 0, 0, lower_part.size(1), 0, right_part.size(0)))

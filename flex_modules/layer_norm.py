@@ -2,6 +2,7 @@ from torch import nn
 import torch
 
 from flex_modules.flexselect import AdaptSelect
+from flex_modules.module import DownDelta, UpDelta
 
 
 class LayerNorm(AdaptSelect):
@@ -27,15 +28,15 @@ class LayerNorm(AdaptSelect):
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: nn.LayerNorm, level_delta: tuple[torch.Tensor, torch.Tensor]):
+    def apply_level_delta_down(model: nn.LayerNorm, level_delta: DownDelta[tuple[torch.Tensor, torch.Tensor]]):
         AdaptSelect.apply_level_delta_down(model, level_delta)
-        model.normalized_shape = level_delta[0].shape[0],
+        model.normalized_shape = level_delta.delta[0].shape[0],
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: nn.LayerNorm, level_delta: tuple[torch.Tensor, torch.Tensor]):
+    def apply_level_delta_up(model: nn.LayerNorm, level_delta: UpDelta[tuple[torch.Tensor, torch.Tensor]]):
         AdaptSelect.apply_level_delta_up(model, level_delta)
-        model.normalized_shape = level_delta[0].shape[0],
+        model.normalized_shape = level_delta.delta[0].shape[0],
 
 
 LayerNorm.register_self(LayerNorm)
