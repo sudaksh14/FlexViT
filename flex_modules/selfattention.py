@@ -3,7 +3,7 @@ from typing import Iterable, Any
 from torch import nn
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, UpDelta, DownDelta
 import torch.nn.functional as F
 
 
@@ -161,7 +161,7 @@ class SelfAttention(Module):
         return lin
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[Any, Any]:
+    def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, ...]]]:
         target_level = self.current_level()
         cur_level = target_level - 1
 
@@ -201,7 +201,7 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]                                 :self.token_size[target_level]]
+        out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
@@ -210,12 +210,12 @@ class SelfAttention(Module):
 
         delta_down = (self.token_size[target_level], self.heads[target_level])
 
-        return delta_down, delta_up
+        return DownDelta(delta_down), UpDelta(delta_up)
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(b: nn.MultiheadAttention, level_delta: Any) -> None:
-        ntoken, nheads = level_delta
+    def apply_level_delta_down(b: nn.MultiheadAttention, level_delta: DownDelta[tuple[int, int]]) -> None:
+        ntoken, nheads = level_delta.delta
         nhs = ntoken // nheads
 
         binws = b.in_proj_weight.data.view(
@@ -244,13 +244,13 @@ class SelfAttention(Module):
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(b: nn.MultiheadAttention, level_delta: Any) -> None:
+    def apply_level_delta_up(b: nn.MultiheadAttention, level_delta: UpDelta[tuple[torch.Tensor, ...]]) -> None:
         (
             target_heads_inw, curr_right_inw, curr_bottom_inw,
             target_heads_inb, slimmed_heads_inb,
             target_heads_ow, curr_right_ow, curr_bottom_ow,
             out_bias
-        ) = level_delta
+        ) = level_delta.delta
 
         nheads = b.num_heads + target_heads_inw.shape[1]
         nhead_dim = b.head_dim + curr_bottom_inw.shape[2]

@@ -8,14 +8,14 @@ import torch
 
 from networks.resnet import KNOWN_MODEL_PRETRAINED
 from networks.flex_model import FlexModel
-from networks.config import ModelConfig
+from networks.config import FlexModelConfig, ModelConfig
 import flex_modules as fm
 import networks.resnet
 
 
 @utils.fluent_setters
 @dataclasses.dataclass
-class ResnetConfig(ModelConfig):
+class ResnetConfig(FlexModelConfig):
     num_blocks: Iterable[int] = (3, 3, 3)
     num_classes: int = 10
     small_channels: Iterable[int] = (8, 12, 16)

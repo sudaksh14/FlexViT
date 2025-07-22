@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, DownDelta, UpDelta
 
 
 class Linear(Module):
@@ -62,7 +62,7 @@ class Linear(Module):
         self.copy_to_base(lin)
         return lin
 
-    def export_level_delta(self) -> tuple[Any, Any]:
+    def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
         weights = self.linear.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
@@ -73,19 +73,19 @@ class Linear(Module):
                 self.out_sizes[self.level-1]:self.out_sizes[self.level]]
         prune_up = (lower_part, right_part, bias_part)
         prune_down = (self.in_sizes[self.level], self.out_sizes[self.level])
-        return prune_down, prune_up
+        return DownDelta(prune_down), UpDelta(prune_up)
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta: Any) -> None:
-        in_size, out_size = level_delta
+    def apply_level_delta_down(model: nn.Module, level_delta: DownDelta[tuple[int, int]]) -> None:
+        in_size, out_size = level_delta.delta
         model.weight.data = model.weight.data[:out_size, :in_size]
         if model.bias is not None:
             model.bias.data = model.bias.data[:out_size]
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_up(model: nn.Module, level_delta: UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]) -> None:
         weights = model.weight.data
-        lower_part, right_part, bias_part = level_delta
+        lower_part, right_part, bias_part = level_delta.delta
         out_size, in_size, *_ = weights.size()
         weights = F.pad(
             weights, (0, lower_part.size(1), 0, right_part.size(0)))

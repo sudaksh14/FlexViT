@@ -3,7 +3,7 @@ from typing import Any, Iterable
 from torch import nn
 import torch
 
-from flex_modules.module import Module
+from flex_modules.module import Module, UpDelta, DownDelta
 import networks.modules as vmod
 
 
@@ -51,25 +51,25 @@ class PosEmbeddingLayer(Module):
         return dest
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[Any, Any]:
+    def export_level_delta(self) -> tuple[DownDelta[int], UpDelta[torch.Tensor]]:
         return (
-            self.hidden_dims[self.level],
-            self.embedding[
+            DownDelta(self.hidden_dims[self.level]),
+            UpDelta(self.embedding[
                 :, :,
                 self.hidden_dims[self.level - 1]:self.hidden_dims[self.level]
-            ]
+            ])
         )
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(model: vmod.PosEmbeddingLayer, level_delta: Any) -> None:
-        model.embedding.data = model.embedding.data[:, :, :level_delta]
+    def apply_level_delta_down(model: vmod.PosEmbeddingLayer, level_delta: DownDelta[int]) -> None:
+        model.embedding.data = model.embedding.data[:, :, :level_delta.delta]
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_up(model: vmod.PosEmbeddingLayer, level_delta: Any) -> None:
+    def apply_level_delta_up(model: vmod.PosEmbeddingLayer, level_delta: UpDelta[torch.Tensor]) -> None:
         model.embedding.data = torch.cat(
-            [model.embedding.data, level_delta], dim=2)
+            [model.embedding.data, level_delta.delta], dim=2)
 
 
 PosEmbeddingLayer.register_self(PosEmbeddingLayer)

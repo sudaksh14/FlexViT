@@ -1,6 +1,39 @@
-from typing import Any
+from typing import Any, TypeVar, Generic
 
 from torch import nn
+
+
+T = TypeVar('T')
+
+
+class LevelDelta(Generic[T]):
+    def __init__(self, delta):
+        self.delta: T = delta
+
+    def verify_format():
+        return True
+
+    def to_device(self):
+        return self
+
+    def apply(self, module):
+        raise NotImplemented()
+
+
+class UpDelta(LevelDelta[T]):
+    def __init__(self, delta):
+        super().__init__(delta)
+
+    def apply(self, module):
+        return LevelDeltas.apply_level_delta_up(module, self)
+
+
+class DownDelta(LevelDelta[T]):
+    def __init__(self, delta):
+        super().__init__(delta)
+
+    def apply(self, module):
+        return LevelDeltas.apply_level_delta_down(module, self)
 
 
 class LevelDeltaCompatible:
@@ -11,7 +44,7 @@ class LevelDeltaCompatible:
         """
         raise NotImplementedError()
 
-    def export_level_delta(self) -> tuple[Any, Any]:
+    def export_level_delta(self) -> tuple[DownDelta, UpDelta]:
         """
         This function extracts part of the flexible layer into a down delta and an up delta. If
         you have a regular layer that is equivalent to one below the current
@@ -25,14 +58,14 @@ class LevelDeltaCompatible:
         raise NotImplementedError()
 
     @staticmethod
-    def apply_level_delta_down(module: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_down(module: nn.Module, level_delta: DownDelta) -> None:
         """
         Takes regular layer and applies a delta down to it.
         """
         raise NotImplementedError()
 
     @staticmethod
-    def apply_level_delta_up(module: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_up(module: nn.Module, level_delta: UpDelta) -> None:
         """
         Takes regular layer and applies a delta up to it.
         """
@@ -110,15 +143,19 @@ class LevelDeltas:
         return module_type in __class__.registered
 
     @staticmethod
-    def apply_level_delta_down(module: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_down(module: nn.Module, level_delta: DownDelta) -> None:
         """
         Takes regular layer and applies a delta down to it.
         """
+        if not __class__.is_registered(type(module)):
+            raise KeyError()
         return __class__.registered[type(module)].apply_level_delta_down(module, level_delta)
 
     @staticmethod
-    def apply_level_delta_up(module: nn.Module, level_delta: Any) -> None:
+    def apply_level_delta_up(module: nn.Module, level_delta: UpDelta) -> None:
         """
         Takes regular layer and applies a delta up to it.
         """
+        if not __class__.is_registered(type(module)):
+            raise KeyError()
         return __class__.registered[type(module)].apply_level_delta_up(module, level_delta)
