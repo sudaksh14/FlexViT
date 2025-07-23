@@ -246,6 +246,9 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
     last_copied_to: nn.Module = None
 
     for src_name, src_module in src.named_modules():
+        if src_module is src:
+            continue
+
         src_is_flexible = isinstance(src_module, Module)
         if src_is_flexible:
             src_instance_type = src_module.base_type()
@@ -263,6 +266,9 @@ def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
 
         while True:
             dest_name, dest_module = next(dest_iter)
+            if dest_module is dest:
+                continue
+
             dest_is_flexible = isinstance(dest_module, Module)
 
             # if dest_is_flexible:
