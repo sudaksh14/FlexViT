@@ -39,4 +39,5 @@ DEFAULT_HARDWARE_CONFIG = HardwareConfig()
 HARDWARE = {
     "vitprebuild": HardwareConfig().set_gpu_count(4),
     "flexvit": HardwareConfig().set_gpu_count(4).set_time('72:00:00'),
+    "flexvitcorrect": HardwareConfig().set_gpu_count(4).set_time('24:00:00'),
 }
