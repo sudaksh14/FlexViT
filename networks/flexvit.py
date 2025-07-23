@@ -204,8 +204,10 @@ class VisionTransformer(FlexModel):
 
         self.seq_length = seq_length
 
-        self.heads = fm.LinearSelect(
+        heads = OrderedDict()
+        heads['head'] = fm.LinearSelect(
             hidden_dim, [DEFAULT_NUM_CLASSES] * len(hidden_dim))
+        self.heads = nn.Sequential(heads)
 
         self.set_level_use(self.max_level())
         self.level = self.max_level()
@@ -220,8 +222,10 @@ class VisionTransformer(FlexModel):
                 prebuilt.encoder.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
-            self.heads = fm.LinearSelect(
+            heads = OrderedDict()
+            heads['head'] = fm.LinearSelect(
                 hidden_dim, [num_classes] * len(hidden_dim))
+            self.heads = nn.Sequential(heads)
 
     @staticmethod
     def base_type() -> type[nn.Module]:
