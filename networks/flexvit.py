@@ -32,9 +32,9 @@ class ViTConfig(FlexModelConfig):
     dropout: float = 0.0
     attention_dropout: float = 0.0
 
-    hidden_dims: Iterable[int] = ((768 // 3) * 2, 768)
-    num_heads: Iterable[int] = (8, 12)
-    mlp_dims: Iterable[int] = ((3072 // 3) * 2, 3072)
+    hidden_dims: Iterable[int] = (768 // 2, (768 // 3) * 2, 768)
+    num_heads: Iterable[int] = (6, 8, 12)
+    mlp_dims: Iterable[int] = (3072 // 2, (3072 // 3) * 2, 3072)
 
     def make_model(self):
         return VisionTransformer(self)
@@ -171,7 +171,7 @@ class VisionTransformer(FlexModel):
         dropout = config.dropout
         attention_dropout = config.attention_dropout
 
-        super().__init__()
+        super().__init__(config)
         torch._assert(image_size % patch_size == 0,
                       "Input shape indivisible by patch size!")
         self.image_size = image_size

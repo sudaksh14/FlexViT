@@ -80,7 +80,7 @@ class BasicBlock(nn.Module):
 
 class Resnet(FlexModel):
     def __init__(self, config: ResnetConfig) -> None:
-        super().__init__()
+        super().__init__(config)
         self.build_net(config)
 
     def build_net(self, config: ResnetConfig) -> None:

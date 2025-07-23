@@ -1,11 +1,11 @@
 from torch import nn
-from flex_modules.module import Module, LevelDeltaCompatible, LevelDelta, UpDelta, DownDelta
+from flex_modules.module import Module, LevelDelta, UpDelta, DownDelta
 
 from networks.flex_model import FlexModel
 from typing import Iterable, Any
 
 
-def get_model_deltas(model: LevelDeltaCompatible) -> dict[tuple[int, bool], LevelDelta]:
+def get_model_deltas(model: Module) -> dict[tuple[int, bool], LevelDelta]:
     deltas = dict()
 
     for level in range(model.max_level() + 1):
