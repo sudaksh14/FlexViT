@@ -39,18 +39,20 @@ class AdaptSelect(Module):
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[tuple[torch.Tensor, ...]], UpDelta[tuple[torch.Tensor, ...]]]:
-        deltas = self.current_layer().parameters()
-        deltas = map(lambda t: t.data, deltas)
-        deltas = tuple(deltas)
+        params = self.current_layer().parameters()
+        buffers = self.current_layer().buffers()
+        deltas = map(lambda t: t.data, params)
+        deltas = tuple(deltas), tuple(buffers)
         return DownDelta(deltas), UpDelta(deltas)
 
     @staticmethod
     @torch.no_grad()
     def _apply_level_delta(model: nn.Module, level_delta: LevelDelta[tuple[torch.Tensor, ...]]):
-        for p, src_p in zip(model.parameters(), level_delta.delta):
+        params, buffers = level_delta.delta
+        for p, src_p in zip(model.parameters(), params):
             p.data = src_p[:]
-        for name, b in model.named_buffers():
-            setattr(model, name, None)
+        for (name, b), src_b in zip(model.named_buffers(), buffers):
+            setattr(model, name, src_b.clone().detach())
 
     @staticmethod
     @torch.no_grad()

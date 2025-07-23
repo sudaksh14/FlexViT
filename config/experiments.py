@@ -281,5 +281,23 @@ CONFIGS = {
             ),
             VitTrainingImagenet()
         )
-    }
+    }, "flexvitcorrect": TrainerBuilder(
+        FlexModelTrainer,
+        flexvit.ViTConfig().set_num_classes(1000)
+        .set_num_heads((12, 12, 12, 12, 12))
+        .set_hidden_dims(
+            (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
+        )
+        .set_mlp_dims(
+            (32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)
+        ),
+        VitTrainingImagenet().set_load_from(flexvit.ViTConfig().set_num_classes(1000)
+                                            .set_num_heads((12, 12, 12, 12, 12))
+                                            .set_hidden_dims(
+            (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
+        )
+            .set_mlp_dims(
+            (32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)
+        ))
+    )
 }

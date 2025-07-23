@@ -36,7 +36,55 @@ class DownDelta(LevelDelta[T]):
         return LevelDeltas.apply_level_delta_down(module, self)
 
 
-class LevelDeltaCompatible:
+class Module(nn.Module):
+    def set_level_use(self, level: int) -> None:
+        """
+        Sets the level the flexbible module will use.
+        """
+        raise NotImplementedError()
+
+    def current_level(self) -> int:
+        """
+        Queries the level currently used by the Module.
+        """
+        raise NotImplementedError()
+
+    def max_level(self) -> int:
+        """
+        Queries the highest level this module can be set to.
+        """
+        raise NotImplementedError()
+
+    def copy_to_base(self, dest: nn.Module) -> None:
+        """
+        Copies the current level to a regular module.
+
+        The type of regular module can be queried using Module.base_type()
+
+        Note that the regular modules dimensions have to be compatible with
+        the dimensions of the current level.
+        """
+        raise NotImplementedError()
+
+    def load_from_base(self, src: nn.Module) -> None:
+        """
+        Copies a regular module to the current level.
+
+        The type of regular module can be queried using Module.base_type()
+
+        Note that the regular modules dimensions have to be compatible with
+        the dimensions of the current level.
+
+        Note that due to the nature of shared weights this action may also affect other levels.
+        """
+        raise NotImplementedError()
+
+    def make_base_copy(self) -> nn.Module:
+        """
+        Makes a new regular layer with the current layer copied into it.
+        """
+        raise NotImplementedError()
+
     @staticmethod
     def base_type() -> type[nn.Module]:
         """
@@ -72,69 +120,15 @@ class LevelDeltaCompatible:
         raise NotImplementedError()
 
     @staticmethod
-    def register_self(cls: type['LevelDeltaCompatible']) -> type['LevelDeltaCompatible']:
+    def register_self(cls: type['Module']) -> type['Module']:
         return LevelDeltas.register(cls)
 
 
-class Module(nn.Module, LevelDeltaCompatible):
-    def __init__(self):
-        nn.Module.__init__(self)
-        LevelDeltaCompatible.__init__(self)
-
-    def set_level_use(self, level: int) -> None:
-        """
-        Sets the level the flexbible module will use.
-        """
-        raise NotImplementedError()
-
-    def current_level(self) -> int:
-        """
-        Queries the level currently used by the Module.
-        """
-        raise NotImplementedError()
-
-    def max_level(self) -> int:
-        """
-        Queries the highest level this module can be set to.
-        """
-        raise NotImplementedError()
-
-    def copy_to_base(self, dest: nn.Module) -> None:
-        """
-        Copies the current level to a regular module.
-
-        The type of regular module can be queried using Module.base_type()
-
-        Note that the regular modules dimensions have to be compatibel with
-        the dimensions of the current level.
-        """
-        raise NotImplementedError()
-
-    def load_from_base(self, src: nn.Module) -> None:
-        """
-        Copies a regular module to the current level.
-
-        The type of regular module can be queried using Module.base_type()
-
-        Note that the regular modules dimensions have to be compatibel with
-        the dimensions of the current level.
-
-        Note that due to the nature of shared weights this action may also affect other levels.
-        """
-        raise NotImplementedError()
-
-    def make_base_copy(self) -> nn.Module:
-        """
-        Makes a new regular layer with the current layer copied into it.
-        """
-        raise NotImplementedError()
-
-
 class LevelDeltas:
-    registered: dict[type[nn.Module], LevelDeltaCompatible] = dict()
+    registered: dict[type[nn.Module], Module] = dict()
 
     @staticmethod
-    def register(cls: type[LevelDeltaCompatible]) -> type[LevelDeltaCompatible]:
+    def register(cls: type[Module]) -> type[Module]:
         assert (not __class__.is_registered(cls.base_type()))
         __class__.registered[cls.base_type()] = cls
 

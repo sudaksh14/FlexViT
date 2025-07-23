@@ -1,3 +1,4 @@
+from typing import Union, Any
 import shutil
 import os
 
@@ -15,6 +16,8 @@ import tqdm
 from flex_modules.module import Module
 from networks.modules import ClassTokenLayer, PosEmbeddingLayer, LinearHead
 import config.paths as paths
+
+from networks import flex_model
 
 # Some of this code is from https://github.com/poojamangal15/Adaptive-Neural-Networks
 
@@ -222,83 +225,20 @@ def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=No
     return train_dataloader, val_dataloader, test_dataloader
 
 
-def flexible_model_copy(src: nn.Module, dest: nn.Module, verbose=0) -> None:
-    MODULE_TYPES = (
-        torch.nn.Conv2d,
-        torch.nn.Linear,
-        torch.nn.BatchNorm2d,
-        torch.nn.MultiheadAttention,
-        torch.nn.LayerNorm,
-        LinearHead,
-        ClassTokenLayer,
-        PosEmbeddingLayer
-    )
+def flexible_model_copy(src: Union[nn.Module, dict[str, Any]], dest: nn.Module):
+    if not isinstance(src, nn.Module):
+        dest.load_state_dict(src)
+        return
 
-    def find_instance_type(obj, *types):
-        for t in types:
-            if isinstance(obj, t):
-                return t
-        return None
+    if isinstance(src, flex_model.FlexModel):
+        src.copy_to_base(dest)
+        return
 
-    dest_iter = iter(dest.named_modules())
+    if isinstance(dest, flex_model.FlexModel):
+        dest.load_from_base(dest)
+        return
 
-    last_copied_from = None
-    last_copied_to: nn.Module = None
-
-    for src_name, src_module in src.named_modules():
-        src_is_flexible = isinstance(src_module, Module)
-        if src_is_flexible:
-            src_instance_type = src_module.base_type()
-        else:
-            src_instance_type = find_instance_type(src_module, *MODULE_TYPES)
-            if src_instance_type is None:
-                if verbose >= 2:
-                    print(f"Skip copying layer {src_name}")
-                continue
-
-        if last_copied_from is not None and src_module in last_copied_from.modules():
-            if verbose >= 2:
-                print(f"Skip copying layer {src_name}")
-            continue
-
-        while True:
-            dest_name, dest_module = next(dest_iter)
-            dest_is_flexible = isinstance(dest_module, Module)
-
-            # if dest_is_flexible:
-            #     if src_instance_type != dest_module.base_type():
-            #         if verbose >= 2:
-            #             print(f"Cannot copy {src_name} to {dest_name}")
-            #         continue
-            # else:
-            #     if not isinstance(dest_module, src_instance_type):
-            #         if verbose >= 2:
-            #             print(f"Cannot copy {src_name} to {dest_name}")
-            #         continue
-
-            if last_copied_to is not None and dest_module in last_copied_to.modules():
-                continue
-
-            if verbose >= 1:
-                print(f"copy from {src_name} to {dest_name}")
-            try:
-                if src_is_flexible:
-                    if dest_is_flexible:
-                        dest_module.load_from_base(src_module.make_base_copy())
-                    else:
-                        src_module.copy_to_base(dest_module)
-                else:
-                    if dest_is_flexible:
-                        dest_module.load_from_base(src_module)
-                    else:
-                        dest_module.load_state_dict(src_module.state_dict())
-                last_copied_to = dest_module
-                break
-            except Exception as e:
-                if verbose >= 2:
-                    print(type(e))
-
-        last_copied_from = src_module
+    dest.load_state_dict(src.state_dict())
 
 
 def save_model(model: nn.Module, model_description: str, prefix: str = '') -> None:

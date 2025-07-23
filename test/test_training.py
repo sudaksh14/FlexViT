@@ -53,7 +53,7 @@ def load_dummy_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=8
     return train_dataloader, val_dataloader, test_dataloader
 
 
-class DummyModel(networks.flex_model.FlexModel):
+class DummyModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
@@ -80,7 +80,7 @@ class DummyModel(networks.flex_model.FlexModel):
 
 class DummyFlexModel(networks.flex_model.FlexModel):
     def __init__(self):
-        super().__init__()
+        super().__init__(DummyFlexModelCofig())
         self.features = nn.Sequential(
             fm.Conv2d([3, 3, 3], [30, 50, 60], kernel_size=3, padding=1),
             fm.BatchNorm2d([30, 50, 60]),

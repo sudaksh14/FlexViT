@@ -275,7 +275,9 @@ class VisionTransformer(nn.Module):
 
         self.seq_length = seq_length
 
-        self.heads = utils.LinearHead(hidden_dim, DEFAULT_NUM_CLASSES)
+        heads = OrderedDict()
+        heads['head'] = utils.LinearHead(hidden_dim, DEFAULT_NUM_CLASSES)
+        self.heads = nn.Sequential(heads)
 
         # Weights initialisation
         fan_in = self.conv_proj.in_channels * \
@@ -284,21 +286,29 @@ class VisionTransformer(nn.Module):
                               std=math.sqrt(1 / fan_in))
         if self.conv_proj.bias is not None:
             nn.init.zeros_(self.conv_proj.bias)
-        nn.init.zeros_(self.heads.weight)
-        nn.init.zeros_(self.heads.bias)
+        nn.init.zeros_(self.heads.head.weight)
+        nn.init.zeros_(self.heads.head.bias)
 
         if config.prebuilt != ViTPrebuilt.noprebuild:
             prebuild_config = (config.structure, config.prebuilt)
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            utils.flexible_model_copy(prebuilt, self)
-            self.class_token.token = copy.deepcopy(prebuilt.class_token)
-            self.encoder.pos_embedding.embedding = copy.deepcopy(
-                prebuilt.encoder.pos_embedding)
+            sdict = prebuilt.state_dict()
+
+            sdict['class_token.token'] = sdict.pop('class_token')
+            sdict['encoder.pos_embedding.embedding'] = sdict.pop(
+                'encoder.pos_embedding')
+
+            utils.flexible_model_copy(sdict, self)
+            # self.class_token.token = copy.deepcopy(prebuilt.class_token)
+            # self.encoder.pos_embedding.embedding = copy.deepcopy(
+            #     prebuilt.encoder.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
-            self.heads = nn.Linear(hidden_dim, num_classes)
+            heads = OrderedDict()
+            heads['head'] = utils.LinearHead(hidden_dim, num_classes)
+            self.heads = nn.Sequential(heads)
 
     def _process_input(self, x: torch.Tensor) -> torch.Tensor:
         n, c, h, w = x.shape

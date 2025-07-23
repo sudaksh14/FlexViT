@@ -54,15 +54,16 @@ class SelfAttention(Module):
         proj = proj.view(3, batch_size, self.max_heads,
                          seq_length, regular_head_dim)
 
-        proj[:, :, self.heads[self.level]:, :, :] = proj[
-            :, :, self.heads[self.level]:, :, :].zero_()
-
         adapted_head_dim = self.token_size[self.level] // self.heads[self.level]
-        proj[:, :, :self.heads[self.level], :, adapted_head_dim:] = proj[
-            :, :, :self.heads[self.level], :, adapted_head_dim:].zero_()
+        proj = proj[:, :, :self.heads[self.level], :, :adapted_head_dim]
 
         attn_output = F.scaled_dot_product_attention(
             *proj, None, self.dropout if self.training else 0.0, False)
+        max_hs = self.max_token_size // self.max_heads
+
+        attn_output = F.pad(attn_output, (0, max_hs - adapted_head_dim, 0, 0,
+                     0, self.max_heads - self.heads[self.level]))
+
         attn_output = attn_output.permute(2, 0, 1, 3)
         attn_output = attn_output.contiguous()
         attn_output = attn_output.view(batch_size * seq_length, token_size)

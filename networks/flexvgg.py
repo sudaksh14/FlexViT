@@ -47,7 +47,7 @@ class VGGConfig(FlexModelConfig):
 
 class VGG(FlexModel):
     def __init__(self, config: 'VGGConfig') -> None:
-        super().__init__()
+        super().__init__(config)
         self.levels = len(config.small_channels)
 
         self.features = self.make_layers(

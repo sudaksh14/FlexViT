@@ -1,4 +1,5 @@
-from networks.flex_model import FlexModel
+from torch import nn
+
 import utils
 
 
@@ -7,7 +8,7 @@ class ModelConfig(utils.SelfDescripting):
     ModelConfig defines an interface followed by configuration classes of all models. 
     """
 
-    def make_model(self) -> FlexModel:
+    def make_model(self) -> nn.Module:
         """
         Constructs a model according to this config
         """
