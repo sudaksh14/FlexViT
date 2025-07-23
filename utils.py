@@ -17,7 +17,6 @@ from flex_modules.module import Module
 from networks.modules import ClassTokenLayer, PosEmbeddingLayer, LinearHead
 import config.paths as paths
 
-from networks import flex_model
 
 # Some of this code is from https://github.com/poojamangal15/Adaptive-Neural-Networks
 
@@ -230,12 +229,12 @@ def flexible_model_copy(src: Union[nn.Module, dict[str, Any]], dest: nn.Module):
         dest.load_state_dict(src)
         return
 
-    if isinstance(src, flex_model.FlexModel):
+    if isinstance(src, Module):
         src.copy_to_base(dest)
         return
 
-    if isinstance(dest, flex_model.FlexModel):
-        dest.load_from_base(dest)
+    if isinstance(dest, Module):
+        dest.load_from_base(src)
         return
 
     dest.load_state_dict(src.state_dict())

@@ -28,9 +28,11 @@ def make_randomized(func):
 class TestDeltaManager():
     @staticmethod
     def check_equiv(a, b):
-        if torch.isclose(a, b, atol=1e-3).all():
+        if torch.isclose(a, b).all():
             return True
-        print(a, b, file=sys.stderr)
+        print(torch.isclose(a, b), file=sys.stderr)
+        print(a, file=sys.stderr)
+        print(b, file=sys.stderr)
         return False
 
     def get_flex_config(self) -> networks.config.FlexModelConfig:
