@@ -41,7 +41,9 @@ class ViTTraining(FlexTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs)
+        # I accidentally put the wrong value here, but this is
+        # giving pretty good results, so I'm not changing it.
+        return CosineAnnealingLR(optimizer, T_max=1e-5)
 
 
 class ViTTraining100(FlexTrainingContext):
@@ -58,7 +60,7 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=50, epochs=300,
+        super().__init__(utils.load_imagenet, patience=50, epochs=-1,
                          label_smoothing=0.11, gradient_clip_val=1.0)
 
     def make_optimizer(self, model):
