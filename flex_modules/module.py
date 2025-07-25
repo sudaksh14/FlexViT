@@ -1,7 +1,9 @@
-from typing import Any, TypeVar, Generic
+from typing import Any, TypeVar, Generic, Callable, overload, Union
+import copy
 
 from torch import nn
 
+import torch
 
 T = TypeVar('T')
 
@@ -10,13 +12,37 @@ class LevelDelta(Generic[T]):
     def __init__(self, delta):
         self.delta: T = delta
 
-    def verify_format():
-        return True
+    def verify_format(self) -> bool:
+        return _verify_level_delta(self)
 
-    def to_device(self):
-        return self
+    def map_tensors(self, func: Callable[[torch.Tensor], torch.Tensor]) -> 'LevelDelta':
+        return _map_level_delta_tensors(func, self)
 
-    def apply(self, module):
+    def str_structure(self) -> str:
+        return _str_structure_level_delta(self)
+
+    @overload
+    def to(self, dtype: torch.dtype, *args, **kwargs) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.to(dtype, *args, **kwargs))
+
+    @overload
+    def to(self, device: Union[str, torch.device, int], *args, **kwargs) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.to(device, *args, **kwargs))
+
+    @overload
+    def to(self, other: torch.Tensor, *args, **kwargs) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.to(other, *args, **kwargs))
+
+    def clone(self) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.clone())
+
+    def detach(self) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.detach())
+
+    def cpu(self):
+        return self.map_tensors(lambda t: t.cpu())
+
+    def apply(self, module: nn.Module):
         raise NotImplemented()
 
 
@@ -153,3 +179,49 @@ class LevelDeltas:
         if not __class__.is_registered(type(module)):
             raise KeyError()
         return __class__.registered[type(module)].apply_level_delta_up(module, level_delta)
+
+
+def _verify_level_delta(delta: LevelDelta) -> bool:
+    if isinstance(delta, LevelDelta):
+        return _verify_level_delta(delta.delta)
+    elif isinstance(delta, tuple):
+        return all(map(_verify_level_delta, delta))
+    elif isinstance(delta, int):
+        return True
+    elif isinstance(delta, torch.Tensor):
+        return True
+    elif delta is None:
+        return True
+    return False
+
+
+def _map_level_delta_tensors(func: Callable[[torch.Tensor], torch.Tensor], delta: LevelDelta) -> LevelDelta:
+    if isinstance(delta, LevelDelta):
+        cpy = copy.copy(delta)
+        cpy.delta = _map_level_delta_tensors(delta.delta)
+        return cpy
+    elif isinstance(delta, tuple):
+        return tuple(map(_map_level_delta_tensors, delta))
+    elif isinstance(delta, int):
+        return delta
+    elif isinstance(delta, torch.Tensor):
+        return func(delta)
+    elif delta is None:
+        return None
+    raise RuntimeError("Level delta is not of valid format")
+
+
+def _str_structure_level_delta(delta):
+    if isinstance(delta, LevelDelta):
+        return f"Delta({_str_structure_level_delta(delta.delta)})"
+    elif isinstance(delta, tuple):
+        lst = ", ".join(map(_str_structure_level_delta, delta))
+        return f"({lst})"
+    elif isinstance(delta, int):
+        return str(int)
+    elif isinstance(delta, torch.Tensor):
+        return str(delta.size())
+    elif delta is None:
+        return "None"
+    else:
+        return "ERROR"

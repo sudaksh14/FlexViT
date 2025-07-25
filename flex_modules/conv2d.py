@@ -72,6 +72,7 @@ class Conv2d(Module):
         conv = nn.Conv2d(
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
         self.copy_to_base(conv)
+        conv.train(self.training)
         return conv
 
     @torch.no_grad()

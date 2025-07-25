@@ -25,6 +25,7 @@ class LinearSelect(AdaptSelect):
         m = nn.Linear(
             self._in_sizes[self.current_level()], self._out_sizes[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)
+        m.train(self.training)
         return m
 
 

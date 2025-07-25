@@ -48,6 +48,7 @@ class PosEmbeddingLayer(Module):
         dest = vmod.PosEmbeddingLayer(
             self.seq_length, self.hidden_dims[self.level])
         self.copy_to_base(dest)
+        dest.train(self.training)
         return dest
 
     @torch.no_grad()

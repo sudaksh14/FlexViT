@@ -99,6 +99,9 @@ class LayerTester:
         for i in range(layer.max_level() - 1, -1, -1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
+            self.assertTrue(delta_down.verify_format(),
+                            delta_down.str_structure())
+            self.assertTrue(delta_up.verify_format(), delta_up.str_structure())
             layer.apply_level_delta_down(reg_layer, delta_down)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(
@@ -107,6 +110,9 @@ class LayerTester:
         for i in range(1, layer.max_level() + 1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
+            self.assertTrue(delta_down.verify_format(),
+                            delta_down.str_structure())
+            self.assertTrue(delta_up.verify_format(), delta_up.str_structure())
             layer.apply_level_delta_up(reg_layer, delta_up)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(
@@ -131,6 +137,8 @@ class LayerTester:
         for i in range(layer.max_level() - 1, -1, -1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
+            assert (delta_down.verify_format())
+            assert (delta_up.verify_format())
             delta_down.apply(reg_layer)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(
@@ -141,6 +149,8 @@ class LayerTester:
         for i in range(1, layer.max_level() + 1):
             layer.set_level_use(i)
             delta_down, delta_up = layer.export_level_delta()
+            assert (delta_down.verify_format())
+            assert (delta_up.verify_format())
             delta_up.apply(reg_layer)
             x = self.make_input(i)
             self.assertTrue(self.check_equiv(

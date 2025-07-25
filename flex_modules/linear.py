@@ -60,6 +60,7 @@ class Linear(Module):
         lin = nn.Linear(
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
         self.copy_to_base(lin)
+        lin.train(self.training)
         return lin
 
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
