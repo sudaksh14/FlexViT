@@ -1,4 +1,5 @@
 from typing import Any, TypeVar, Generic, Callable, overload, Union
+from functools import partial
 import copy
 
 from torch import nn
@@ -198,10 +199,10 @@ def _verify_level_delta(delta: LevelDelta) -> bool:
 def _map_level_delta_tensors(func: Callable[[torch.Tensor], torch.Tensor], delta: LevelDelta) -> LevelDelta:
     if isinstance(delta, LevelDelta):
         cpy = copy.copy(delta)
-        cpy.delta = _map_level_delta_tensors(delta.delta)
+        cpy.delta = _map_level_delta_tensors(func, delta.delta)
         return cpy
     elif isinstance(delta, tuple):
-        return tuple(map(_map_level_delta_tensors, delta))
+        return tuple(map(partial(_map_level_delta_tensors, func), delta))
     elif isinstance(delta, int):
         return delta
     elif isinstance(delta, torch.Tensor):

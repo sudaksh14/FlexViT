@@ -50,11 +50,11 @@ class AdaptSelect(Module):
     def _apply_level_delta(model: nn.Module, level_delta: LevelDelta[tuple[torch.Tensor, ...]]):
         params, buffers = level_delta.delta
         for p, src_p in zip(model.parameters(), params):
-            p.data = src_p[:].to(p.data)
+            p.data = src_p.to(p.data)
         for (name, b), src_b in zip(model.named_buffers(), buffers):
             if b is not None:
                 src_b = src_b.to(b)
-            setattr(model, name, src_b.clone().detach())
+            setattr(model, name, src_b)
 
     @staticmethod
     @torch.no_grad()

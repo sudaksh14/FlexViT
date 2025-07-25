@@ -11,8 +11,8 @@ def get_model_deltas(model: Module) -> dict[tuple[int, bool], LevelDelta]:
     for level in range(model.max_level() + 1):
         model.set_level_use(level)
         delta_down, delta_up = model.export_level_delta()
-        deltas[(level, False)] = delta_down
-        deltas[(level, True)] = delta_up
+        deltas[(level, False)] = delta_down.cpu().clone().detach()
+        deltas[(level, True)] = delta_up.cpu().clone().detach()
 
     return deltas
 
@@ -24,10 +24,10 @@ class BaseDeltaManager:
     def move_model_to(self, model: nn.Module, current_level: int, target_level: int) -> None:
         if target_level > current_level:
             for i in range(current_level + 1, target_level + 1):
-                self.get_level_delta(i, True).apply(model)
+                self.get_level_delta(i, True).clone().detach().apply(model)
         elif target_level < current_level:
             for i in range(current_level - 1, target_level - 1, -1):
-                self.get_level_delta(i, False).apply(model)
+                self.get_level_delta(i, False).clone().detach().apply(model)
 
 
 class InMemoryDeltaManager(BaseDeltaManager):
