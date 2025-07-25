@@ -64,13 +64,14 @@ class PosEmbeddingLayer(Module):
     @staticmethod
     @torch.no_grad()
     def apply_level_delta_down(model: vmod.PosEmbeddingLayer, level_delta: DownDelta[int]) -> None:
-        model.embedding.data = model.embedding.data[:, :, :level_delta.delta]
+        model.embedding.data = model.embedding.data[:, :, :level_delta.delta].to(
+            model.embedding.data)
 
     @staticmethod
     @torch.no_grad()
     def apply_level_delta_up(model: vmod.PosEmbeddingLayer, level_delta: UpDelta[torch.Tensor]) -> None:
         model.embedding.data = torch.cat(
-            [model.embedding.data, level_delta.delta], dim=2)
+            [model.embedding.data, level_delta.delta.to(model.embedding.data)], dim=2)
 
 
 PosEmbeddingLayer.register_self(PosEmbeddingLayer)

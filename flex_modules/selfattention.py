@@ -259,26 +259,26 @@ class SelfAttention(Module):
         nembed_dim = b.embed_dim + curr_right_inw.shape[3]
 
         t = b.in_proj_weight.view(3, b.num_heads, b.head_dim, b.embed_dim)
-        t = torch.cat([t, curr_bottom_inw], dim=2)
-        t = torch.cat([t, curr_right_inw], dim=3)
-        t = torch.cat([t, target_heads_inw], dim=1)
+        t = torch.cat([t, curr_bottom_inw.to(t)], dim=2)
+        t = torch.cat([t, curr_right_inw.to(t)], dim=3)
+        t = torch.cat([t, target_heads_inw.to(t)], dim=1)
         t = t.view(3 * nembed_dim, nembed_dim)
         b.in_proj_weight.data = t.detach()
 
         t = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
-        t = torch.cat([t, slimmed_heads_inb], dim=2)
-        t = torch.cat([t, target_heads_inb], dim=1)
+        t = torch.cat([t, slimmed_heads_inb.to(t)], dim=2)
+        t = torch.cat([t, target_heads_inb.to(t)], dim=1)
         t = t.view(3 * nembed_dim)
         b.in_proj_bias.data = t.detach()
 
         t = b.out_proj.weight.data.view(b.embed_dim, b.num_heads, b.head_dim)
-        t = torch.cat([t, curr_bottom_ow], dim=2)
-        t = torch.cat([t, curr_right_ow], dim=0)
-        t = torch.cat([t, target_heads_ow], dim=1)
+        t = torch.cat([t, curr_bottom_ow.to(t)], dim=2)
+        t = torch.cat([t, curr_right_ow.to(t)], dim=0)
+        t = torch.cat([t, target_heads_ow.to(t)], dim=1)
         t = t.view(nembed_dim, nembed_dim)
         b.out_proj.weight.data = t.detach()
 
-        t = torch.cat([b.out_proj.bias.data, out_bias])
+        t = torch.cat([b.out_proj.bias.data, out_bias.to(t)])
         b.out_proj.bias.data = t.detach()
 
         b.num_heads = nheads

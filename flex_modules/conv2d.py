@@ -95,9 +95,10 @@ class Conv2d(Module):
     @torch.no_grad()
     def apply_level_delta_down(model: nn.Conv2d, level_delta: DownDelta[tuple[int, int]]) -> None:
         in_size, out_size = level_delta.delta
-        model.weight.data = model.weight.data[:out_size, :in_size]
+        model.weight.data = model.weight.data[:out_size, :in_size].to(
+            model.weight.data)
         if model.bias is not None:
-            model.bias.data = model.bias.data[:out_size]
+            model.bias.data = model.bias.data[:out_size].to(model.bias.data)
 
     @staticmethod
     @torch.no_grad()
@@ -107,10 +108,11 @@ class Conv2d(Module):
         out_size, in_size, *_ = weights.size()
         weights = F.pad(
             weights, (0, 0, 0, 0, 0, lower_part.size(1), 0, right_part.size(0)))
-        weights[:, in_size:] = lower_part
-        weights[out_size:, :in_size] = right_part
+        weights[:, in_size:] = lower_part.to(weights)
+        weights[out_size:, :in_size] = right_part.to(weights)
         if model.bias is not None:
-            model.bias.data = torch.cat([model.bias.data, bias_part])
+            model.bias.data = torch.cat(
+                [model.bias.data, bias_part.to(model.bias.data)])
         model.weight.data = weights
         model.zero_grad()
 
