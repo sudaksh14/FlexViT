@@ -11,7 +11,6 @@ from networks.config import ModelConfig
 # basic implementation from https://github.com/chenyaofo/pytorch-cifar-models
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class ResnetConfig(ModelConfig):
     num_blocks: Iterable[int] = (3, 3, 3)

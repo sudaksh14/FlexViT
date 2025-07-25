@@ -16,7 +16,6 @@ import utils
 # This model is mostly an adapted version from torchvision.models.vision_transformer
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class ViTStructureConfig(utils.SelfDescripting):
     image_size: int
@@ -49,7 +48,6 @@ class ViTPrebuilt(Enum):
 DEFAULT_NUM_CLASSES = 1000
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class ViTConfig(ModelConfig):
     structure: ViTStructureConfig = ViTStructure.b16

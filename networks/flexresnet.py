@@ -13,7 +13,6 @@ import flex_modules as fm
 import networks.resnet
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class ResnetConfig(FlexModelConfig):
     num_blocks: Iterable[int] = (3, 3, 3)

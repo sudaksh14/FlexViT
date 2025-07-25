@@ -26,19 +26,12 @@ def get_device() -> 'str':
                         "cuda" if torch.cuda.is_available() else "cpu")
 
 
-def fluent_setters(cls):
-    variables = list(filter(lambda s: s[:2] != "__", cls.__dict__))
-    for attr in variables:
-        def make_setter(attr_name):
-            def setter(self, value):
-                setattr(self, attr_name, value)
-                return self
-            return setter
-        setattr(cls, f'set_{attr}', make_setter(attr))
-    return cls
-
-
 class SelfDescripting:
+    def setv(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        return self
+
     def get_description(self) -> str:
         res = f"{self.__class__.__name__}"
         for name, val in self.__dict__.items():

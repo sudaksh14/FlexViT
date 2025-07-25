@@ -2,7 +2,6 @@ import dataclasses
 import utils
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class HardwareConfig(utils.SelfDescripting):
     """
@@ -39,10 +38,17 @@ class CurrentDevice:
 
 DEFAULT_HARDWARE_CONFIG = HardwareConfig()
 HARDWARE = {
-    "vitprebuild": HardwareConfig().set_gpu_count(4),
+    "vitprebuild": HardwareConfig(
+        gpu_count=4),
     "flexvit": {
-        "cifar10.5levels": HardwareConfig().set_gpu_count(4).set_time('12:00:00'),
-        "imagenet": HardwareConfig().set_gpu_count(4).set_time('72:00:00')
+        "cifar10.5levels": HardwareConfig(
+            gpu_count=4,
+            time='12:00:00'),
+        "imagenet": HardwareConfig(
+            gpu_count=4,
+            time='72:00:00')
     },
-    "flexvitcorrect": HardwareConfig().set_gpu_count(4).set_time('24:00:00'),
+    "flexvitcorrect": HardwareConfig(
+        gpu_count=4,
+        set_time='24:00:00'),
 }
