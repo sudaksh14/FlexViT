@@ -10,7 +10,6 @@ import utils
 # basic implementation from https://github.com/chenyaofo/pytorch-cifar-models
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class VGGConfig(ModelConfig):
     version: int = 11

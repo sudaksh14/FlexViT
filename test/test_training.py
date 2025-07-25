@@ -117,7 +117,6 @@ class DummyFlexModel(networks.flex_model.FlexModel):
 DummyFlexModel.register_self(DummyFlexModel)
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class DummyModelConfig(networks.config.FlexModelConfig):
     def make_model(self) -> networks.flex_model.FlexModel:
@@ -127,7 +126,6 @@ class DummyModelConfig(networks.config.FlexModelConfig):
         return self
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class DummyFlexModelCofig(networks.config.FlexModelConfig):
     def make_model(self) -> networks.flex_model.FlexModel:
@@ -143,7 +141,6 @@ class DummyFlexModelCofig(networks.config.FlexModelConfig):
         return 2
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class DummyFlexTrainingContext(training.FlexTrainingContext):
     def make_optimizer(self, model):
@@ -153,7 +150,6 @@ class DummyFlexTrainingContext(training.FlexTrainingContext):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class DummyTrainingContext(training.TrainingContext):
     def make_optimizer(self, model):

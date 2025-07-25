@@ -12,7 +12,6 @@ import flex_modules as fm
 import networks.vgg
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class VGGConfig(FlexModelConfig):
     version: int = 11

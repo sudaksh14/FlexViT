@@ -23,7 +23,6 @@ def scale_with_heads_list(heads, max_hidden_dims):
     return [max_hidden_dims // max_num_heads * i for i in heads]
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class ViTConfig(FlexModelConfig):
     structure: ViTStructureConfig = ViTStructure.b16

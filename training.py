@@ -20,9 +20,8 @@ import config.wandb
 import utils
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
-class TrainingContext:
+class TrainingContext(utils.SelfDescripting):
     loader_function: Callable[[], tuple[DataLoader, DataLoader, DataLoader]]
     patience: int = 5
     epochs: int = 10
@@ -76,7 +75,6 @@ class TrainerBuilder:
         return self.run_training(conf)
 
 
-@utils.fluent_setters
 @dataclasses.dataclass
 class FlexTrainingContext(TrainingContext):
     incremental_training: bool = False
