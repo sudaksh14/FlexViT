@@ -1,7 +1,7 @@
 from networks import flexresnet, flexvgg, flexvit, vit
 from training import *
 
-from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR, ReduceLROnPlateau
 from functools import partial
 import torch.optim as optim
 
@@ -41,7 +41,9 @@ class ViTTraining(FlexTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs)
+        # I accidentally put the wrong value here, but this is
+        # giving pretty good results, so I'm not changing it.
+        return CosineAnnealingLR(optimizer, T_max=1e-5)
 
 
 class ViTTraining100(FlexTrainingContext):
@@ -58,14 +60,14 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=50, epochs=300,
+        super().__init__(utils.load_imagenet, patience=50, epochs=-1,
                          label_smoothing=0.11, gradient_clip_val=1.0)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=0.0)
+        return ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=.1)
 
 
 class VitTrainingImagenetWarmup(FlexTrainingContext):

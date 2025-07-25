@@ -62,7 +62,7 @@ class SelfAttention(Module):
         max_hs = self.max_token_size // self.max_heads
 
         attn_output = F.pad(attn_output, (0, max_hs - adapted_head_dim, 0, 0,
-                     0, self.max_heads - self.heads[self.level]))
+                                          0, self.max_heads - self.heads[self.level]))
 
         attn_output = attn_output.permute(2, 0, 1, 3)
         attn_output = attn_output.contiguous()
@@ -157,8 +157,8 @@ class SelfAttention(Module):
             dropout=self.dropout,
             batch_first=True
         )
-
         self.copy_to_base(lin)
+        self.train(self.training)
         return lin
 
     @torch.no_grad()
@@ -202,7 +202,8 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]]
+        out_bias = self.out_bias[self.token_size[cur_level]
+            :self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
@@ -258,26 +259,26 @@ class SelfAttention(Module):
         nembed_dim = b.embed_dim + curr_right_inw.shape[3]
 
         t = b.in_proj_weight.view(3, b.num_heads, b.head_dim, b.embed_dim)
-        t = torch.cat([t, curr_bottom_inw], dim=2)
-        t = torch.cat([t, curr_right_inw], dim=3)
-        t = torch.cat([t, target_heads_inw], dim=1)
+        t = torch.cat([t, curr_bottom_inw.to(t)], dim=2)
+        t = torch.cat([t, curr_right_inw.to(t)], dim=3)
+        t = torch.cat([t, target_heads_inw.to(t)], dim=1)
         t = t.view(3 * nembed_dim, nembed_dim)
         b.in_proj_weight.data = t.detach()
 
         t = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
-        t = torch.cat([t, slimmed_heads_inb], dim=2)
-        t = torch.cat([t, target_heads_inb], dim=1)
+        t = torch.cat([t, slimmed_heads_inb.to(t)], dim=2)
+        t = torch.cat([t, target_heads_inb.to(t)], dim=1)
         t = t.view(3 * nembed_dim)
         b.in_proj_bias.data = t.detach()
 
         t = b.out_proj.weight.data.view(b.embed_dim, b.num_heads, b.head_dim)
-        t = torch.cat([t, curr_bottom_ow], dim=2)
-        t = torch.cat([t, curr_right_ow], dim=0)
-        t = torch.cat([t, target_heads_ow], dim=1)
+        t = torch.cat([t, curr_bottom_ow.to(t)], dim=2)
+        t = torch.cat([t, curr_right_ow.to(t)], dim=0)
+        t = torch.cat([t, target_heads_ow.to(t)], dim=1)
         t = t.view(nembed_dim, nembed_dim)
         b.out_proj.weight.data = t.detach()
 
-        t = torch.cat([b.out_proj.bias.data, out_bias])
+        t = torch.cat([b.out_proj.bias.data, out_bias.to(t)])
         b.out_proj.bias.data = t.detach()
 
         b.num_heads = nheads

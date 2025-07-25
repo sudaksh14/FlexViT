@@ -24,6 +24,7 @@ class LayerNorm(AdaptSelect):
         m = nn.LayerNorm(
             self._channels[self.current_level()], *self._args, **self._kwargs)
         self.copy_to_base(m)
+        m.train(self.training)
         return m
 
     @staticmethod

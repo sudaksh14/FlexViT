@@ -60,13 +60,14 @@ class Linear(Module):
         lin = nn.Linear(
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
         self.copy_to_base(lin)
+        lin.train(self.training)
         return lin
 
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
         weights = self.linear.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
-        right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        right_part = weights[self.out_sizes[self.level-1]                             :self.out_sizes[self.level], :self.in_sizes[self.level-1]]
         bias_part = None
         if self.linear.bias is not None:
             bias_part = self.linear.bias.data[
@@ -76,23 +77,25 @@ class Linear(Module):
         return DownDelta(prune_down), UpDelta(prune_up)
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta: DownDelta[tuple[int, int]]) -> None:
+    def apply_level_delta_down(model: nn.Linear, level_delta: DownDelta[tuple[int, int]]) -> None:
         in_size, out_size = level_delta.delta
-        model.weight.data = model.weight.data[:out_size, :in_size]
+        model.weight.data = model.weight.data[:out_size, :in_size].to(
+            model.weight.data)
         if model.bias is not None:
-            model.bias.data = model.bias.data[:out_size]
+            model.bias.data = model.bias.data[:out_size].to(model.bias.data)
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta: UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]) -> None:
+    def apply_level_delta_up(model: nn.Linear, level_delta: UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]) -> None:
         weights = model.weight.data
         lower_part, right_part, bias_part = level_delta.delta
         out_size, in_size, *_ = weights.size()
         weights = F.pad(
             weights, (0, lower_part.size(1), 0, right_part.size(0)))
-        weights[:, in_size:] = lower_part
-        weights[out_size:, :in_size] = right_part
+        weights[:, in_size:] = lower_part.to(weights)
+        weights[out_size:, :in_size] = right_part.to(weights)
         if model.bias is not None:
-            model.bias.data = torch.cat([model.bias.data, bias_part])
+            model.bias.data = torch.cat(
+                [model.bias.data, bias_part]).to(model.bias.data)
         model.weight.data = weights
         model.zero_grad()
 

@@ -12,6 +12,8 @@ class HardwareConfig(utils.SelfDescripting):
     gpu_count: int = 1
     time: str = '24:00:00'
 
+    process_group_backend: str = 'nccl'
+
     # do not change this as training code is currently not set up to handle multiple nodes
     node_count: int = 1
 
@@ -20,7 +22,7 @@ class HardwareConfig(utils.SelfDescripting):
         This formats the configuration into arguments as passed to sbatch or srun.
         This is used to reserve nodes for experiments with their associated hardware requirements.
         """
-        return f"-N {self.node_count} -p {self.partition} -t {self.time} --gpus-per-node={self.gpu_count} --mem=0"
+        return f"--nodes {self.node_count} -p {self.partition} --time {self.time} --gpus-per-node={self.gpu_count} --ntasks-per-node={self.gpu_count} --mem=0"
 
 
 class CurrentDevice:
