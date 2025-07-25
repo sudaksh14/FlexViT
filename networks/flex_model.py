@@ -109,6 +109,7 @@ class FlexModel(fm.Module):
         reg_model = self.config.create_base_config(
             self.current_level()).no_prebuilt().make_model()
         self.copy_to_base(reg_model)
+        reg_model.train(self.training)
         return reg_model
 
     @torch.no_grad()
