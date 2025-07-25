@@ -6,6 +6,7 @@ import logging
 
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.strategies import DDPStrategy
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import pytorch_lightning as pl
@@ -89,7 +90,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.save_hyperparameters()
         self.model_config = model_config
         self.training_context = training_context
-        self.submodel = self.model_config.make_model().to(utils.get_device())
+        self.submodel = self.model_config.make_model()
         self.upto = self.submodel.max_level()
         self.distill_net = None
 
@@ -156,24 +157,16 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         if self.training_context.incremental_training:
             self.upto = 0
 
-        def training():
-            nonlocal trainer
-            if self.training_context.incremental_training:
-                for i in range(model.max_level() + 1):
-                    trainer = finetune(trainer, self.training_context)
-                    trainer.upto += 1
-            else:
-                trainer = finetune(trainer, self.training_context)
-
-        if self.training_context.wandb_project_name is not None:
-            with wandb.init(
-                    project=self.training_context.wandb_project_name,
-                    name=conf_description,
-                    config=self.model_config.get_flat_dict(),
-                    dir=paths.LOG_PATH):
-                training()
+        if self.training_context.incremental_training:
+            for i in range(model.max_level() + 1):
+                trainer = finetune(
+                    trainer, self.training_context,
+                    conf_description, self.model_config)
+                trainer.upto += 1
         else:
-            training()
+            trainer = finetune(
+                trainer, self.training_context,
+                conf_description, self.model_config)
 
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description())
@@ -188,7 +181,7 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         self.save_hyperparameters()
         self.model_config = model_config
         self.training_context = training_context
-        self.submodel = self.model_config.make_model().to(utils.get_device())
+        self.submodel = self.model_config.make_model()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.submodel(x)
@@ -217,15 +210,9 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         model = self.submodel
         trainer = self
 
-        if self.training_context.wandb_project_name is not None:
-            with wandb.init(
-                    project=self.training_context.wandb_project_name,
-                    name=conf_description,
-                    config=self.model_config.get_flat_dict(),
-                    dir=paths.LOG_PATH):
-                trainer = finetune(trainer, self.training_context)
-        else:
-            trainer = finetune(trainer, self.training_context)
+        trainer = finetune(
+            trainer, self.training_context,
+            conf_description, self.model_config)
 
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description(), 'pretrained')
@@ -234,8 +221,17 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         pass
 
 
-def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.LightningModule:
+logger = None
+
+
+def finetune(model: pl.LightningModule, config: TrainingContext, conf_description, model_config) -> pl.LightningModule:
+    global logger
     config.wrap_model(model)
+
+    if config.unittest_mode:
+        logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
+        logging.getLogger(
+            'lightning_fabric.utilities.distributed').setLevel(logging.ERROR)
 
     with tempfile.TemporaryDirectory() as tdir:
         hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
@@ -262,15 +258,21 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
 
         kwargs = dict()
         if config.wandb_project_name is not None:
-            kwargs['logger'] = WandbLogger(log_model=False, dir=paths.LOG_PATH)
+            if logger is None:
+                logger = WandbLogger(
+                    project=config.wandb_project_name, name=conf_description,
+                    config=model_config.get_flat_dict(),
+                    dir=paths.LOG_PATH, log_model=False)
+            kwargs['logger'] = logger
         else:
             kwargs['logger'] = None
 
         if config.unittest_mode:
             kwargs['fast_dev_run'] = True
             kwargs['enable_progress_bar'] = False
-            logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
+            kwargs['enable_model_summary'] = False
 
+        ddp = DDPStrategy(process_group_backend=hw.process_group_backend)
         trainer = pl.Trainer(
             **kwargs,
             max_epochs=config.epochs,
@@ -278,7 +280,9 @@ def finetune(model: pl.LightningModule, config: TrainingContext) -> pl.Lightning
             log_every_n_steps=10,
             enable_checkpointing=True,
             accelerator="gpu",
-            devices="auto"
+            devices=hw.gpu_count,
+            num_nodes=hw.node_count,
+            strategy='ddp'
         )
 
         train_loader, val_loader, test_loader = config.loader_function()

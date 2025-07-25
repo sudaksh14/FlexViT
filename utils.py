@@ -158,7 +158,7 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     test_dataset = ImageFolder(data_dir / "val", transform=transform)
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=16)
+        train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
     val_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=16)
     test_dataloader = DataLoader(
