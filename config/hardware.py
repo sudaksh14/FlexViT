@@ -50,5 +50,5 @@ HARDWARE = {
     },
     "flexvitcorrect": HardwareConfig(
         gpu_count=4,
-        set_time='24:00:00'),
+        time='24:00:00'),
 }
