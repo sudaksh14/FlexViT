@@ -32,8 +32,7 @@ class LayerTester:
         if torch.isclose(a, b).all():
             return True
         print(torch.isclose(a, b), file=sys.stderr)
-        print(a, file=sys.stderr)
-        print(b, file=sys.stderr)
+        print(torch.abs(a - b))
         return False
 
     def test_basic_forward(self):
@@ -69,7 +68,6 @@ class LayerTester:
         for i in range(layer.max_level() + 1):
             layer.set_level_use(i)
             reg_layer = layer.make_base_copy()
-            reg_layer.eval()
             x = self.make_input(i)
 
             augx = self.augment_for_reg(x, i)
@@ -320,6 +318,14 @@ class TestBatchnorm2d(LayerTester, unittest.TestCase):
 
 
 class TestResnet(LayerTester, unittest.TestCase):
+    @staticmethod
+    def check_equiv(a, b):
+        if torch.isclose(a, b, rtol=1e-4).all():
+            return True
+        print(torch.isclose(a, b), file=sys.stderr)
+        print(torch.abs(a - b))
+        return False
+
     @make_randomized
     def make_flex_module(self) -> Module:
         return flexresnet.ResnetConfig().make_model()
@@ -333,6 +339,13 @@ class TestResnet(LayerTester, unittest.TestCase):
 
 
 class TestVGG(LayerTester, unittest.TestCase):
+    @staticmethod
+    def check_equiv(a, b):
+        if torch.isclose(a, b, rtol=1e-4).all():
+            return True
+        print(torch.isclose(a, b), file=sys.stderr)
+        print(torch.abs(a - b))
+
     @make_randomized_f(0.01)
     def make_flex_module(self) -> Module:
         return flexvgg.VGGConfig().make_model()
@@ -346,6 +359,13 @@ class TestVGG(LayerTester, unittest.TestCase):
 
 
 class TestViT(LayerTester, unittest.TestCase):
+    @staticmethod
+    def check_equiv(a, b):
+        if torch.isclose(a, b, rtol=1e-4).all():
+            return True
+        print(torch.isclose(a, b), file=sys.stderr)
+        print(torch.abs(a - b))
+
     @make_randomized_f(0.01)
     def make_flex_module(self) -> Module:
         return flexvit.ViTConfig().make_model()

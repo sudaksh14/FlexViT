@@ -21,6 +21,7 @@ import unittest
 import training
 import networks
 import utils
+import config.hardware
 
 
 def load_dummy_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=8):
@@ -160,6 +161,10 @@ class DummyTrainingContext(training.TrainingContext):
 
     def make_scheduler(self, optimizer):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
+
+
+dummy_hardware: config.hardware.HardwareConfig = config.hardware.HardwareConfig()
+config.hardware.CurrentDevice.set_hardware(dummy_hardware)
 
 
 class TestTrainer(unittest.TestCase):
