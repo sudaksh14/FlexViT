@@ -56,18 +56,15 @@ class Linear(Module):
         if src.bias is not None:
             self.linear.bias.data[:self.out_sizes[self.level]] = src.bias.data
 
-    def make_base_copy(self) -> nn.Linear:
-        lin = nn.Linear(
+    def _make_reg_layer(self):
+        return nn.Linear(
             self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
-        self.copy_to_base(lin)
-        lin.train(self.training)
-        return lin
 
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
         weights = self.linear.weight.data
         lower_part = weights[:self.out_sizes[self.level],
                              self.in_sizes[self.level-1]:self.in_sizes[self.level], ]
-        right_part = weights[self.out_sizes[self.level-1]                             :self.out_sizes[self.level], :self.in_sizes[self.level-1]]
+        right_part = weights[self.out_sizes[self.level-1]:self.out_sizes[self.level], :self.in_sizes[self.level-1]]
         bias_part = None
         if self.linear.bias is not None:
             bias_part = self.linear.bias.data[
@@ -95,7 +92,7 @@ class Linear(Module):
         weights[out_size:, :in_size] = right_part.to(weights)
         if model.bias is not None:
             model.bias.data = torch.cat(
-                [model.bias.data, bias_part]).to(model.bias.data)
+                [model.bias.data, bias_part.to(model.bias.data)])
         model.weight.data = weights
         model.zero_grad()
 
