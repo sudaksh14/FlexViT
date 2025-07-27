@@ -1,6 +1,7 @@
 from typing import Union, Any
 import shutil
 import os
+import io
 
 from torchvision.transforms import (
     Compose, RandomHorizontalFlip, RandomRotation,
@@ -208,7 +209,7 @@ def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=No
         shutil.copytree(tmp_dir, data_dir, dirs_exist_ok=True)
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
+        train_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
     val_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=8)
     test_dataloader = DataLoader(
@@ -231,6 +232,17 @@ def flexible_model_copy(src: Union[nn.Module, dict[str, Any]], dest: nn.Module):
         return
 
     dest.load_state_dict(src.state_dict())
+
+
+def torch_serialize(obj, *args, **kwargs):
+    with io.BytesIO() as f:
+        torch.save(obj, f, *args, **kwargs)
+        return f.getvalue()
+
+
+def torch_deserialize(data: bytes, *args, **kwargs):
+    with io.BytesIO(data) as f:
+        return torch.load(f, *args, **kwargs)
 
 
 def save_model(model: nn.Module, model_description: str, prefix: str = '') -> None:
