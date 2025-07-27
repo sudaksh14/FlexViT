@@ -8,6 +8,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
 from torch.utils.data import DataLoader
+from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
@@ -25,7 +26,6 @@ class TrainingContext(utils.SelfDescripting):
     loader_function: Callable[[], tuple[DataLoader, DataLoader, DataLoader]]
     patience: int = 5
     epochs: int = 10
-    max_time: str = '01:23:00:00'
     label_smoothing: float = 0.0
     gradient_clip_val: Optional[float] = None
 
@@ -51,6 +51,9 @@ class TrainingContext(utils.SelfDescripting):
 
 
 class BaseTrainer:
+    def get_model(self) -> nn.Module:
+        raise NotImplementedError()
+
     def run_training(self, conf_description: str) -> None:
         raise NotImplementedError()
 
@@ -66,10 +69,12 @@ class TrainerBuilder:
         self.model_config = model_config
         self.training_context = training_context
 
-    def run_training(self, conf: str):
-        trainer = self.training_method(
+    def build(self):
+        return self.training_method(
             self.model_config, self.training_context)
-        return trainer.run_training(conf)
+
+    def run_training(self, conf: str):
+        return self.build().run_training(conf)
 
     def __call__(self, conf: str):
         return self.run_training(conf)
@@ -91,6 +96,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.submodel = self.model_config.make_model()
         self.upto = self.submodel.max_level()
         self.distill_net = None
+
+    def get_model(self) -> nn.Module:
+        return self.submodel
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.submodel(x)
@@ -133,14 +141,13 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
     def test_step(self, b, _) -> torch.Tensor:
         return self._step(b, "test")
 
-    def run_training(self, conf_description: str) -> None:
-        torch.set_float32_matmul_precision('high')
-
+    def handle_load_from(self):
         if self.training_context.load_from is not None:
             lmodel = utils.load_model(
                 self.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
             utils.flexible_model_copy(lmodel, self.submodel)
 
+    def handle_distill(self):
         if self.training_context.distill:
             distill_config = self.model_config.no_prebuilt()
             if isinstance(distill_config, FlexModelConfig):
@@ -149,9 +156,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             self.distill_net = distill_config.make_model()
             utils.flexible_model_copy(self.submodel, self.distill_net)
 
-        model = self.submodel
-        trainer = self
-
+    def train_loop(self, trainer, model, conf_description):
         if self.training_context.incremental_training:
             self.upto = 0
 
@@ -165,6 +170,17 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             trainer = finetune(
                 trainer, self.training_context,
                 conf_description, self.model_config)
+
+    def run_training(self, conf_description: str) -> None:
+        torch.set_float32_matmul_precision('high')
+
+        self.handle_load_from()
+        self.handle_distill()
+
+        model = self.submodel
+        trainer = self
+
+        self.train_loop(trainer, model, conf_description)
 
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description())
@@ -280,7 +296,8 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             accelerator="gpu",
             devices=hw.gpu_count,
             num_nodes=hw.node_count,
-            strategy='ddp'
+            strategy='ddp',
+            precision='bf16-mixed'
         )
 
         train_loader, val_loader, test_loader = config.loader_function()

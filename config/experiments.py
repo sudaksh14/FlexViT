@@ -1,3 +1,5 @@
+import math
+
 from networks import flexresnet, flexvgg, flexvit, vit
 from training import *
 
@@ -10,46 +12,44 @@ from torchvision.datasets import CIFAR10, CIFAR100
 
 class ModelTraining(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(partial(utils.load_data, CIFAR10,
-                                 *args, **kwargs), patience=50, epochs=-1)
+        super().__init__(partial(utils.load_data, CIFAR10),
+                         patience=50, epochs=-1, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs)
+        return CosineAnnealingLR(optimizer, T_max=300)
 
 
 class ModelTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(partial(utils.load_data, CIFAR100,
-                                 *args, **kwargs), patience=50, epochs=-1)
+        super().__init__(partial(utils.load_data, CIFAR100),
+                         patience=50, epochs=-1, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs)
+        return CosineAnnealingLR(optimizer, T_max=300)
 
 
 class ViTTraining(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR10,
-                                 resize=(224, 224)), patience=20, epochs=-1)
+                                 resize=(224, 224)), patience=20, epochs=300, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        # I accidentally put the wrong value here, but this is
-        # giving pretty good results, so I'm not changing it.
-        return CosineAnnealingLR(optimizer, T_max=1e-5)
+        return CosineAnnealingLR(optimizer, T_max=300)
 
 
 class ViTTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR100,
-                                 resize=(224, 224)), patience=20, epochs=-1)
+                                 resize=(224, 224)), patience=20, epochs=300, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -60,14 +60,14 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=50, epochs=-1,
-                         label_smoothing=0.11, gradient_clip_val=1.0)
+        super().__init__(utils.load_imagenet, patience=20, epochs=150,
+                         label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=.1)
+        return CosineAnnealingLR(optimizer=optimizer, T_max=150, eta_min=1e-8)
 
 
 class VitTrainingImagenetWarmup(FlexTrainingContext):
@@ -75,7 +75,7 @@ class VitTrainingImagenetWarmup(FlexTrainingContext):
 
     def __init__(self, *args, **kwargs):
         super().__init__(utils.load_imagenet, patience=50, epochs=300,
-                         label_smoothing=0.11, gradient_clip_val=1.0)
+                         label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
@@ -290,6 +290,16 @@ CONFIGS = {
                 num_heads=(12, 12, 12, 12, 12),
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+            VitTrainingImagenet()
+        ),
+        "imagenet_constant_scale": TrainerBuilder(
+            FlexModelTrainer,
+            flexvit.ViTConfig(
+                num_classes=1000,
+                num_heads=(12, 12, 12, 12, 12),
+                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48),
+                attention_scale_factor=1 / math.sqrt(64 * 12)),
             VitTrainingImagenet()
         )
     }, "flexvitcorrect": TrainerBuilder(
