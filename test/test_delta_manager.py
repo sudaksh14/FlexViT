@@ -79,7 +79,7 @@ class TestDeltaManager():
         model.eval()
 
         f = io.BytesIO()
-        levels.FileDeltaManager.make_delta_file(f, model, current_level=0)
+        levels.FileDeltaManager.make_delta_file(f, model, starting_level=0)
 
         x = self.make_input().to(utils.get_device())
         reg_config = config.create_base_config(0).no_prebuilt()

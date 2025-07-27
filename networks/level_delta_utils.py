@@ -60,13 +60,13 @@ class BaseDeltaManager:
 
 
 class InMemoryDeltaManager(BaseDeltaManager):
-    def __init__(self, flexible_model: Module, current_level: int = 0) -> None:
-        if current_level == -1:
-            current_level = flexible_model.current_level()
-        super().__init__(flexible_model.max_level(), current_level)
+    def __init__(self, flexible_model: Module, starting_level: int = -1) -> None:
+        if starting_level == -1:
+            starting_level = flexible_model.current_level()
+        super().__init__(flexible_model.max_level(), starting_level)
         self.deltas = get_model_deltas(flexible_model)
         cpy_level = flexible_model.current_level()
-        flexible_model.set_level_use(current_level)
+        flexible_model.set_level_use(starting_level)
         self.managed = flexible_model.make_base_copy()
         flexible_model.set_level_use(cpy_level)
 
@@ -116,19 +116,19 @@ class FileDeltaManager(BaseDeltaManager):
         return self._file.read(size)
 
     @staticmethod
-    def make_delta_file(file: io.BufferedIOBase, model: Module, current_level: int = -1) -> None:
+    def make_delta_file(file: io.BufferedIOBase, model: Module, starting_level: int = -1) -> None:
         locations = []
         deltas = get_model_deltas(model)
 
-        if current_level == -1:
-            current_level = model.current_level()
+        if starting_level == -1:
+            starting_level = model.current_level()
         f = io.BytesIO()
         cpy_level = model.current_level()
-        model.set_level_use(current_level)
+        model.set_level_use(starting_level)
         reg_model = model.make_base_copy().cpu()
         model.set_level_use(cpy_level)
         f.write(utils.torch_serialize(
-            (model.max_level(), current_level, reg_model.state_dict())))
+            (model.max_level(), starting_level, reg_model.state_dict())))
 
         for i in range(model.max_level() - 1, -1, -1):
             d = deltas[(i, False)]
@@ -147,6 +147,6 @@ class FileDeltaManager(BaseDeltaManager):
 
 
 @contextmanager
-def file_delta_manager(path, managed):
+def file_delta_manager(path, managed_config):
     with open(path, 'rb') as f:
-        yield FileDeltaManager(f, managed)
+        yield FileDeltaManager(f, managed_config)

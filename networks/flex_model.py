@@ -110,7 +110,9 @@ class FlexModel(fm.Module):
             self.current_level()).no_prebuilt().make_model()
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[fm.DownDelta, fm.UpDelta]:
+    def export_level_delta(self) -> tuple[
+            fm.DownDelta[tuple[fm.DownDelta, ...]],
+            fm.UpDelta[tuple[fm.UpDelta, ...]]]:
         """
         Level deltas on the model level are used for some
         specific parts not covered by the deltas of the modules.
@@ -134,7 +136,9 @@ class FlexModel(fm.Module):
         return fm.DownDelta(delta_downs), fm.UpDelta(delta_ups)
 
     @staticmethod
-    def apply_level_delta_down(model: nn.Module, level_delta: fm.DownDelta[tuple[fm.DownDelta, ...]]) -> None:
+    def apply_level_delta_down(
+            model: nn.Module,
+            level_delta: fm.DownDelta[tuple[fm.DownDelta, ...]]) -> None:
         """
         Takes regular layer and applies a delta down to it.
         """
@@ -156,7 +160,9 @@ class FlexModel(fm.Module):
                     pass
 
     @staticmethod
-    def apply_level_delta_up(model: nn.Module, level_delta: fm.DownDelta[tuple[fm.UpDelta, ...]]) -> None:
+    def apply_level_delta_up(
+            model: nn.Module,
+            level_delta: fm.UpDelta[tuple[fm.UpDelta, ...]]) -> None:
         """
         Takes regular layer and applies a delta up to it.
         """
