@@ -121,12 +121,11 @@ def model_size_in_mb(model: nn.Module) -> int:
     """
     Gets the models file size.
 
-    from https://github.com/poojamangal15/Adaptive-Neural-Networks
+    adapted from https://github.com/poojamangal15/Adaptive-Neural-Networks
     """
-    torch.save(model.state_dict(), "temp.p")
-    size_mb = os.path.getsize("temp.p") / (1024 * 1024)
-    os.remove("temp.p")
-    return size_mb
+    f = io.BytesIO()
+    torch.save(model.state_dict(), f)
+    return len(f.getvalue())
 
 
 def try_make_dir(path):

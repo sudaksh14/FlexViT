@@ -284,18 +284,27 @@ class VisionTransformer(FlexModel):
         return x
 
     @torch.no_grad()
-    def export_level_delta(self) -> tuple[int, int]:
+    def export_level_delta(self) -> tuple[
+            fm.DownDelta[tuple[fm.DownDelta, ...]],
+            fm.UpDelta[tuple[fm.UpDelta, ...]]]:
         delta_down, delta_up = super().export_level_delta()
-        return fm.DownDelta((self.hidden_dim[self.level], delta_down)), fm.UpDelta((self.hidden_dim[self.level], delta_up))
+        return fm.DownDelta(
+            (self.hidden_dim[self.level], delta_down)
+        ), fm.UpDelta(
+            (self.hidden_dim[self.level], delta_up))
 
     @staticmethod
-    def apply_level_delta_down(model: networks.vit.VisionTransformer, level_delta: fm.DownDelta[int]) -> None:
+    def apply_level_delta_down(
+            model: nn.Module,
+            level_delta: fm.DownDelta[tuple[fm.DownDelta, ...]]) -> None:
         hidden_dim, module_deltas = level_delta.delta
         FlexModel.apply_level_delta_down(model, module_deltas)
         model.hidden_dim = hidden_dim
 
     @staticmethod
-    def apply_level_delta_up(model: networks.vit.VisionTransformer, level_delta: fm.UpDelta[int]) -> None:
+    def apply_level_delta_up(
+            model: nn.Module,
+            level_delta: fm.UpDelta[tuple[fm.UpDelta, ...]]) -> None:
         hidden_dim, module_deltas = level_delta.delta
         FlexModel.apply_level_delta_up(model, module_deltas)
         model.hidden_dim = hidden_dim
