@@ -24,6 +24,9 @@ import utils
 import config.hardware
 
 
+torch.manual_seed(seed=0)
+
+
 def load_dummy_data(data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, batch_size=8):
     transform = Compose([
         ToTensor(),

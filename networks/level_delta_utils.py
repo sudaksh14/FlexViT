@@ -43,6 +43,9 @@ class BaseDeltaManager:
     def managed_model(self) -> nn.Module:
         raise NotImplementedError()
 
+    def set_managed_model(self, model: nn.Module):
+        raise NotImplementedError()
+
     def move_to(self, target_level: int) -> None:
         current_level = self._current_level
         if target_level > current_level:
@@ -70,6 +73,9 @@ class InMemoryDeltaManager(BaseDeltaManager):
     def managed_model(self) -> nn.Module:
         return self.managed
 
+    def set_managed_model(self, model: nn.Module):
+        self.managed = model
+
     def get_level_delta(self, level: int, up: bool) -> Iterable[LevelDelta]:
         return self.deltas[(level, up)]
 
@@ -89,6 +95,9 @@ class FileDeltaManager(BaseDeltaManager):
 
     def managed_model(self):
         return self._managed_model
+
+    def set_managed_model(self, model: nn.Module):
+        self._managed_model = model
 
     def get_level_delta(self, level: int, up: bool) -> Iterable[LevelDelta]:
         idx = self.max_level() - ((-1) ** up) * level - 1

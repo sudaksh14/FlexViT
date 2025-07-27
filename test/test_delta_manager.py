@@ -5,6 +5,8 @@ import os
 import torch
 from torch import nn
 
+import io
+
 import networks.level_delta_utils as levels
 import networks.flexresnet as flexresnet
 import networks.flexvgg as flexvgg
@@ -13,9 +15,12 @@ import networks.config
 import utils
 
 
+torch.manual_seed(seed=0)
+
+
 def randomize_params(net):
     for p in net.parameters():
-        p.data = torch.rand(*p.shape) / 100
+        p.data = torch.rand(*p.shape).to(p.data) / 100
     return net
 
 
@@ -43,17 +48,19 @@ class TestDeltaManager():
 
     def test_deltas(self):
         aconfig = self.get_flex_config()
-        model = aconfig.make_model()
+        model = aconfig.make_model().to(utils.get_device())
         randomize_params(model)
 
         model.set_level_use(model.max_level())
         delta_manager = levels.InMemoryDeltaManager(model, model.max_level())
+        delta_manager.set_managed_model(
+            delta_manager.managed_model().to(utils.get_device()))
         reg_model = delta_manager.managed_model()
 
         model.eval()
         reg_model.eval()
 
-        x = self.make_input()
+        x = self.make_input().to(utils.get_device())
         self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
         for i in range(model.max_level() - 1, -1, -1):
@@ -67,35 +74,35 @@ class TestDeltaManager():
             self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
     def test_deltas_file_deltas(self):
-        filename = "temp.pt"
-        try:
-            config = self.get_flex_config()
-            model = config.make_model()
-            model.eval()
+        config = self.get_flex_config()
+        model = config.make_model().to(utils.get_device())
+        model.eval()
 
-            with open(filename, "wb") as f:
-                levels.FileDeltaManager.make_delta_file(f, model)
+        f = io.BytesIO()
+        levels.FileDeltaManager.make_delta_file(f, model, current_level=0)
 
-            x = self.make_input()
+        x = self.make_input().to(utils.get_device())
+        reg_config = config.create_base_config(0).no_prebuilt()
 
-            reg_config = config.create_base_config(model.current_level())
-            with levels.file_delta_manager(filename, reg_config) as manager:
-                reg_model = manager.managed_model()
-                reg_model.eval()
+        f.seek(0)
+        manager = levels.FileDeltaManager(f, reg_config)
+        manager.set_managed_model(
+            manager.managed_model().to(utils.get_device()))
+        reg_model = manager.managed_model()
+        reg_model.eval()
+        manager.move_to(model.current_level())
 
-                self.assertTrue(self.check_equiv(model(x), reg_model(x)))
+        self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
-                for i in range(model.max_level() - 1, -1, -1):
-                    model.set_level_use(i)
-                    manager.move_to(i)
-                    self.assertTrue(self.check_equiv(model(x), reg_model(x)))
+        for i in range(model.max_level() - 1, -1, -1):
+            model.set_level_use(i)
+            manager.move_to(i)
+            self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
-                for i in range(1, model.max_level() + 1):
-                    model.set_level_use(i)
-                    manager.move_to(i)
-                    self.assertTrue(self.check_equiv(model(x), reg_model(x)))
-        finally:
-            os.remove(filename)
+        for i in range(1, model.max_level() + 1):
+            model.set_level_use(i)
+            manager.move_to(i)
+            self.assertTrue(self.check_equiv(model(x), reg_model(x)))
 
 
 class TestDeltaResnet(TestDeltaManager, unittest.TestCase):
