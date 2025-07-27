@@ -19,13 +19,9 @@ class LayerNorm(AdaptSelect):
     def base_type() -> type[nn.LayerNorm]:
         return nn.LayerNorm
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.LayerNorm:
-        m = nn.LayerNorm(
+    def _make_reg_layer(self) -> nn.Module:
+        return nn.LayerNorm(
             self._channels[self.current_level()], *self._args, **self._kwargs)
-        self.copy_to_base(m)
-        m.train(self.training)
-        return m
 
     @staticmethod
     @torch.no_grad()

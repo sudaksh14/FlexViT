@@ -41,12 +41,8 @@ class ClassTokenLayer(Module):
     def load_from_base(self, src: vmod.ClassTokenLayer) -> None:
         self.token.data[:, :, :self.hidden_dims[self.level]] = src.token.data
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.Module:
-        dest = vmod.ClassTokenLayer(self.hidden_dims[self.level])
-        self.copy_to_base(dest)
-        dest.train(self.training)
-        return dest
+    def _make_reg_layer(self) -> nn.Module:
+        return vmod.ClassTokenLayer(self.hidden_dims[self.level])
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[int], UpDelta[torch.Tensor]]:
@@ -68,7 +64,7 @@ class ClassTokenLayer(Module):
     @torch.no_grad()
     def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: UpDelta[torch.Tensor]) -> None:
         model.token.data = torch.cat(
-            [model.token.data, level_delta.delta], dim=2).to(model.token.data)
+            [model.token.data, level_delta.delta.to(model.token.data)], dim=2)
 
 
 ClassTokenLayer.register_self(ClassTokenLayer)

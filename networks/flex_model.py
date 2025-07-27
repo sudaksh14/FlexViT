@@ -105,12 +105,9 @@ class FlexModel(fm.Module):
     def load_from_base(self, src: nn.Module) -> None:
         self.flexible_copy(src, self)
 
-    def make_base_copy(self) -> nn.Module:
-        reg_model = self.config.create_base_config(
+    def _make_reg_layer(self):
+        return self.config.create_base_config(
             self.current_level()).no_prebuilt().make_model()
-        self.copy_to_base(reg_model)
-        reg_model.train(self.training)
-        return reg_model
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[fm.DownDelta, fm.UpDelta]:

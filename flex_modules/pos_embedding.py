@@ -43,13 +43,9 @@ class PosEmbeddingLayer(Module):
         self.embedding.data[
             :, :, :self.hidden_dims[self.level]] = src.embedding.data
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.Module:
-        dest = vmod.PosEmbeddingLayer(
+    def _make_reg_layer(self):
+        return vmod.PosEmbeddingLayer(
             self.seq_length, self.hidden_dims[self.level])
-        self.copy_to_base(dest)
-        dest.train(self.training)
-        return dest
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[int], UpDelta[torch.Tensor]]:

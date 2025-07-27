@@ -39,14 +39,17 @@ class CurrentDevice:
 DEFAULT_HARDWARE_CONFIG = HardwareConfig()
 HARDWARE = {
     "vitprebuild": HardwareConfig(
-        gpu_count=4),
+        gpu_count=4, time='00:30:00'),
     "flexvit": {
         "cifar10.5levels": HardwareConfig(
             gpu_count=4,
             time='12:00:00'),
         "imagenet": HardwareConfig(
             gpu_count=4,
-            time='72:00:00')
+            time='24:00:00'),
+        "imagenet_constant_scale": HardwareConfig(
+            gpu_count=4,
+            time='24:00:00'),
     },
     "flexvitcorrect": HardwareConfig(
         gpu_count=4,

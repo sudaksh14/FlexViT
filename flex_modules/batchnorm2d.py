@@ -18,13 +18,9 @@ class BatchNorm2d(AdaptSelect):
     def base_type() -> type[nn.BatchNorm2d]:
         return nn.BatchNorm2d
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.BatchNorm2d:
-        m = nn.BatchNorm2d(
+    def _make_reg_layer(self) -> nn.Module:
+        return nn.BatchNorm2d(
             self._channels[self.current_level()], *self._args, **self._kwargs)
-        self.copy_to_base(m)
-        m.train(self.training)
-        return m
 
 
 BatchNorm2d.register_self(BatchNorm2d)

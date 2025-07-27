@@ -159,7 +159,7 @@ class LayerTester:
 
 def randomize_params(net, factor=1.0):
     for p in net.parameters():
-        p.data = torch.rand(*p.shape) * factor
+        p.data = torch.rand(*p.shape).to(p.data) * factor
     net.eval()
     return net
 
@@ -328,14 +328,14 @@ class TestResnet(LayerTester, unittest.TestCase):
 
     @make_randomized
     def make_flex_module(self) -> Module:
-        return flexresnet.ResnetConfig().make_model()
+        return flexresnet.ResnetConfig().make_model().to(utils.get_device())
 
     @make_randomized
     def make_reg_module(self, level) -> nn.Module:
-        return flexresnet.ResnetConfig().create_base_config(level).no_prebuilt().make_model()
+        return flexresnet.ResnetConfig().create_base_config(level).no_prebuilt().make_model().to(utils.get_device())
 
     def make_input(self, level) -> torch.Tensor:
-        return torch.rand(1, 3, 32, 32),
+        return torch.rand(1, 3, 32, 32).to(utils.get_device()),
 
 
 class TestVGG(LayerTester, unittest.TestCase):

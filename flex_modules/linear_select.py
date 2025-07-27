@@ -20,13 +20,9 @@ class LinearSelect(AdaptSelect):
     def base_type() -> type[nn.Linear]:
         return LinearHead
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.Linear:
-        m = nn.Linear(
+    def _make_reg_layer(self):
+        return nn.Linear(
             self._in_sizes[self.current_level()], self._out_sizes[self.current_level()], *self._args, **self._kwargs)
-        self.copy_to_base(m)
-        m.train(self.training)
-        return m
 
 
 LinearSelect.register_self(LinearSelect)

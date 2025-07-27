@@ -23,16 +23,17 @@ class LevelDelta(Generic[T]):
         return _str_structure_level_delta(self)
 
     @overload
-    def to(self, dtype: torch.dtype, *args, **kwargs) -> 'LevelDelta':
-        return self.map_tensors(lambda t: t.to(dtype, *args, **kwargs))
+    def to(self, dtype: torch.dtype, *args, **kwargs) -> 'LevelDelta': ...
 
     @overload
     def to(self, device: Union[str, torch.device, int], *args, **kwargs) -> 'LevelDelta':
-        return self.map_tensors(lambda t: t.to(device, *args, **kwargs))
+        ...
 
     @overload
-    def to(self, other: torch.Tensor, *args, **kwargs) -> 'LevelDelta':
-        return self.map_tensors(lambda t: t.to(other, *args, **kwargs))
+    def to(self, other: torch.Tensor, *args, **kwargs) -> 'LevelDelta': ...
+
+    def to(self, *args, **kwargs) -> 'LevelDelta':
+        return self.map_tensors(lambda t: t.to(*args, **kwargs))
 
     def clone(self) -> 'LevelDelta':
         return self.map_tensors(lambda t: t.clone())
@@ -61,6 +62,9 @@ class DownDelta(LevelDelta[T]):
 
     def apply(self, module):
         return LevelDeltas.apply_level_delta_down(module, self)
+
+
+torch.serialization.add_safe_globals([UpDelta, DownDelta, LevelDelta])
 
 
 class Module(nn.Module):
@@ -106,11 +110,21 @@ class Module(nn.Module):
         """
         raise NotImplementedError()
 
+    @torch.no_grad()
+    def _make_reg_layer(self) -> nn.Module:
+        raise NotImplementedError()
+
     def make_base_copy(self) -> nn.Module:
         """
         Makes a new regular layer with the current layer copied into it.
         """
-        raise NotImplementedError()
+        reg = self._make_reg_layer()
+        self.copy_to_base(reg)
+        reg.train(self.training)
+        param = next(self.parameters(), None)
+        if param is not None:
+            reg.to(param)
+        return reg
 
     @staticmethod
     def base_type() -> type[nn.Module]:

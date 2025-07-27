@@ -1,5 +1,6 @@
 from torch import nn
 
+import flex_modules as fm
 import utils
 
 
@@ -26,6 +27,18 @@ class FlexModelConfig(ModelConfig):
     FlexModelConfig extends the ModelConfig interface.
     FlexModelConfig is followed by configuration classes of all flexible models. 
     """
+
+    def make_model(self) -> fm.Module:
+        """
+        Constructs a model according to this config
+        """
+        raise NotImplementedError()
+
+    def no_prebuilt(self) -> 'FlexModelConfig':
+        """
+        Turns of the loading of pretrained weights
+        """
+        raise NotImplementedError()
 
     def create_base_config(self, level) -> ModelConfig:
         """

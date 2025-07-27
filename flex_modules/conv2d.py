@@ -75,6 +75,10 @@ class Conv2d(Module):
         conv.train(self.training)
         return conv
 
+    def _make_reg_layer(self):
+        return nn.Conv2d(
+            self.in_sizes[self.level], self.out_sizes[self.level], *self._args, **self._kwargs)
+
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, torch.Tensor]]]:
         weights = self.conv.weight.data

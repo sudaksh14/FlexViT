@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 class SelfAttention(Module):
-    def __init__(self, token_size: Iterable[int], heads: Iterable[int], dropout=0.0):
+    def __init__(self, token_size: Iterable[int], heads: Iterable[int], scale_factor=None, dropout=0.0):
         super().__init__()
 
         assert (all(i % j == 0 for i, j in zip(token_size, heads)))
@@ -19,6 +19,7 @@ class SelfAttention(Module):
         self.proj_token_size = token_size
         self.heads = heads
         self.dropout = dropout
+        self.scale_factor = scale_factor
 
         self.max_heads = heads[-1]
         self.max_token_size = token_size[-1]
@@ -58,7 +59,7 @@ class SelfAttention(Module):
         proj = proj[:, :, :self.heads[self.level], :, :adapted_head_dim]
 
         attn_output = F.scaled_dot_product_attention(
-            *proj, None, self.dropout if self.training else 0.0, False)
+            *proj, None, self.dropout if self.training else 0.0, False, scale=self.scale_factor)
         max_hs = self.max_token_size // self.max_heads
 
         attn_output = F.pad(attn_output, (0, max_hs - adapted_head_dim, 0, 0,
@@ -149,17 +150,13 @@ class SelfAttention(Module):
         b_out_src = src.out_proj.bias.data
         b_out[:] = b_out_src.detach()
 
-    @torch.no_grad()
-    def make_base_copy(self) -> nn.MultiheadAttention:
-        lin = nn.MultiheadAttention(
+    def _make_reg_layer(self):
+        return nn.MultiheadAttention(
             self.token_size[self.level],
             self.heads[self.level],
             dropout=self.dropout,
             batch_first=True
         )
-        self.copy_to_base(lin)
-        self.train(self.training)
-        return lin
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, ...]]]:
@@ -202,8 +199,7 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]
-            :self.token_size[target_level]]
+        out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
