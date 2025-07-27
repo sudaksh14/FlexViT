@@ -26,7 +26,7 @@ class Wandb:
 def get_experiment(name: str):
     print(f"retrieving experiment '{name}'", file=sys.stderr)
     experiment: training.TrainerBuilder = run_experiment.resolve_from_str(name)
-    if not isinstance(experiment, run_experiment.TrainerBuilder):
+    if not isinstance(experiment, training.TrainerBuilder):
         return
     entity = Wandb.get().default_entity
     project = experiment.training_context.wandb_project_name
@@ -60,7 +60,7 @@ def plot_acc_history(name: str, stage: str = "val"):
     plt.ylabel("top 1 accuracy")
 
 
-def plot_acc(name: str, stage: str = "val"):
+def plot_acc(name: str, stage: str = "val", relative_size=False, label=None, base_accuracy=None):
     print(
         f"plotting accuracies of experiment '{name}' at stage '{stage}'", file=sys.stderr)
     exp, run = get_experiment(name)
@@ -79,29 +79,41 @@ def plot_acc(name: str, stage: str = "val"):
 
         size_to_acc[params / 1000000] = y
 
-    _, _, test_loader = exp.training_context.loader_function()
-    model = exp.model_config.create_base_config(
-        exp.model_config.max_level()).make_model()
+    if base_accuracy is None:
+        _, _, test_loader = exp.training_context.loader_function()
+        model = exp.model_config.create_base_config(
+            exp.model_config.max_level()).make_model()
 
-    if isinstance(exp.training_context, training.FlexTrainingContext):
-        if exp.training_context.load_from is not None:
-            lmodel = utils.load_model(
-                exp.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
-            utils.flexible_model_copy(lmodel, model)
+        if isinstance(exp.training_context, training.FlexTrainingContext):
+            if exp.training_context.load_from is not None:
+                lmodel = utils.load_model(
+                    exp.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
+                utils.flexible_model_copy(lmodel, model)
 
-    acc = utils.evaluate_model(model, test_loader, utils.get_device())
-    max_x = max(*size_to_acc.keys())
-    min_x = min(*size_to_acc.keys())
+        acc = utils.evaluate_model(model, test_loader, utils.get_device())
+    else:
+        acc = base_accuracy
+
+    keys = list(size_to_acc.keys())
+    if relative_size:
+        m = max(*keys)
+        keys = [k / m for k in keys]
+
+    max_x = max(*keys)
+    min_x = min(*keys)
 
     lines = plt.plot([min_x, max_x], [acc, acc], ls='--')
-    plt.plot(size_to_acc.keys(), size_to_acc.values(),
-             marker='o', color=lines[0].get_color())
-    plt.xlabel("model size in millions of parameters")
+    plt.plot(keys, size_to_acc.values(),
+             marker='o', color=lines[0].get_color(), label=label)
+    plt.xlabel(
+        "model parameter count relative to full model" if relative_size else "model size in millions of parameters")
     plt.ylabel("top 1 accuracy")
     plt.ylim(0.0, 1.0)
 
 
 def moving_avg(axis, data, size=10):
+    if len(data) < size:
+        return np.array([]), np.array([])
     data = np.array(data)
     mavg = np.convolve(data, np.ones(
         (size,), dtype=data.dtype) / size, 'valid')
@@ -120,20 +132,21 @@ def plot_acc_val_and_train(name, level):
     val_key = f"val_level{level}_acc"
 
     train = run.history(keys=["epoch", train_key], pandas=True)
+    print(train)
     val = run.history(keys=["epoch", val_key], pandas=True)
 
     train_lines = plt.plot(
-        train['epoch'], train[train_key], ls='--', alpha=0.5, label="training accuracy")
-    val_lines = plt.plot(val['epoch'], val[val_key],
+        train['_step'], train[train_key], ls='--', alpha=0.5, label="training accuracy")
+    val_lines = plt.plot(val['_step'], val[val_key],
                          ls='--', alpha=0.5, label="validation accuracy")
 
-    axs, mavg = moving_avg(train['epoch'], train[train_key], 20)
+    axs, mavg = moving_avg(train['_step'], train[train_key], 20)
     plt.plot(axs, mavg, color=train_lines[0].get_color())
 
-    axs, mavg = moving_avg(val['epoch'], val[val_key], 20)
+    axs, mavg = moving_avg(val['_step'], val[val_key], 20)
     plt.plot(axs, mavg, val_lines[0].get_color())
 
-    plt.xlabel("epochs")
+    plt.xlabel("training steps")
     plt.ylabel("top 1 accuracy")
     plt.legend()
 
@@ -150,7 +163,7 @@ if __name__ == "__main__":
     plot_acc_history("flexvit,imagenet")
     savefig("vit_imagenet_history")
 
-    plot_acc("flexvit,imagenet", "test")
+    plot_acc("flexvit,imagenet", base_accuracy=.81)
     savefig("vit_imagenet_acc")
 
     plot_acc_val_and_train("flexvit,imagenet", 4)
@@ -159,5 +172,27 @@ if __name__ == "__main__":
     plot_acc_history("flexvit,cifar10.5levels")
     savefig("cifar10_acc_history")
 
-    plot_acc("flexvit,cifar10.5levels", "test")
+    plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
     savefig("cifar10_acc")
+
+    plot_acc("flexresnet,resnet20.6_levels.cifar10",
+             relative_size=True, label="Resnet 20")
+    plot_acc("flexresnet,resnet56.6_levels.cifar10",
+             relative_size=True, label="Resnet 56")
+    plot_acc("flexvgg,vgg11.6_levels.cifar10",
+             relative_size=True, label="VGG 11")
+    plot_acc("flexvgg,vgg19.6_levels.cifar10",
+             relative_size=True, label="VGG 19")
+    plt.legend()
+    savefig("cnn_cifar10_acc")
+
+    plot_acc("flexresnet,resnet20.6_levels.cifar100",
+             relative_size=True, label="Resnet 20")
+    plot_acc("flexresnet,resnet56.6_levels.cifar100",
+             relative_size=True, label="Resnet 56")
+    plot_acc("flexvgg,vgg11.6_levels.cifar100",
+             relative_size=True, label="VGG 11")
+    plot_acc("flexvgg,vgg19.6_levels.cifar100",
+             relative_size=True, label="VGG 19")
+    plt.legend()
+    savefig("cnn_cifar100_acc")
