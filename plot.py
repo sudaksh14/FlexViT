@@ -86,8 +86,7 @@ def plot_acc(name: str, stage: str = "val", relative_size=False, label=None, bas
 
         if isinstance(exp.training_context, training.FlexTrainingContext):
             if exp.training_context.load_from is not None:
-                lmodel = utils.load_model(
-                    exp.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
+                lmodel = utils.load_model(exp.training_context.load_from)
                 utils.flexible_model_copy(lmodel, model)
 
         acc = utils.evaluate_model(model, test_loader, utils.get_device())
@@ -166,7 +165,7 @@ def plot_loss_val_and_train(name):
         train['_step'], train[train_key], ls='--', alpha=0.5, label="training loss")
     val_lines = plt.plot(val['_step'], val[val_key],
                          ls='--', alpha=0.5, label="validation loss")
-    
+
     axs, mavg = moving_avg(train['_step'], train[train_key], 20)
     plt.plot(axs, mavg, color=train_lines[0].get_color())
 

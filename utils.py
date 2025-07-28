@@ -27,6 +27,35 @@ def get_device() -> 'str':
                         "cuda" if torch.cuda.is_available() else "cpu")
 
 
+def make_str_filename_safe(s: str):
+    prefix_char = 'x'
+    forbidden_chars = [
+        ('x', 'xx'),
+        ('/', 'xa'),
+        ('<', 'xb'),
+        ('>', 'xc'),
+        (':', 'xd'),
+        ('"', 'xe'),
+        ('/', 'xf'),
+        ('\\', 'xg'),
+        ('|', 'xh'),
+        ('?', 'xi'),
+        ('*', 'xj'),
+        ('(', 'xk'),
+        (')', 'xl'),
+        ('.', 'xm'),
+        (',', 'xn'),
+        ('\'', 'xo')
+    ]
+
+    description = s
+    description = description.replace(
+        prefix_char, f"{prefix_char}{prefix_char}")
+    for forbidden, replacement in forbidden_chars:
+        description = description.replace(forbidden, replacement)
+    return description
+
+
 class SelfDescripting:
     def setv(self, **kwargs):
         for key, value in kwargs.items():
@@ -46,26 +75,7 @@ class SelfDescripting:
         return res
 
     def get_filename_safe_description(self) -> str:
-        prefix_char = 'x'
-        forbidden_chars = [
-            ('/', 'xa'),
-            ('<', 'xb'),
-            ('>', 'xc'),
-            (':', 'xd'),
-            ('"', 'xe'),
-            ('/', 'xf'),
-            ('\\', 'xg'),
-            ('|', 'xh'),
-            ('?', 'xi'),
-            ('*', 'xj'),
-        ]
-
-        description = self.get_description()
-        description = description.replace(
-            prefix_char, f"{prefix_char}{prefix_char}")
-        for forbidden, replacement in forbidden_chars:
-            description = description.replace(forbidden, replacement)
-        return description
+        return make_str_filename_safe(self.get_description())
 
     def get_flat_dict(self) -> str:
         res = {}
@@ -244,11 +254,14 @@ def torch_deserialize(data: bytes, *args, **kwargs):
         return torch.load(f, *args, **kwargs)
 
 
-def save_model(model: nn.Module, model_description: str, prefix: str = '') -> None:
-    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "wb") as file:
-        torch.save(model, file)
+def save_model(model_config, model):
+    with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "wb") as f:
+        torch.save(model.state_dict(), f)
 
 
-def load_model(model_description: str, prefix: str = '') -> nn.Module:
-    with open(paths.TRAINED_MODELS / f"{model_description}.pth", "rb") as file:
-        return torch.load(file, weights_only=False)
+def load_model(model_config):
+    model = model_config.make_model()
+    with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "rb") as f:
+        sdict = torch.load(f)
+        model.load_state_dict(sdict)
+    return model
