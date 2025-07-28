@@ -143,11 +143,38 @@ def plot_acc_val_and_train(name, level):
     axs, mavg = moving_avg(train['_step'], train[train_key], 20)
     plt.plot(axs, mavg, color=train_lines[0].get_color())
 
-    axs, mavg = moving_avg(val['_step'], val[val_key], 20)
+    axs, mavg = moving_avg(val['_step'], val[val_key], 5)
     plt.plot(axs, mavg, val_lines[0].get_color())
 
     plt.xlabel("training steps")
     plt.ylabel("top 1 accuracy")
+    plt.legend()
+
+
+def plot_loss_val_and_train(name):
+    print(f"plotting validation and train loss of '{name}'", file=sys.stderr)
+
+    exp, run = get_experiment(name)
+    train_key = "train_loss"
+    val_key = "val_loss"
+
+    train = run.history(keys=["epoch", train_key], pandas=True)
+    print(train)
+    val = run.history(keys=["epoch", val_key], pandas=True)
+
+    train_lines = plt.plot(
+        train['_step'], train[train_key], ls='--', alpha=0.5, label="training loss")
+    val_lines = plt.plot(val['_step'], val[val_key],
+                         ls='--', alpha=0.5, label="validation loss")
+    
+    axs, mavg = moving_avg(train['_step'], train[train_key], 20)
+    plt.plot(axs, mavg, color=train_lines[0].get_color())
+
+    axs, mavg = moving_avg(val['_step'], val[val_key], 5)
+    plt.plot(axs, mavg, val_lines[0].get_color())
+
+    plt.xlabel("training steps")
+    plt.ylabel("cross entropy loss")
     plt.legend()
 
 
@@ -168,6 +195,9 @@ if __name__ == "__main__":
 
     plot_acc_val_and_train("flexvit,imagenet", 4)
     savefig("overfitting")
+
+    plot_loss_val_and_train("flexvit,imagenet")
+    savefig("overfitting_loss")
 
     plot_acc_history("flexvit,cifar10.5levels")
     savefig("cifar10_acc_history")
