@@ -305,7 +305,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
         if not config.unittest_mode:
             model = type(model).load_from_checkpoint(
                 checkpoint_callback.best_model_path)
-            config.wrap_model(model)
+            config.unwrap_model(model)
             trainer.test(model, dataloaders=test_loader)
 
     config.unwrap_model(model)
