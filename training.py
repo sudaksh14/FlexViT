@@ -39,16 +39,6 @@ class TrainingContext(utils.SelfDescripting):
     def make_scheduler(self, optimizer) -> torch.optim.lr_scheduler.LRScheduler:
         raise NotImplementedError()
 
-    def wrap_model(self, model: pl.LightningModule) -> pl.LightningModule:
-        def configure_optimizers():
-            optimizer = self.make_optimizer(model)
-            scheduler = self.make_scheduler(optimizer)
-            return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
-        model.__dict__['configure_optimizers'] = configure_optimizers
-
-    def unwrap_model(self, model: pl.LightningModule) -> pl.LightningModule:
-        model.__dict__.pop('configure_optimizers')
-
 
 class BaseTrainer:
     def get_model(self) -> nn.Module:
@@ -82,7 +72,6 @@ class TrainerBuilder:
 
 @dataclasses.dataclass
 class FlexTrainingContext(TrainingContext):
-    incremental_training: bool = False
     load_from: Optional[ModelConfig] = None
     distill: bool = False
 
@@ -94,7 +83,6 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.model_config = model_config
         self.training_context = training_context
         self.submodel = self.model_config.make_model()
-        self.upto = self.submodel.max_level()
         self.distill_net = None
 
     def get_model(self) -> nn.Module:
@@ -126,8 +114,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
                      prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
                      prog_bar=(stage != 'train'), sync_dist=True)
-            if self.upto >= i:
-                total_loss += loss
+            total_loss += loss
 
         self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
         return total_loss
@@ -157,19 +144,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             utils.flexible_model_copy(self.submodel, self.distill_net)
 
     def train_loop(self, trainer, model, conf_description):
-        if self.training_context.incremental_training:
-            self.upto = 0
-
-        if self.training_context.incremental_training:
-            for i in range(model.max_level() + 1):
-                trainer = finetune(
-                    trainer, self.training_context,
-                    conf_description, self.model_config)
-                trainer.upto += 1
-        else:
-            trainer = finetune(
-                trainer, self.training_context,
-                conf_description, self.model_config)
+        trainer = finetune(
+            trainer, self.training_context,
+            conf_description, self.model_config)
 
     def run_training(self, conf_description: str) -> None:
         torch.set_float32_matmul_precision('high')
@@ -185,8 +162,10 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description())
 
-    def configure_optimizers(self) -> None:
-        pass
+    def configure_optimizers(self):
+        optimizer = self.training_context.make_optimizer(self.submodel)
+        scheduler = self.training_context.make_scheduler(optimizer)
+        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
 
 class SimpleTrainer(pl.LightningModule, BaseTrainer):
@@ -231,8 +210,10 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
         utils.save_model(
             trainer, self.model_config.get_filename_safe_description(), 'pretrained')
 
-    def configure_optimizers(self) -> None:
-        pass
+    def configure_optimizers(self):
+        optimizer = self.training_context.make_optimizer(self.submodel)
+        scheduler = self.training_context.make_scheduler(optimizer)
+        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
 
 logger = None
@@ -240,7 +221,6 @@ logger = None
 
 def finetune(model: pl.LightningModule, config: TrainingContext, conf_description, model_config) -> pl.LightningModule:
     global logger
-    config.wrap_model(model)
 
     if config.unittest_mode:
         logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
@@ -279,14 +259,14 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
                     dir=paths.LOG_PATH, log_model=False)
             kwargs['logger'] = logger
         else:
-            kwargs['logger'] = None
+            kwargs['logger'] = False
 
         if config.unittest_mode:
-            kwargs['fast_dev_run'] = True
             kwargs['enable_progress_bar'] = False
             kwargs['enable_model_summary'] = False
 
-        ddp = DDPStrategy(process_group_backend=hw.process_group_backend)
+        ddp = DDPStrategy(
+            process_group_backend=hw.process_group_backend)
         trainer = pl.Trainer(
             **kwargs,
             max_epochs=config.epochs,
@@ -296,17 +276,14 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             accelerator="gpu",
             devices=hw.gpu_count,
             num_nodes=hw.node_count,
-            strategy='ddp',
+            strategy=ddp,
             precision='bf16-mixed'
         )
 
         train_loader, val_loader, test_loader = config.loader_function()
         trainer.fit(model, train_loader, val_loader)
-        if not config.unittest_mode:
-            model = type(model).load_from_checkpoint(
-                checkpoint_callback.best_model_path)
-            config.unwrap_model(model)
-            trainer.test(model, dataloaders=test_loader)
+        model = type(model).load_from_checkpoint(
+            checkpoint_callback.best_model_path)
+        trainer.test(model, dataloaders=test_loader, verbose=False)
 
-    config.unwrap_model(model)
     return model

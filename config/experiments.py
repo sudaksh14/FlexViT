@@ -207,43 +207,6 @@ CONFIGS = {
                 large_channels=(96, 128, 160, 192, 224, 256),
                 max_channels=(192, 256, 320, 384, 448, 512)),
             ModelTraining100()),
-    },
-    "incremental": {
-        "incr.resnet20.3_levels.cifar100": TrainerBuilder(
-            FlexModelTrainer,
-            flexresnet.ResnetConfig(
-                num_classes=100),
-            ModelTraining100(
-                incremental_training=True)),
-        'incr.vgg11.3_levels.cifar100': TrainerBuilder(
-            FlexModelTrainer,
-            flexvgg.VGGConfig(
-                num_classes=100),
-            ModelTraining100(
-                incremental_training=True)),
-        'incr.vgg11.6_levels.cifar100': TrainerBuilder(
-            FlexModelTrainer,
-            flexvgg.VGGConfig(
-                num_classes=100,
-                small_channels=(24, 32, 40, 48, 56, 64),
-                mid_channels=(48, 64, 80, 96, 112, 128),
-                large_channels=(96, 128, 160, 192, 224, 256),
-                max_channels=(192, 256, 320, 384, 448, 512)),
-            ModelTraining100(
-                incremental_training=True)),
-    },
-    "upscale": {
-        "upscale.vgg11.cifar100": TrainerBuilder(
-            FlexModelTrainer,
-            flexvgg.VGGConfig(
-                small_channels=(64, 96, 128),
-                mid_channels=(128, 192, 256),
-                large_channels=(256, 384, 512),
-                max_channels=(512, 768, 1024),
-                num_classes=100,
-                prebuilt_level=0),
-            ModelTraining100(
-                incremental_training=True)),
     }, "vitprebuild": {
         "cifar10": TrainerBuilder(
             SimpleTrainer,

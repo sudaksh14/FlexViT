@@ -175,14 +175,6 @@ class TestTrainer(unittest.TestCase):
                 load_dummy_data, patience=1, epochs=1, wandb_project_name=None, unittest_mode=True)
         ).run_training('a')
 
-    def test_flex_incremental(self):
-        training.TrainerBuilder(
-            training.FlexModelTrainer,
-            DummyFlexModelCofig(),
-            DummyFlexTrainingContext(
-                load_dummy_data, patience=1, epochs=1, wandb_project_name=None, incremental_training=True, unittest_mode=True)
-        ).run_training('a')
-
     def test_simple(self):
         training.TrainerBuilder(
             training.SimpleTrainer,

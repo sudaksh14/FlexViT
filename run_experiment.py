@@ -48,15 +48,15 @@ def print_all_conf_paths(conf, basestr, file=sys.stdout) -> None:
 def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
     for s in iter_over_conf(conf, basestr):
         hconf = resolve_from_str(s, HARDWARE, return_on_index_error=True)
-        if hconf is HARDWARE:
+        if not isinstance(hconf, config.hardware.HardwareConfig):
             hconf = DEFAULT_HARDWARE_CONFIG
         print(f"{hconf.format_as_slurm_args()} experiment_job.sh {s}", file=file)
 
 
 if __name__ == "__main__":
-    command, conf = sys.argv[1:]
-    # command = "run"
-    # conf = "zeroout,vgg11.3_levels.cifar100"
+    # command, conf = sys.argv[1:]
+    command = "run"
+    conf = "flexvgg,vgg11.3_levels.cifar10"
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)
@@ -65,6 +65,8 @@ if __name__ == "__main__":
             conf, HARDWARE, return_on_index_error=True)
         if isinstance(hw, config.hardware.HardwareConfig):
             config.hardware.CurrentDevice.set_hardware(hw)
+        else:
+            config.hardware.CurrentDevice.set_hardware(DEFAULT_HARDWARE_CONFIG)
         res(conf)
     elif command == "listcommand":
         print_all_conf_commands(res, conf)
