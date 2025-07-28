@@ -130,8 +130,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
     def handle_load_from(self):
         if self.training_context.load_from is not None:
-            lmodel = utils.load_model(
-                self.training_context.load_from.get_filename_safe_description(), "prebuild").submodel
+            lmodel = utils.load_model(self.training_context.load_from)
             utils.flexible_model_copy(lmodel, self.submodel)
 
     def handle_distill(self):
@@ -159,8 +158,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         self.train_loop(trainer, model, conf_description)
 
-        utils.save_model(
-            trainer, self.model_config.get_filename_safe_description())
+        utils.save_model(self.model_config, trainer.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -207,8 +205,7 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
             trainer, self.training_context,
             conf_description, self.model_config)
 
-        utils.save_model(
-            trainer, self.model_config.get_filename_safe_description(), 'pretrained')
+        utils.save_model(self.model_config, trainer.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -254,9 +251,12 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
         if config.wandb_project_name is not None:
             if logger is None:
                 logger = WandbLogger(
-                    project=config.wandb_project_name, name=conf_description,
+                    project=config.wandb_project_name,
+                    name=conf_description,
                     config=model_config.get_flat_dict(),
-                    dir=paths.LOG_PATH, log_model=False)
+                    save_dir=paths.LOG_PATH,
+                    dir=paths.LOG_PATH,
+                    log_model=False)
             kwargs['logger'] = logger
         else:
             kwargs['logger'] = False

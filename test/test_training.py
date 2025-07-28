@@ -84,7 +84,7 @@ class DummyModel(nn.Module):
 
 class DummyFlexModel(networks.flex_model.FlexModel):
     def __init__(self):
-        super().__init__(DummyFlexModelCofig())
+        super().__init__(DummyFlexModelConfig())
         self.features = nn.Sequential(
             fm.Conv2d([3, 3, 3], [30, 50, 60], kernel_size=3, padding=1),
             fm.BatchNorm2d([30, 50, 60]),
@@ -130,7 +130,7 @@ class DummyModelConfig(networks.config.FlexModelConfig):
 
 
 @dataclasses.dataclass
-class DummyFlexModelCofig(networks.config.FlexModelConfig):
+class DummyFlexModelConfig(networks.config.FlexModelConfig):
     def make_model(self) -> networks.flex_model.FlexModel:
         return DummyFlexModel()
 
@@ -170,9 +170,22 @@ class TestTrainer(unittest.TestCase):
     def test_flex(self):
         training.TrainerBuilder(
             training.FlexModelTrainer,
-            DummyFlexModelCofig(),
+            DummyFlexModelConfig(),
             DummyFlexTrainingContext(
                 load_dummy_data, patience=1, epochs=1, wandb_project_name=None, unittest_mode=True)
+        ).run_training('a')
+
+    def test_flex_load_from(self):
+        training.TrainerBuilder(
+            training.FlexModelTrainer,
+            DummyFlexModelConfig(),
+            DummyFlexTrainingContext(
+                load_dummy_data,
+                patience=1,
+                epochs=1,
+                wandb_project_name=None,
+                unittest_mode=True,
+                load_from=DummyFlexModelConfig())
         ).run_training('a')
 
     def test_simple(self):
