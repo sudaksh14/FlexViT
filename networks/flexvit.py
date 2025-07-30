@@ -308,6 +308,3 @@ class VisionTransformer(FlexModel):
         hidden_dim, module_deltas = level_delta.delta
         FlexModel.apply_level_delta_up(model, module_deltas)
         model.hidden_dim = hidden_dim
-
-
-VisionTransformer.register_self(VisionTransformer)

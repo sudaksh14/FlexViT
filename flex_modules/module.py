@@ -74,6 +74,10 @@ class Module(nn.Module):
         """
         raise NotImplementedError()
 
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        LevelDeltas.register(cls)
+
     def current_level(self) -> int:
         """
         Queries the level currently used by the Module.
@@ -170,8 +174,12 @@ class LevelDeltas:
 
     @staticmethod
     def register(cls: type[Module]) -> type[Module]:
-        assert (not __class__.is_registered(cls.base_type()))
-        __class__.registered[cls.base_type()] = cls
+        try:
+            base_type = cls.base_type()
+        except NotImplementedError:
+            return
+        assert (not __class__.is_registered(base_type))
+        __class__.registered[base_type] = cls
 
     @staticmethod
     def is_registered(module_type: type[nn.Module]):

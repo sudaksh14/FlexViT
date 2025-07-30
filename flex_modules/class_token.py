@@ -65,6 +65,3 @@ class ClassTokenLayer(Module):
     def apply_level_delta_up(model: vmod.ClassTokenLayer, level_delta: UpDelta[torch.Tensor]) -> None:
         model.token.data = torch.cat(
             [model.token.data, level_delta.delta.to(model.token.data)], dim=2)
-
-
-ClassTokenLayer.register_self(ClassTokenLayer)

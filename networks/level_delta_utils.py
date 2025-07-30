@@ -27,6 +27,11 @@ def get_model_deltas(model: Module) -> dict[tuple[int, bool], LevelDelta]:
 
 
 class BaseDeltaManager:
+    """
+    Defines an interface for all delta managers to follow. A delta manager creates a
+    regular model and applies deltas to adapt its level like it is a flexible model.
+    """
+
     def __init__(self, max_level, current_level):
         self._current_level = current_level
         self._max_level = max_level
@@ -47,6 +52,10 @@ class BaseDeltaManager:
         raise NotImplementedError()
 
     def move_to(self, target_level: int) -> None:
+        """
+        Moves the managed model to the desired level, and
+        then returns said model.
+        """
         current_level = self._current_level
         if target_level > current_level:
             for i in range(current_level + 1, target_level + 1):
@@ -57,10 +66,16 @@ class BaseDeltaManager:
                 self.get_level_delta(i, False).clone(
                 ).detach().apply(self.managed_model())
         self._current_level = target_level
+        return self.managed_model()
 
 
 class InMemoryDeltaManager(BaseDeltaManager):
     def __init__(self, flexible_model: Module, starting_level: int = -1) -> None:
+        """
+        Takes a flexible model and loads all its deltas along with a copy of the model
+        as a regular model at the specified level (by
+        default the level the flexible model is currently on).
+        """
         if starting_level == -1:
             starting_level = flexible_model.current_level()
         super().__init__(flexible_model.max_level(), starting_level)
@@ -82,6 +97,11 @@ class InMemoryDeltaManager(BaseDeltaManager):
 
 class FileDeltaManager(BaseDeltaManager):
     def __init__(self, file: io.BufferedIOBase, managed_config: ModelConfig):
+        """
+        Takes in a delta file as genererated by
+        `FileDeltaManager.make_delta_file`. It loads in the saved model to a regular
+        model as created by `managed_config` (Make sure this config matches the saved model).
+        """
         self._file = file
         self._locations = pickle.load(file)
         self._locations.append(-1)
@@ -117,6 +137,11 @@ class FileDeltaManager(BaseDeltaManager):
 
     @staticmethod
     def make_delta_file(file: io.BufferedIOBase, model: Module, starting_level: int = -1) -> None:
+        """
+        Writes a delta file to `file`. This file contains the a regular version
+        of model at `starting_level`, and all its deltas. This file can later be used as
+        input for a `FileDeltaManager` to load a regular model and let it switch between levels.
+        """
         locations = []
         deltas = get_model_deltas(model)
 
@@ -148,5 +173,8 @@ class FileDeltaManager(BaseDeltaManager):
 
 @contextmanager
 def file_delta_manager(path, managed_config):
+    """
+    Opens a `FileDeltaManager` with a file from path `path`.
+    """
     with open(path, 'rb') as f:
         yield FileDeltaManager(f, managed_config)

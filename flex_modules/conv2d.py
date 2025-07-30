@@ -119,6 +119,3 @@ class Conv2d(Module):
                 [model.bias.data, bias_part.to(model.bias.data)])
         model.weight.data = weights
         model.zero_grad()
-
-
-Conv2d.register_self(Conv2d)

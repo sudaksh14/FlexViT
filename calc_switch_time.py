@@ -1,5 +1,4 @@
 import numpy as np
-import io
 import sys
 from typing import Optional, TextIO, Iterable
 import time
@@ -8,11 +7,9 @@ import colorsys
 
 from networks import level_delta_utils as delta
 from networks import flexvit
-import utils
 
 import tqdm
 import tqdm.contrib.itertools as titer
-import mixbox
 
 
 def make_latex_table(file: TextIO, data: np.ndarray, colors: np.ndarray = None, column_names: Optional[Iterable[str]] = None, row_names: Optional[Iterable[str]] = None):

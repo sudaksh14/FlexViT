@@ -117,9 +117,6 @@ class DummyFlexModel(networks.flex_model.FlexModel):
         return DummyModel
 
 
-DummyFlexModel.register_self(DummyFlexModel)
-
-
 @dataclasses.dataclass
 class DummyModelConfig(networks.config.FlexModelConfig):
     def make_model(self) -> networks.flex_model.FlexModel:

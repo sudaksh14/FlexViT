@@ -23,6 +23,3 @@ class LinearSelect(AdaptSelect):
     def _make_reg_layer(self):
         return nn.Linear(
             self._in_sizes[self.current_level()], self._out_sizes[self.current_level()], *self._args, **self._kwargs)
-
-
-LinearSelect.register_self(LinearSelect)
