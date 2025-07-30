@@ -33,7 +33,5 @@ TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
 
-IMAGENET_PATH = make_path(
-    "/scratch-nvme/ml-datasets/imagenet/torchvision_ImageFolder"
-    if ON_CLUSTER else (
-        DATA_PATH / 'imagenet'))
+IMAGENET_PATH = Path("/ssdstore/ImageNet")
+# IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")

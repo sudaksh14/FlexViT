@@ -84,6 +84,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.training_context = training_context
         self.submodel = self.model_config.make_model()
         self.distill_net = None
+        self.Mixup = utils.mixup_fn
 
     def get_model(self) -> nn.Module:
         return self.submodel
@@ -93,6 +94,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
     def _step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
         x, y = batch
+
+        if stage == 'train':
+            x,y = self.Mixup(x, y)
 
         if self.distill_net is not None:
             self.distill_net.eval()
@@ -225,7 +229,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             'lightning_fabric.utilities.distributed').setLevel(logging.ERROR)
 
     with tempfile.TemporaryDirectory() as tdir:
-        hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
+        # hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
         early_stopping = EarlyStopping(
             monitor='val_loss', patience=config.patience, mode='min', verbose=True)
 
@@ -239,13 +243,13 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
 
         callbacks = [early_stopping, checkpoint_callback]
 
-        if hw is not None:
-            hours, minutes, seconds = map(int, hw.time.split(':'))
-            dur = datetime.timedelta(
-                hours=hours, minutes=minutes, seconds=seconds)
-            dur -= datetime.timedelta(minutes=15)
-            timer = Timer(dur)
-            callbacks.append(timer)
+        # if hw is not None:
+        #     hours, minutes, seconds = map(int, hw.time.split(':'))
+        #     dur = datetime.timedelta(
+        #         hours=hours, minutes=minutes, seconds=seconds)
+        #     dur -= datetime.timedelta(minutes=15)
+        #     timer = Timer(dur)
+        #     callbacks.append(timer)
 
         kwargs = dict()
         if config.wandb_project_name is not None:
@@ -265,19 +269,44 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             kwargs['enable_progress_bar'] = False
             kwargs['enable_model_summary'] = False
 
-        ddp = DDPStrategy(
-            process_group_backend=hw.process_group_backend)
+        # ddp = DDPStrategy(
+        #     process_group_backend=hw.process_group_backend)
+        # trainer = pl.Trainer(
+        #     **kwargs,
+        #     max_epochs=config.epochs,
+        #     callbacks=callbacks,
+        #     log_every_n_steps=10,
+        #     enable_checkpointing=True,
+        #     accelerator="gpu",
+        #     devices=hw.gpu_count,
+        #     num_nodes=hw.node_count,
+        #     strategy=ddp,
+        #     precision='bf16-mixed'
+        # )
+
+        # trainer = pl.Trainer(
+        #     max_epochs=config.epochs,
+        #     logger=logger,
+        #     callbacks=[early_stopping, checkpoint_callback],
+        #     log_every_n_steps=10,
+        #     enable_checkpointing=True,
+        #     accelerator="gpu",
+        #     devices="auto",
+        #     num_nodes=1,
+        #     precision=16
+        # )
+
         trainer = pl.Trainer(
-            **kwargs,
             max_epochs=config.epochs,
-            callbacks=callbacks,
+            logger=logger,
+            callbacks=[early_stopping, checkpoint_callback],
             log_every_n_steps=10,
             enable_checkpointing=True,
             accelerator="gpu",
-            devices=hw.gpu_count,
-            num_nodes=hw.node_count,
-            strategy=ddp,
-            precision='bf16-mixed'
+            devices="auto",
+            num_nodes=2,
+            strategy='ddp',
+            precision=16
         )
 
         train_loader, val_loader, test_loader = config.loader_function()
