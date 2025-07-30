@@ -95,6 +95,3 @@ class Linear(Module):
                 [model.bias.data, bias_part.to(model.bias.data)])
         model.weight.data = weights
         model.zero_grad()
-
-
-Linear.register_self(Linear)

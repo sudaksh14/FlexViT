@@ -114,6 +114,3 @@ class VGG(FlexModel):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
-
-
-VGG.register_self(VGG)

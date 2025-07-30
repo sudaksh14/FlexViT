@@ -12,7 +12,6 @@ from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
-import wandb
 
 from networks.config import ModelConfig, FlexModelConfig
 import config.hardware as hardware

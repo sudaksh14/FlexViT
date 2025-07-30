@@ -280,6 +280,3 @@ class SelfAttention(Module):
         b.num_heads = nheads
         b.head_dim = nhead_dim
         b.embed_dim = nembed_dim
-
-
-SelfAttention.register_self(SelfAttention)
