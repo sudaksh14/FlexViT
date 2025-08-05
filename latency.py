@@ -5,23 +5,25 @@ import onnx
 import onnxruntime as ort
 import os
 
+from networks import level_delta_utils as delta
+from networks import flexvit
+import utils
+import torch_pruning as tp
 
-def load_flexvit_model(state_dict_path=None, device='cuda'):
+
+def load_flexvit_model(config, state_dict_path=None, device='cuda'):
     if state_dict_path:
         state_dict = torch.load(state_dict_path, map_location=device)
-
-    print(state_dict.keys())
-    exit()
         
-    model_info = get_vit_info(non_pruned_weights=state_dict, core_model=True)
-    model = create_vit_general(dim_dict=model_info)
+    model = config.make_model()
     model.load_state_dict(state_dict)
-    model.to(device)
     model.eval()
     return model
 
-def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100):
-    dummy_input = torch.randn(*input_size).to(next(model.parameters()).device)
+def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100, device='cuda'):
+    model.to(device)
+    model.eval()
+    dummy_input = torch.randn(*input_size).to(device)
 
     # Warm-up
     with torch.no_grad():
@@ -30,14 +32,14 @@ def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100):
 
     # Measure latency
     torch.cuda.synchronize()
-    start_time = time.time()
+    start_time = time.monotonic_ns()
     with torch.no_grad():
         for _ in range(trials):
             _ = model(dummy_input)
     torch.cuda.synchronize()
-    end_time = time.time()
+    end_time = time.monotonic_ns()
 
-    avg_latency = (end_time - start_time) / trials * 1000  # in ms
+    avg_latency = (end_time - start_time) / trials * 1e-6  # in ms
     return avg_latency
 
 def export_onnx(model, path, dummy_input=torch.randn((1, 3, 224, 224), dtype=torch.float32), device='cuda'):
@@ -58,10 +60,33 @@ def export_onnx(model, path, dummy_input=torch.randn((1, 3, 224, 224), dtype=tor
     )
     print(f"Model successfully exported to {path}")
 
+FLEXVIT_CONFIG = flexvit.ViTConfig(
+    num_classes=1000,
+    num_heads=(12, 12, 12, 12, 12),
+    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
 
 if __name__ == "__main__":
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    load_flexvit_model(state_dict_path="../pretrained/ViTConfig_(ViTStructureConfig_224_16_12_12_768_3072)_ViTPrebuilt.default_1000_0.0_0.0_(384, 480, 576, 672, 768)_(12, 12, 12, 12, 12)_(1536, 1920, 2304, 2688, 3072)_None.pth", device=device)
+    device = utils.get_device()
+
+    model = load_flexvit_model(FLEXVIT_CONFIG, "./pretrained/FlexViT.pt", device=device)
+
+    manager = delta.InMemoryDeltaManager(model, starting_level=0)
+    print("Number of Flexible Levels:", manager.max_level() + 1)
+
+    BS = 32
+
+    for i in range(model.max_level() + 1):
+        model.set_level_use(i)
+        reg_model = model.make_base_copy()
+        latency = measure_latency(reg_model, input_size=(BS, 3, 224, 224), warmup=10, trials=100, device=device)
+        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+        print(f"🕒 Average Latency (BS={BS}, 224x224) Level {i} latency: {latency:.2f} ms, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+
+
+
+
+
 
 
     # ----------------------------------------------------VIT-----------------------------------------------------

@@ -219,10 +219,10 @@ FLEXVIT_CONFIG = flexvit.ViTConfig(
 if __name__ == "__main__":
     device = utils.get_device()
 
-    # model = FLEXVIT_CONFIG.make_model()
-    model = torch.load("./pretrained/FlexViT.pt", map_location=device)
+    model = FLEXVIT_CONFIG.make_model()
+    model.load_state_dict(torch.load("./pretrained/FlexViT.pt", map_location=device))
     model.eval()
-    num_iters = 1
+    num_iters = 1000
 
     # first create this delta file
     with open(DELTA_FILENAME, "wb") as file:

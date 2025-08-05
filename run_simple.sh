@@ -25,9 +25,9 @@ conda activate prune_llm
 
 nvidia-smi
 
-# srun python latency.py
+srun python latency.py
 # srun python plot.py
-srun python calc_switch_time.py
+# srun python calc_switch_time.py
 
 echo "Job Complete"
 echo | date

@@ -24,10 +24,10 @@ SLURM_JOBID = int(os.environ.get('SLURM_JOBID', default='0'))
 PROJECT_DIR = make_path('./' if ON_CLUSTER else './.tmp')
 TMPDIR = make_path(TMPDIR if ON_CLUSTER else (PROJECT_DIR / 'temp'))
 
-# JOBDIR = make_path(f"{PROJECT_DIR}/jobs/job_{SLURM_JOBID}")
+JOBDIR = make_path(f"{PROJECT_DIR}/wandb/job_{SLURM_JOBID}")
 
 DATA_PATH = make_path(f"{PROJECT_DIR}/data")
-# LOG_PATH = make_path(JOBDIR / 'logs')
+LOG_PATH = make_path(JOBDIR / 'logs')
 
 TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
 

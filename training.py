@@ -305,7 +305,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
         trainer = pl.Trainer(
             max_epochs=config.epochs,
             logger=logger,
-            callbacks=[early_stopping, checkpoint_callback],
+            callbacks=callbacks,
             log_every_n_steps=10,
             enable_checkpointing=True,
             accelerator="gpu",
