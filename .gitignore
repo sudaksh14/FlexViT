@@ -3,3 +3,8 @@
 atest.*
 wandb
 .*
+jobs
+pretrained
+*.pt
+*.pth
+*.delta

@@ -27,8 +27,8 @@ echo "Node name: $(hostname)"
 echo -n memory=; ulimit -m
 echo -n nproc=; nproc
 
-# srun python3 run_experiment.py run flexvit,imagenet
-srun python latency.py
+srun python3 run_experiment.py run flexvit,imagenet
+# srun python latency.py
 
 echo "Job Complete"
 echo | date

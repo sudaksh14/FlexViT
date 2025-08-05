@@ -113,7 +113,13 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             logits = self(x)
             loss = F.cross_entropy(
                 logits, y_loss, label_smoothing=self.training_context.label_smoothing)
-            acc = (logits.argmax(1) == y).float().mean()
+            
+            # Handle soft labels for Mixup/CutMix
+            if y.ndim == 2:
+                acc = (logits.argmax(1) == y.argmax(1)).float().mean()
+            else:
+                acc = (logits.argmax(1) == y).float().mean()
+
             self.log(f"{stage}_level{i}_loss", loss,
                      prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
@@ -304,7 +310,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             enable_checkpointing=True,
             accelerator="gpu",
             devices="auto",
-            num_nodes=2,
+            num_nodes=1,
             strategy='ddp',
             precision=16
         )

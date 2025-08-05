@@ -60,7 +60,7 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=20, epochs=150,
+        super().__init__(utils.load_imagenet, patience=20, epochs=1,
                          label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):

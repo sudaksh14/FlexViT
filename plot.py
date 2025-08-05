@@ -198,30 +198,30 @@ if __name__ == "__main__":
     plot_loss_val_and_train("flexvit,imagenet")
     savefig("overfitting_loss")
 
-    plot_acc_history("flexvit,cifar10.5levels")
-    savefig("cifar10_acc_history")
+    # plot_acc_history("flexvit,cifar10.5levels")
+    # savefig("cifar10_acc_history")
 
-    plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
-    savefig("cifar10_acc")
+    # plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
+    # savefig("cifar10_acc")
 
-    plot_acc("flexresnet,resnet20.6_levels.cifar10",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar10",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar10",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar10",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar10_acc")
+    # plot_acc("flexresnet,resnet20.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar10",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar10",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar10_acc")
 
-    plot_acc("flexresnet,resnet20.6_levels.cifar100",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar100",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar100",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar100",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar100_acc")
+    # plot_acc("flexresnet,resnet20.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar100",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar100",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar100_acc")

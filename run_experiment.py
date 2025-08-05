@@ -54,19 +54,20 @@ def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
 
 
 if __name__ == "__main__":
-    # command, conf = sys.argv[1:]
-    command = "run"
-    conf = "flexvgg,vgg11.3_levels.cifar10"
-    res = resolve_from_str(conf)
+    command, conf = sys.argv[1:]
+    # command = "run"
+    # conf = "flexvgg,vgg11.3_levels.cifar10"
+    res = resolve_from_str(conf) # Provides the TrainerBuilder (FlexTrainer)
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
-        hw = resolve_from_str(
-            conf, HARDWARE, return_on_index_error=True)
-        if isinstance(hw, config.hardware.HardwareConfig):
-            config.hardware.CurrentDevice.set_hardware(hw)
-        else:
-            config.hardware.CurrentDevice.set_hardware(DEFAULT_HARDWARE_CONFIG)
+        # hw = resolve_from_str(
+        #     conf, HARDWARE, return_on_index_error=True)
+        # if isinstance(hw, config.hardware.HardwareConfig):
+        #     config.hardware.CurrentDevice.set_hardware(hw)
+        # else:
+        #     config.hardware.CurrentDevice.set_hardware(DEFAULT_HARDWARE_CONFIG)
+        print(res)
         res(conf)
     elif command == "listcommand":
         print_all_conf_commands(res, conf)

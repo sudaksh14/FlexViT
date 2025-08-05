@@ -62,7 +62,7 @@ def export_onnx(model, path, dummy_input=torch.randn((1, 3, 224, 224), dtype=tor
 if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     load_flexvit_model(state_dict_path="../pretrained/ViTConfig_(ViTStructureConfig_224_16_12_12_768_3072)_ViTPrebuilt.default_1000_0.0_0.0_(384, 480, 576, 672, 768)_(12, 12, 12, 12, 12)_(1536, 1920, 2304, 2688, 3072)_None.pth", device=device)
-    
+
 
     # ----------------------------------------------------VIT-----------------------------------------------------
     # model = ViTForImageClassification.from_pretrained("facebook/deit-base-patch16-224").to(device)
@@ -129,11 +129,11 @@ if __name__ == "__main__":
     # ----------------------------------------------------VGG16-----------------------------------------------------
 
 
-    paths = ["./saves/state_dicts/Vit_b_16_Core_Level_1_state_dict_VGG_Iter_Adaptivity_cifar100_testSD.pth"] + \
-            [f"./saves/state_dicts/Vit_b_16_Rebuilt_Level_{i}_state_dict_VGG_Iter_Adaptivity_cifar100_testSD.pth" for i in range(2,7)]
+    # paths = ["./saves/state_dicts/Vit_b_16_Core_Level_1_state_dict_VGG_Iter_Adaptivity_cifar100_testSD.pth"] + \
+    #         [f"./saves/state_dicts/Vit_b_16_Rebuilt_Level_{i}_state_dict_VGG_Iter_Adaptivity_cifar100_testSD.pth" for i in range(2,7)]
     
-    for state_dict_path in paths:
-        print(f"Loading model from: {state_dict_path}")
-        model = load_vgg_model(state_dict_path, device=device)
-        latency_ms = measure_latency(model)
-        print(f"🕒 Average Latency (BS=32, 224x224): {latency_ms:.2f} ms")
+    # for state_dict_path in paths:
+    #     print(f"Loading model from: {state_dict_path}")
+    #     model = load_vgg_model(state_dict_path, device=device)
+    #     latency_ms = measure_latency(model)
+    #     print(f"🕒 Average Latency (BS=32, 224x224): {latency_ms:.2f} ms")
