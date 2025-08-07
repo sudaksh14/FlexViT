@@ -158,7 +158,7 @@ IMAGENET_TRANSFORMS = [
 ]
 
 
-def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=128):
+def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=64):
     train_transform = Compose(IMAGENET_TRANSFORMS)
     test_transform = Compose([
         Resize(256),
@@ -171,8 +171,8 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
     test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
 
-    train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:5000])
-    test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
+    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:5000])
+    # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
@@ -283,6 +283,10 @@ def save_model(model_config, model):
     with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "wb") as f:
         torch.save(model.state_dict(), f)
 
+def save_statedict(name, model):
+    with open(paths.TRAINED_MODELS / f"{name}.pt", "wb") as f:
+        torch.save(model.state_dict(), f)
+    print("model state dict saved")
 
 def load_model(model_config):
     model = model_config.make_model()

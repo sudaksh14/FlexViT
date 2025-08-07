@@ -22,12 +22,15 @@ echo -n nproc=; nproc
 eval "$(conda shell.bash hook)"
 conda activate prune_llm
 
+# Create jobs directory if needed
+mkdir -p ./jobs
 
 nvidia-smi
 
-srun python latency.py
+# srun python latency.py
 # srun python plot.py
 # srun python calc_switch_time.py
+srun python head_size.py
 
 echo "Job Complete"
 echo | date

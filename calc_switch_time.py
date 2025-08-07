@@ -7,10 +7,12 @@ import time
 import tempfile
 import os
 import subprocess
+import matplotlib.pyplot as plt
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+import pandas as pd
 
 import colorsys
 
@@ -98,29 +100,6 @@ def make_latex_table_string(data: np.ndarray, colors: np.ndarray = None,
     make_latex_table(buf, data, colors, column_names, row_names)
     return buf.getvalue()
 
-def save_table_from_latex(data: np.ndarray, output_pdf: str,
-                      colors: np.ndarray = None,
-                      column_names: Optional[Iterable[str]] = None,
-                      row_names: Optional[Iterable[str]] = None):
-    # Create LaTeX document
-    latex_content = r"""\documentclass[preview]{standalone}
-                        \usepackage[table]{xcolor}
-                        \usepackage{hhline}
-                        \begin{document}
-                        """ + make_latex_table_string(data, colors, column_names, row_names) + "\n\\end{document}"
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tex_file = os.path.join(tmpdir, "table.tex")
-        with open(tex_file, "w") as f:
-            f.write(latex_content)
-
-        # Compile LaTeX to PDF
-        subprocess.run(["pdflatex", "-interaction=nonstopmode", tex_file], cwd=tmpdir, stdout=subprocess.DEVNULL)
-
-        # Move output PDF to target path
-        pdf_path = os.path.join(tmpdir, "table.pdf")
-        os.rename(pdf_path, output_pdf)
-
 def save_table_as_pdf(data: np.ndarray, output_pdf: str,
                       colors_array: np.ndarray = None,
                       column_names: Optional[Iterable[str]] = None,
@@ -207,6 +186,201 @@ def time_manager(manager: delta.FileDeltaManager, level_from: int, level_to: int
     return milliseconds
 
 
+def measure_model_switch_time(model_paths, trials=100, device="cuda") -> pd.DataFrame:
+    """
+    Measure the average switching time between models.
+    Args:
+        model_paths (list of str): Paths to saved .pt Torch models.
+        trials (int): Number of trials for averaging.
+        device (str): 'cuda' or 'cpu'.
+    Returns:
+        pandas.DataFrame: Table of average switching times (ms).
+    """
+    
+    num_models = len(model_paths)
+    switch_times = np.zeros((num_models, num_models), dtype=np.float32)
+
+    # Load all models into GPU/CPU memory once
+    models = [torch.load(p, map_location=device).eval() for p in model_paths]
+
+    # Benchmark switching time
+    for i in range(num_models):
+        for j in range(num_models):
+            if i == j:
+                continue  # no switching cost for same model
+            torch.cuda.synchronize()
+            start = time.monotonic_ns()
+            for _ in range(trials):
+                _ = torch.load(model_paths[j], map_location=device).eval()  # simulate switching
+            torch.cuda.synchronize()
+            elapsed_ms = (time.monotonic_ns() - start) / (trials) / 1e6
+            switch_times[i, j] = elapsed_ms
+
+    # Print table
+    print("\n=== Model Switching Time Matrix (ms) ===")
+    header = "     " + " ".join([f"M{j}" for j in range(num_models)])
+    print(header)
+    for i in range(num_models):
+        row_str = f"M{i} " + " ".join([f"{switch_times[i, j]:6.3f}" for j in range(num_models)])
+        print(row_str)
+
+    # Create table
+    df = pd.DataFrame(
+        switch_times,
+        columns=[f"To_L{j}" for j in range(num_models)],
+        index=[f"From_L{i}" for i in range(num_models)]
+    )
+
+    return df
+
+# NOT IN USE
+def benchmark_switching_linear(model_paths, trials=100, device="cuda"):
+    results = {}
+
+    # 1️⃣ Load all models in GPU memory
+    print("Loading all models into GPU memory...")
+    models_gpu = [torch.load(p, map_location=device).eval() for p in model_paths]
+    torch.cuda.synchronize()
+    start = time.monotonic_ns()
+    for _ in range(trials):
+        for m in models_gpu:
+            _ = m  # simulate switching
+    torch.cuda.synchronize()
+    gpu_time = (time.monotonic_ns() - start) / (trials * len(models_gpu)) / 1e6
+    results["GPU list"] = gpu_time
+
+    # 2️⃣ Load all models in CPU memory, move to GPU on switch
+    print("Loading all models into CPU memory...")
+    models_cpu = [torch.load(p, map_location="cpu").eval() for p in model_paths]
+    torch.cuda.synchronize()
+    start = time.monotonic_ns()
+    for _ in range(trials):
+        for m in models_cpu:
+            m_gpu = m.to(device, non_blocking=True)
+    torch.cuda.synchronize()
+    cpu_to_gpu_time = (time.monotonic_ns() - start) / (trials * len(models_cpu)) / 1e6
+    results["CPU to GPU"] = cpu_to_gpu_time
+
+    # 3️⃣ Load from disk every time
+    print("Benchmarking load from disk...")
+    torch.cuda.synchronize()
+    start = time.monotonic_ns()
+    for _ in range(trials):
+        for p in model_paths:
+            m = torch.load(p, map_location=device).eval()
+    torch.cuda.synchronize()
+    disk_time = (time.monotonic_ns() - start) / (trials * len(model_paths)) / 1e6
+    results["Disk load"] = disk_time
+
+    # Print results table
+    print("\n=== Model Switching Benchmark ===")
+    print(f"{'Method':<15} | {'Avg Switch Time (ms)':>20}")
+    print("-" * 40)
+    for method, t in results.items():
+        print(f"{method:<15} | {t:>20.4f}")
+
+    return results
+
+# This function benchmarks the switching time between multiple models loaded from disk, CPU, and GPU.
+def benchmark_switching(model_paths, trials=100, device="cuda"):
+    num_models = len(model_paths)
+
+    # Preload models in GPU
+    print("Loading all models into GPU memory...")
+    models_gpu = [torch.load(p, map_location=device).eval() for p in model_paths]
+
+    # Preload models in CPU
+    print("Loading all models into CPU memory...")
+    models_cpu = [torch.load(p, map_location="cpu").eval() for p in model_paths]
+
+    # Initialize result matrices
+    gpu_gpu_times = np.zeros((num_models, num_models), dtype=np.float32)
+    cpu_gpu_times = np.zeros((num_models, num_models), dtype=np.float32)
+    disk_gpu_times = np.zeros((num_models, num_models), dtype=np.float32)
+
+    # === 1. GPU→GPU Switching ===
+    for i in range(num_models):
+        for j in range(num_models):
+            if i == j: 
+                continue
+            torch.cuda.synchronize()
+            start = time.monotonic_ns()
+            for _ in range(trials):
+                _ = models_gpu[j]  # Just switch reference
+            torch.cuda.synchronize()
+            gpu_gpu_times[i, j] = (time.monotonic_ns() - start) / trials / 1e6  # ms
+
+    # === 2. CPU→GPU Switching ===
+    for i in range(num_models):
+        for j in range(num_models):
+            if i == j: 
+                continue
+            torch.cuda.synchronize()
+            start = time.monotonic_ns()
+            for _ in range(trials):
+                _ = models_cpu[j].to(device, non_blocking=True)
+            torch.cuda.synchronize()
+            cpu_gpu_times[i, j] = (time.monotonic_ns() - start) / trials / 1e6
+
+    # === 3. Disk→GPU Switching ===
+    for i in range(num_models):
+        for j in range(num_models):
+            if i == j: 
+                continue
+            torch.cuda.synchronize()
+            start = time.monotonic_ns()
+            for _ in range(trials):
+                _ = torch.load(model_paths[j], map_location=device).eval()
+            torch.cuda.synchronize()
+            disk_gpu_times[i, j] = (time.monotonic_ns() - start) / trials / 1e6
+
+    # Function to print table nicely
+    def print_table(name, matrix):
+        print(f"\n=== {name} (ms) ===")
+        header = "     " + " ".join([f"M{j}" for j in range(num_models)])
+        print(header)
+        for i in range(num_models):
+            row_str = f"M{i} " + " ".join([f"{matrix[i,j]:6.3f}" for j in range(num_models)])
+            print(row_str)
+
+    # Print all tables
+    print_table("GPU→GPU Switching", gpu_gpu_times)
+    print_table("CPU→GPU Switching", cpu_gpu_times)
+    print_table("Disk→GPU Switching", disk_gpu_times)
+
+    return gpu_gpu_times, cpu_gpu_times, disk_gpu_times
+
+
+def save_switching_table(times, labels, output_pdf="switching_times.pdf"):
+    """
+    Saves switching time table as PDF using matplotlib.
+
+    Args:
+        times (np.ndarray): 2D array of switching times in ms.
+        labels (list): Model labels (rows/cols).
+        output_pdf (str): Output PDF file path.
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.axis("off")
+
+    # Create table
+    table_data = [[""] + labels]  # header
+    for i, row_label in enumerate(labels):
+        row = [row_label] + [f"{times[i, j]:.2f}" if i != j else "-" for j in range(len(labels))]
+        table_data.append(row)
+
+    table = ax.table(cellText=table_data, loc="center", cellLoc="center", colLoc="center")
+
+    # Style table
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.2)
+
+    # Save as PDF
+    plt.savefig(output_pdf, bbox_inches="tight")
+    plt.close(fig)
+    print(f"✅ Switching time table saved to {output_pdf}")
+
 DELTA_FILENAME = "vit.delta"
 
 FLEXVIT_CONFIG = flexvit.ViTConfig(
@@ -223,6 +397,33 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load("./pretrained/FlexViT.pt", map_location=device))
     model.eval()
     num_iters = 1000
+
+    # for i in range(model.max_level() + 1):
+    # model.set_level_use(i)
+    # reg_model = model.make_base_copy().eval()
+    # torch.save(reg_model, "./pretrained/FlexViT_level_{}.pt".format(i))
+
+    model_paths = [
+        "./pretrained/FlexViT_level_0.pt",
+        "./pretrained/FlexViT_level_1.pt",
+        "./pretrained/FlexViT_level_2.pt",
+        "./pretrained/FlexViT_level_3.pt",
+        "./pretrained/FlexViT_level_4.pt"
+    ]
+
+    # #------------------------------------------------------SWITCHING WITH BAG OF MODELS-------------------------------------------
+    # df_switch_times = measure_model_switch_time(model_paths, trials=num_iters, device=device)
+    # df_switch_times.to_csv("switch_times.csv")
+
+
+    # gpu_gpu, cpu_gpu, disk_gpu = benchmark_switching(model_paths, trials=num_iters, device=device)
+
+    # labels = [f"Level {i}" for i in range(len(model_paths))]
+    # save_switching_table(gpu_gpu, labels, output_pdf="./figures/gpu_gpu_switching_times.pdf")
+    # save_switching_table(cpu_gpu, labels, output_pdf="./figures/cpu_gpu_switching_times.pdf")
+    # save_switching_table(disk_gpu, labels, output_pdf="./figures/disk_gpu_switching_times.pdf")
+
+    #------------------------------------------------------SWITCHING WITH DELTA FILE----------------------------------------------
 
     # first create this delta file
     with open(DELTA_FILENAME, "wb") as file:
@@ -246,5 +447,5 @@ if __name__ == "__main__":
         color_map = make_color_map(data)
 
         make_latex_table(sys.stdout, data, color_map, column_names, row_names)
-        save_table_as_pdf(data, "./figures/switch_time.pdf", color_map, column_names, row_names)
+        save_table_as_pdf(data, "./figures/delta_file_switch_time.pdf", color_map, column_names, row_names)
         

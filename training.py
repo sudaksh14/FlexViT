@@ -168,7 +168,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         self.train_loop(trainer, model, conf_description)
 
-        utils.save_model(self.model_config, trainer.submodel)
+        utils.save_statedict("FlexViT_9Levels", trainer.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -312,7 +312,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             devices="auto",
             num_nodes=1,
             strategy='ddp',
-            precision=16
+            precision="bf16"
         )
 
         train_loader, val_loader, test_loader = config.loader_function()
