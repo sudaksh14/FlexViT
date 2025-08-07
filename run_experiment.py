@@ -54,9 +54,7 @@ def print_all_conf_commands(conf, basestr, file=sys.stdout) -> None:
 
 
 if __name__ == "__main__":
-    # command, conf = sys.argv[1:]
-    command = "run"
-    conf = "flexvgg,vgg11.3_levels.cifar10"
+    command, conf = sys.argv[1:]
     res = resolve_from_str(conf)
     if command == "list":
         print_all_conf_paths(res, conf)
