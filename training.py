@@ -83,6 +83,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.training_context = training_context
         self.submodel = self.model_config.make_model()
         self.distill_net = None
+        self.automatic_optimization = False
 
     def get_model(self) -> nn.Module:
         return self.submodel
@@ -92,6 +93,10 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
     def _step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
         x, y = batch
+
+        if stage == "train":
+            opt = self.optimizers()
+            opt.zero_grad()
 
         if self.distill_net is not None:
             self.distill_net.eval()
@@ -113,10 +118,14 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
                      prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
                      prog_bar=(stage != 'train'), sync_dist=True)
-            total_loss += loss
+            if stage == "train":
+                self.manual_backward(loss)
+            total_loss += loss.clone().detach()
 
-        self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
-        return total_loss
+        self.log(f"{stage}_loss", total_loss, prog_bar=(
+            stage != 'train'), sync_dist=True)
+        if stage == "train":
+            opt.step()
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -265,7 +274,8 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             kwargs['enable_model_summary'] = False
 
         ddp = DDPStrategy(
-            process_group_backend=hw.process_group_backend)
+            process_group_backend=hw.process_group_backend,
+            find_unused_parameters=True)
         trainer = pl.Trainer(
             **kwargs,
             max_epochs=config.epochs,
