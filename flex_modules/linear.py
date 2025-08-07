@@ -24,10 +24,13 @@ class Linear(Module):
             self.max_in_size, self.max_out_size, *args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.pad(x, (0, self.max_in_size - self.in_sizes[self.level]))
-        x = self.linear(x)
-        x = x[..., :self.out_sizes[self.level]]
-        return x
+        weight_part = self.linear.weight[
+            :self.out_sizes[self.level],
+            :self.in_sizes[self.level]]
+        bias_part = None
+        if self.linear.bias is not None:
+            bias_part = self.linear.bias[:self.out_sizes[self.level]]
+        return F.linear(x, weight_part, bias_part)
 
     def set_level_use(self, level: int) -> None:
         assert (level >= 0)

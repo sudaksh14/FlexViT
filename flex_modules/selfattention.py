@@ -33,13 +33,24 @@ class SelfAttention(Module):
         self.out_bias = nn.Parameter(torch.rand(self.max_token_size))
 
     def forward(self, x: torch.Tensor):
-        x = x.permute(1, 0, 2)
-        token_trim = self.max_token_size - self.token_size[self.level]
+        target_heads = self.heads[self.current_level()]
+        target_token = self.token_size[self.current_level()]
+        target_hs = target_token // target_heads
+        hs_max = self.max_token_size // self.max_heads
 
-        x = F.pad(x, (0, token_trim))
+        x = x.permute(1, 0, 2)
+
+        w_in = self.in_weights.view(
+            3, self.max_heads, hs_max, self.max_token_size)
+        w_in = w_in[:, :target_heads, :target_hs, :target_token]
+        w_in = w_in.reshape(3 * target_token, target_token)
+
+        b_in = self.in_bias.view(3, self.max_heads, hs_max)
+        b_in = b_in[:, :target_heads, :target_hs]
+        b_in = b_in.reshape(3 * target_token)
 
         seq_length, batch_size, token_size = x.shape
-        proj = F.linear(x, self.in_weights, self.in_bias)
+        proj = F.linear(x, w_in, b_in)
         proj = proj.unflatten(-1, (3, token_size))
         proj = proj.unsqueeze(0)
         proj = proj.transpose(0, -2)
@@ -47,33 +58,30 @@ class SelfAttention(Module):
         proj = proj.contiguous()
         proj = proj.view(3, seq_length, batch_size, token_size)
 
-        regular_head_dim = self.max_token_size // self.max_heads
-
         proj = proj.view(3, seq_length, batch_size *
-                         self.max_heads, regular_head_dim)
+                         target_heads, target_hs)
         proj = proj.transpose(1, 2)
-        proj = proj.view(3, batch_size, self.max_heads,
-                         seq_length, regular_head_dim)
-
-        adapted_head_dim = self.token_size[self.level] // self.heads[self.level]
-        proj = proj[:, :, :self.heads[self.level], :, :adapted_head_dim]
+        proj = proj.view(3, batch_size, target_heads,
+                         seq_length, target_hs)
 
         attn_output = F.scaled_dot_product_attention(
             *proj, None, self.dropout if self.training else 0.0, False, scale=self.scale_factor)
-        max_hs = self.max_token_size // self.max_heads
-
-        attn_output = F.pad(attn_output, (0, max_hs - adapted_head_dim, 0, 0,
-                                          0, self.max_heads - self.heads[self.level]))
 
         attn_output = attn_output.permute(2, 0, 1, 3)
         attn_output = attn_output.contiguous()
         attn_output = attn_output.view(batch_size * seq_length, token_size)
 
-        attn_output = F.linear(attn_output, self.out_weights, self.out_bias)
+        w_out = self.out_weights.view(
+            self.max_token_size, self.max_heads, hs_max)
+        w_out = w_out[:target_token, :target_heads, :target_hs]
+        w_out = w_out.reshape(target_token, target_token)
+
+        b_out = self.out_bias[:target_token]
+
+        attn_output = F.linear(attn_output, w_out, b_out)
         attn_output = attn_output.view(
             seq_length, batch_size, attn_output.size(1))
 
-        attn_output = attn_output[:, :, :token_size - token_trim]
         attn_output = attn_output.permute(1, 0, 2)
         return attn_output
 
@@ -199,7 +207,8 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]]
+        out_bias = self.out_bias[self.token_size[cur_level]
+            :self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
