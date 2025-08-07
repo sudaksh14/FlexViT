@@ -32,11 +32,35 @@ class Conv2d(Module):
             self.max_in_size, self.max_out_size, *args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.pad(x, (0, 0, 0, 0, 0,
-                      self.max_in_size - self.in_sizes[self.level]))
-        x = self.conv(x)
-        x = x[:, :self.out_sizes[self.level]]
-        return x
+        # x = F.pad(x, (0, 0, 0, 0, 0,
+        #               self.max_in_size - self.in_sizes[self.level]))
+        # x = self.conv(x)
+        # x = x[:, :self.out_sizes[self.level]]
+        # return x
+
+        weight_part = self.conv.weight[
+            :self.out_sizes[self.level],
+            :self.in_sizes[self.level]]
+        bias_part = None
+        if self.conv.bias is not None:
+            bias_part = self.conv.bias[:self.out_sizes[self.level]]
+
+        # Copied straight from the torch Conv2d forward method
+        if self.conv.padding_mode != "zeros":
+            return F.conv2d(
+                F.pad(
+                    x, self.conv._reversed_padding_repeated_twice, mode=self.conv.padding_mode
+                ),
+                weight_part,
+                bias_part,
+                self.conv.stride,
+                (0, 0),
+                self.conv.dilation,
+                self.conv.groups,
+            )
+        return F.conv2d(
+            x, weight_part, bias_part, self.conv.stride, self.conv.padding, self.conv.dilation, self.conv.groups
+        )
 
     def set_level_use(self, level: int) -> None:
         assert (level >= 0)
