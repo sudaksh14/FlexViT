@@ -126,6 +126,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             stage != 'train'), sync_dist=True)
         if stage == "train":
             opt.step()
+            self.lr_schedulers().step()
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
