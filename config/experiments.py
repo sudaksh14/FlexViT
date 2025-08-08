@@ -254,16 +254,6 @@ CONFIGS = {
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
             VitTrainingImagenet()
-        ),
-        "imagenet_constant_scale": TrainerBuilder(
-            FlexModelTrainer,
-            flexvit.ViTConfig(
-                num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12),
-                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48),
-                attention_scale_factor=1 / math.sqrt(64 * 12)),
-            VitTrainingImagenet()
         )
     }, "flexvitcorrect": TrainerBuilder(
         FlexModelTrainer,
