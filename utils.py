@@ -145,6 +145,8 @@ def try_make_dir(path):
     except FileExistsError:
         pass
 
+def get_num_nodes():
+    return int(os.environ.get("SLURM_NNODES", 1))
 
 IMAGENET_TRANSFORMS = [
     Resize(256),
@@ -171,7 +173,7 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
     test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
 
-    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:5000])
+    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:4000])
     # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(

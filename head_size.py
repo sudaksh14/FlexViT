@@ -28,7 +28,8 @@ def generate_head_sizes(n, min_val, max_val, num_head=12):
 
 if __name__ == "__main__":
     try:
-        parts = generate_head_sizes(n=8, min_val=16, max_val=64)
+        parts = generate_head_sizes(n=9, min_val=192, max_val=768)
+        parts = [part / 12 for part in parts]  # Adjusting for num_head
         print(f"Split into parts: {parts}")
     except ValueError as e:
         print(f"Error: {e}")

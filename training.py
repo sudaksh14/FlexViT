@@ -4,7 +4,7 @@ import tempfile
 import datetime
 import logging
 
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Timer
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
 from torch.utils.data import DataLoader
@@ -14,7 +14,6 @@ import pytorch_lightning as pl
 import torch
 
 from networks.config import ModelConfig, FlexModelConfig
-import config.hardware as hardware
 import config.paths as paths
 import config.wandb
 import utils
@@ -136,6 +135,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             stage != 'train'), sync_dist=True)
         if stage == "train":
             opt.step()
+            self.lr_schedulers().step()
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -160,7 +160,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             self.distill_net = distill_config.make_model()
             utils.flexible_model_copy(self.submodel, self.distill_net)
 
-    def train_loop(self, trainer, model, conf_description):
+    def train_loop(self, trainer, conf_description):
         trainer = finetune(
             trainer, self.training_context,
             conf_description, self.model_config)
@@ -170,15 +170,11 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         self.handle_load_from()
         self.handle_distill()
+        self.train_loop(self, conf_description)
 
-        model = self.submodel
-        trainer = self
-
-        self.train_loop(trainer, model, conf_description)
-
-        # utils.save_model(self.model_config, trainer.submodel)
-        # utils.save_statedict("FlexViT_9Levels", trainer.submodel)
-        utils.save_statedict("FlexViT_6Levels", trainer.submodel)
+        # utils.save_model(self.model_config, self.submodel)
+        # utils.save_statedict("FlexViT_10Levels", self.submodel)
+        utils.save_statedict("FlexViT_5Levels", self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -245,7 +241,6 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             'lightning_fabric.utilities.distributed').setLevel(logging.ERROR)
 
     with tempfile.TemporaryDirectory() as tdir:
-        # hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
         early_stopping = EarlyStopping(
             monitor='val_loss', patience=config.patience, mode='min', verbose=True)
 
@@ -259,20 +254,12 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
 
         callbacks = [early_stopping, checkpoint_callback]
 
-        # if hw is not None:
-        #     hours, minutes, seconds = map(int, hw.time.split(':'))
-        #     dur = datetime.timedelta(
-        #         hours=hours, minutes=minutes, seconds=seconds)
-        #     dur -= datetime.timedelta(minutes=15)
-        #     timer = Timer(dur)
-        #     callbacks.append(timer)
-
         kwargs = dict()
         if config.wandb_project_name is not None:
             if logger is None:
                 logger = WandbLogger(
                     project=config.wandb_project_name,
-                    name="FlexViT-6level",
+                    name="FlexViT-5level",
                     config=model_config.get_flat_dict(),
                     save_dir=paths.LOG_PATH,
                     dir=paths.LOG_PATH,
@@ -285,22 +272,6 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             kwargs['enable_progress_bar'] = False
             kwargs['enable_model_summary'] = False
 
-        # ddp = DDPStrategy(
-        #     process_group_backend=hw.process_group_backend,
-        #     find_unused_parameters=True)
-        # trainer = pl.Trainer(
-        #     **kwargs,
-        #     max_epochs=config.epochs,
-        #     callbacks=callbacks,
-        #     log_every_n_steps=10,
-        #     enable_checkpointing=True,
-        #     accelerator="gpu",
-        #     devices=hw.gpu_count,
-        #     num_nodes=hw.node_count,
-        #     strategy=ddp,
-        #     precision='bf16-mixed'
-        # )
-
         ddp = DDPStrategy(process_group_backend='nccl', find_unused_parameters=True)
         trainer = pl.Trainer(
             **kwargs,
@@ -310,15 +281,23 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             enable_checkpointing=True,
             accelerator="gpu",
             devices="auto",
-            num_nodes=2,
+            num_nodes=utils.get_num_nodes(),
             strategy=ddp,
             precision='bf16-mixed'
         )
 
         train_loader, val_loader, test_loader = config.loader_function()
         trainer.fit(model, train_loader, val_loader)
-        model = type(model).load_from_checkpoint(
-            checkpoint_callback.best_model_path)
+
+        if utils.get_num_nodes() > 1:
+            if trainer.is_global_zero:
+                model = type(model).load_from_checkpoint(
+                        checkpoint_callback.best_model_path)
+                ddp.broadcast(model)
+            
+        else:
+            model = type(model).load_from_checkpoint(
+                    checkpoint_callback.best_model_path)
         trainer.test(model, dataloaders=test_loader, verbose=False)
 
     return model
