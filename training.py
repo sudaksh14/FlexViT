@@ -151,7 +151,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             self.distill_net = distill_config.make_model()
             utils.flexible_model_copy(self.submodel, self.distill_net)
 
-    def train_loop(self, trainer, model, conf_description):
+    def train_loop(self, trainer, conf_description):
         trainer = finetune(
             trainer, self.training_context,
             conf_description, self.model_config)
@@ -161,13 +161,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         self.handle_load_from()
         self.handle_distill()
+        self.train_loop(self, conf_description)
 
-        model = self.submodel
-        trainer = self
-
-        self.train_loop(trainer, model, conf_description)
-
-        utils.save_model(self.model_config, trainer.submodel)
+        utils.save_model(self.model_config, self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
