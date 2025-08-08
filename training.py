@@ -293,7 +293,6 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             if trainer.is_global_zero:
                 model = type(model).load_from_checkpoint(
                         checkpoint_callback.best_model_path)
-                ddp.broadcast(model)
             
         else:
             model = type(model).load_from_checkpoint(
