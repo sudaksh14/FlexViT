@@ -57,7 +57,12 @@ if __name__ == "__main__":
     command, conf = sys.argv[1:]
     # command = "run"
     # conf = "flexvgg,vgg11.3_levels.cifar10"
-    res = resolve_from_str(conf) # Provides the TrainerBuilder (FlexTrainer)
+    res = resolve_from_str(conf) # Provides the TrainerBuilder Class
+
+    print(command)
+    print(res)
+    print(conf)
+
     if command == "list":
         print_all_conf_paths(res, conf)
     elif command == "run":
@@ -67,7 +72,6 @@ if __name__ == "__main__":
         #     config.hardware.CurrentDevice.set_hardware(hw)
         # else:
         #     config.hardware.CurrentDevice.set_hardware(DEFAULT_HARDWARE_CONFIG)
-        print(res)
         res(conf)
     elif command == "listcommand":
         print_all_conf_commands(res, conf)

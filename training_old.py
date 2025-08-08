@@ -12,6 +12,7 @@ from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
+import wandb
 
 from networks.config import ModelConfig, FlexModelConfig
 import config.hardware as hardware
@@ -83,9 +84,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.training_context = training_context
         self.submodel = self.model_config.make_model()
         self.distill_net = None
-        self.automatic_optimization = False
         self.Mixup = utils.mixup_fn
-
 
     def get_model(self) -> nn.Module:
         return self.submodel
@@ -96,11 +95,8 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
     def _step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
         x, y = batch
 
-        if stage == "train":
+        if stage == 'train':
             x,y = self.Mixup(x, y)
-
-            opt = self.optimizers()
-            opt.zero_grad()
 
         if self.distill_net is not None:
             self.distill_net.eval()
@@ -117,7 +113,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             logits = self(x)
             loss = F.cross_entropy(
                 logits, y_loss, label_smoothing=self.training_context.label_smoothing)
-                        
+            
             # Handle soft labels for Mixup/CutMix
             if y.ndim == 2:
                 acc = (logits.argmax(1) == y.argmax(1)).float().mean()
@@ -128,14 +124,10 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
                      prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
                      prog_bar=(stage != 'train'), sync_dist=True)
-            if stage == "train":
-                self.manual_backward(loss)
-            total_loss += loss.clone().detach()
+            total_loss += loss
 
-        self.log(f"{stage}_loss", total_loss, prog_bar=(
-            stage != 'train'), sync_dist=True)
-        if stage == "train":
-            opt.step()
+        self.log(f"{stage}_loss", total_loss, prog_bar=False, sync_dist=True)
+        return total_loss
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -176,9 +168,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
         self.train_loop(trainer, model, conf_description)
 
-        # utils.save_model(self.model_config, trainer.submodel)
-        # utils.save_statedict("FlexViT_9Levels", trainer.submodel)
-        utils.save_statedict("FlexViT_6Levels", trainer.submodel)
+        utils.save_statedict("FlexViT_9Levels", trainer.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -272,7 +262,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             if logger is None:
                 logger = WandbLogger(
                     project=config.wandb_project_name,
-                    name="FlexViT-6level",
+                    name=conf_description,
                     config=model_config.get_flat_dict(),
                     save_dir=paths.LOG_PATH,
                     dir=paths.LOG_PATH,
@@ -286,8 +276,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             kwargs['enable_model_summary'] = False
 
         # ddp = DDPStrategy(
-        #     process_group_backend=hw.process_group_backend,
-        #     find_unused_parameters=True)
+        #     process_group_backend=hw.process_group_backend)
         # trainer = pl.Trainer(
         #     **kwargs,
         #     max_epochs=config.epochs,
@@ -301,18 +290,29 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
         #     precision='bf16-mixed'
         # )
 
-        ddp = DDPStrategy(process_group_backend='nccl', find_unused_parameters=True)
+        # trainer = pl.Trainer(
+        #     max_epochs=config.epochs,
+        #     logger=logger,
+        #     callbacks=[early_stopping, checkpoint_callback],
+        #     log_every_n_steps=10,
+        #     enable_checkpointing=True,
+        #     accelerator="gpu",
+        #     devices="auto",
+        #     num_nodes=1,
+        #     precision=16
+        # )
+
         trainer = pl.Trainer(
-            **kwargs,
             max_epochs=config.epochs,
+            logger=logger,
             callbacks=callbacks,
             log_every_n_steps=10,
             enable_checkpointing=True,
             accelerator="gpu",
             devices="auto",
-            num_nodes=2,
-            strategy=ddp,
-            precision='bf16-mixed'
+            num_nodes=1,
+            strategy='ddp',
+            precision="bf16"
         )
 
         train_loader, val_loader, test_loader = config.loader_function()

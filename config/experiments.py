@@ -246,23 +246,23 @@ CONFIGS = {
                 load_from=vit.ViTConfig(
                     num_classes=100))
         ),
-        # "imagenet": TrainerBuilder(
-        #     FlexModelTrainer,
-        #     flexvit.ViTConfig(
-        #         num_classes=1000,
-        #         num_heads=(12, 12, 12, 12, 12),
-        #         hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-        #         mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
-        #     VitTrainingImagenet()
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
             flexvit.ViTConfig(
                 num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12, 12, 12, 12, 12),
-                hidden_dims=(16 * 12, 22 * 12, 28 * 12, 34 * 12, 40 * 12, 46 * 12, 52 * 12, 58 * 12, 64 * 12),
-                mlp_dims=(16 * 48, 22 * 48, 28 * 48, 34 * 48, 40 * 48, 46 * 48, 52 * 48, 58 * 48, 64 * 48)),
-            VitTrainingImagenet()
-        ),
+                num_heads=(12, 12, 12, 12, 12),
+                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+            VitTrainingImagenet()),
+        # "imagenet": TrainerBuilder(
+        #     FlexModelTrainer,
+        #     flexvit.ViTConfig(
+        #         num_classes=1000,
+        #         num_heads=(12, 12, 12, 12, 12, 12, 12, 12, 12),
+        #         hidden_dims=(16 * 12, 22 * 12, 28 * 12, 34 * 12, 40 * 12, 46 * 12, 52 * 12, 58 * 12, 64 * 12),
+        #         mlp_dims=(16 * 48, 22 * 48, 28 * 48, 34 * 48, 40 * 48, 46 * 48, 52 * 48, 58 * 48, 64 * 48)),
+        #     VitTrainingImagenet()
+        # ),
         "imagenet_constant_scale": TrainerBuilder(
             FlexModelTrainer,
             flexvit.ViTConfig(

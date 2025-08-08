@@ -2,9 +2,9 @@
 #SBATCH --job-name=simple
 #SBATCH -t 165:00:00
 #SBATCH --partition=all           # Change based on cluster
-#SBATCH --nodes=1                 # Number of nodes
-#SBATCH --ntasks-per-node=2       # One task per node
-#SBATCH --gres=gpu:2              # GPUs per node (adjust if needed)
+#SBATCH --nodes=2                 # Number of nodes
+#SBATCH --ntasks-per-node=4       # One task per node
+#SBATCH --gres=gpu:4              # GPUs per node (adjust if needed)
 #SBATCH --mem=248G                # Memory per node
 #SBATCH --cpus-per-task=12        # CPU cores per task
 #SBATCH --constraint="3090|A5000|titan_rtx"         # Request Specific GPUs (modify if needed)
@@ -33,3 +33,6 @@ export NCCL_DEBUG=INFO
 export MASTER_PORT=12345
 
 srun python3 run_experiment.py run flexvit,imagenet
+
+echo "Job Complete"
+echo | date

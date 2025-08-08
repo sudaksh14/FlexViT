@@ -158,7 +158,7 @@ IMAGENET_TRANSFORMS = [
 ]
 
 
-def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=64):
+def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=128):
     train_transform = Compose(IMAGENET_TRANSFORMS)
     test_transform = Compose([
         Resize(256),
@@ -181,7 +181,7 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=16)
 
-    print("made dataloaders")
+    print(f"Using Batch Size: {batch_size} for dataloaders")
     return train_dataloader, val_dataloader, test_dataloader
 
 # ----- Mixup + CutMix -----
