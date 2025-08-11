@@ -60,14 +60,14 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=20, epochs=150,
+        super().__init__(utils.load_imagenet, patience=20, epochs=100,
                          label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer=optimizer, T_max=150, eta_min=1e-8)
+        return CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=1e-8)
 
 
 class VitTrainingImagenetWarmup(FlexTrainingContext):
@@ -246,13 +246,22 @@ CONFIGS = {
                 load_from=vit.ViTConfig(
                     num_classes=100))
         ),
+        # "imagenet": TrainerBuilder(
+        #     FlexModelTrainer,
+        #     flexvit.ViTConfig(
+        #         num_classes=1000,
+        #         num_heads=(12, 12, 12, 12, 12),
+        #         hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+        #         mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+        #     VitTrainingImagenet()
+        # )
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
             flexvit.ViTConfig(
                 num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12),
-                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+                num_heads=(12, 12, 12, 12, 12, 12, 12, 12, 12, 12),
+                hidden_dims=(16 * 12, 21 * 12, 26 * 12, 31 * 12, 36 * 12, 41 * 12, 46 * 12, 51 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(16 * 48, 21 * 48, 26 * 48, 31 * 48, 36 * 48, 41 * 48, 46 * 48, 51 * 48, 56*48, 64 * 48)),
             VitTrainingImagenet()
         )
     }, "flexvitcorrect": TrainerBuilder(

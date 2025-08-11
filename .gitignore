@@ -3,3 +3,5 @@
 atest.*
 wandb
 .*
+jobs
+pretrained

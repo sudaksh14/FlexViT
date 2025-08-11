@@ -83,7 +83,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.training_context = training_context
         self.submodel = self.model_config.make_model()
         self.distill_net = None
+        self.Mixup = utils.mixup_fn
         self.automatic_optimization = False
+        
 
     def get_model(self) -> nn.Module:
         return self.submodel
@@ -95,8 +97,10 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         x, y = batch
 
         if stage == "train":
+            x,y = self.Mixup(x, y)
             opt = self.optimizers()
             opt.zero_grad()
+            
 
         if self.distill_net is not None:
             self.distill_net.eval()
@@ -113,7 +117,13 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             logits = self(x)
             loss = F.cross_entropy(
                 logits, y_loss, label_smoothing=self.training_context.label_smoothing)
-            acc = (logits.argmax(1) == y).float().mean()
+            
+            # Handle soft labels for Mixup/CutMix
+            if y.ndim == 2:
+                acc = (logits.argmax(1) == y.argmax(1)).float().mean()
+            else:
+                acc = (logits.argmax(1) == y).float().mean()
+
             self.log(f"{stage}_level{i}_loss", loss,
                      prog_bar=False, sync_dist=True)
             self.log(f"{stage}_level{i}_acc",  acc,
@@ -126,7 +136,15 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
             stage != 'train'), sync_dist=True)
         if stage == "train":
             opt.step()
-            self.lr_schedulers().step()
+
+    def on_train_epoch_end(self):
+        # Log the learning rate at the end of each epoch
+        optimizer = self.optimizers()
+        lr = optimizer.param_groups[0]['lr']
+        self.log('learning_rate', lr, prog_bar=True, sync_dist=True)
+
+        sch = self.lr_schedulers()
+        sch.step(self.trainer.callback_metrics["val_loss"])
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -163,7 +181,8 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.handle_distill()
         self.train_loop(self, conf_description)
 
-        utils.save_model(self.model_config, self.submodel)
+        # utils.save_model(self.model_config, self.submodel)
+        utils.save_statedict("FlexViT_10Levels", self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -230,7 +249,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             'lightning_fabric.utilities.distributed').setLevel(logging.ERROR)
 
     with tempfile.TemporaryDirectory() as tdir:
-        hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
+        # hw: hardware.HardwareConfig = hardware.CurrentDevice.get_hardware()
         early_stopping = EarlyStopping(
             monitor='val_loss', patience=config.patience, mode='min', verbose=True)
 
@@ -244,20 +263,20 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
 
         callbacks = [early_stopping, checkpoint_callback]
 
-        if hw is not None:
-            hours, minutes, seconds = map(int, hw.time.split(':'))
-            dur = datetime.timedelta(
-                hours=hours, minutes=minutes, seconds=seconds)
-            dur -= datetime.timedelta(minutes=15)
-            timer = Timer(dur)
-            callbacks.append(timer)
+        # if hw is not None:
+        #     hours, minutes, seconds = map(int, hw.time.split(':'))
+        #     dur = datetime.timedelta(
+        #         hours=hours, minutes=minutes, seconds=seconds)
+        #     dur -= datetime.timedelta(minutes=15)
+        #     timer = Timer(dur)
+        #     callbacks.append(timer)
 
         kwargs = dict()
         if config.wandb_project_name is not None:
             if logger is None:
                 logger = WandbLogger(
                     project=config.wandb_project_name,
-                    name=conf_description,
+                    name="FlexViT-10level_manual_scheduling",
                     config=model_config.get_flat_dict(),
                     save_dir=paths.LOG_PATH,
                     dir=paths.LOG_PATH,
@@ -270,9 +289,25 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             kwargs['enable_progress_bar'] = False
             kwargs['enable_model_summary'] = False
 
-        ddp = DDPStrategy(
-            process_group_backend=hw.process_group_backend,
-            find_unused_parameters=True)
+        # ddp = DDPStrategy(
+        #     process_group_backend=hw.process_group_backend,
+        #     find_unused_parameters=True)
+        # trainer = pl.Trainer(
+        #     **kwargs,
+        #     max_epochs=config.epochs,
+        #     callbacks=callbacks,
+        #     log_every_n_steps=10,
+        #     enable_checkpointing=True,
+        #     accelerator="gpu",
+        #     devices=hw.gpu_count,
+        #     num_nodes=hw.node_count,
+        #     strategy=ddp,
+        #     precision='bf16-mixed'
+        # )
+
+
+
+        ddp = DDPStrategy(process_group_backend='nccl', find_unused_parameters=True)
         trainer = pl.Trainer(
             **kwargs,
             max_epochs=config.epochs,
@@ -280,16 +315,23 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             log_every_n_steps=10,
             enable_checkpointing=True,
             accelerator="gpu",
-            devices=hw.gpu_count,
-            num_nodes=hw.node_count,
+            devices="auto",
+            num_nodes=utils.get_num_nodes(),
             strategy=ddp,
             precision='bf16-mixed'
         )
 
         train_loader, val_loader, test_loader = config.loader_function()
         trainer.fit(model, train_loader, val_loader)
-        model = type(model).load_from_checkpoint(
-            checkpoint_callback.best_model_path)
+
+        if utils.get_num_nodes() > 1:
+            if trainer.is_global_zero:
+                model = type(model).load_from_checkpoint(
+                        checkpoint_callback.best_model_path)
+            
+        else:
+            model = type(model).load_from_checkpoint(
+                    checkpoint_callback.best_model_path)
         trainer.test(model, dataloaders=test_loader, verbose=False)
 
     return model

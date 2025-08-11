@@ -5,11 +5,13 @@ import io
 
 from torchvision.transforms import (
     Compose, RandomHorizontalFlip, RandomRotation,
-    ColorJitter, ToTensor, Normalize, Resize, CenterCrop, ConvertImageDtype
+    ColorJitter, ToTensor, Normalize, Resize, CenterCrop, ConvertImageDtype, RandAugment
 )
+from timm.data import Mixup
+from torchvision.transforms.functional import InterpolationMode
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 from sklearn.metrics import accuracy_score
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torch import nn
 import torch
 import tqdm
@@ -144,21 +146,56 @@ def try_make_dir(path):
     except FileExistsError:
         pass
 
+def get_num_nodes():
+    return int(os.environ.get("SLURM_NNODES", 1))
+
+# IMAGENET_TRANSFORMS = [
+#     Resize(256),
+#     CenterCrop(224),
+#     ToTensor(),
+#     ConvertImageDtype(torch.float),
+#     Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+# ]
 
 IMAGENET_TRANSFORMS = [
     Resize(256),
     CenterCrop(224),
+    RandomHorizontalFlip(p=0.5),
+    RandAugment(num_ops=2, magnitude=9, interpolation=InterpolationMode.BILINEAR),
+    ColorJitter(0.4, 0.4, 0.4, 0.1),
     ToTensor(),
     ConvertImageDtype(torch.float),
     Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 ]
 
+# ----- Mixup + CutMix -----
+mixup_fn = Mixup(
+    mixup_alpha=0.2,
+    cutmix_alpha=1.0,
+    cutmix_minmax=None,
+    prob=1.0,
+    switch_prob=0.5,  # probability to switch between mixup and cutmix
+    mode='batch',
+    label_smoothing=0.11,
+    num_classes=1000
+)
+
 
 def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=128):
-    transform = Compose(IMAGENET_TRANSFORMS)
+    train_transform = Compose(IMAGENET_TRANSFORMS)
+    test_transform = Compose([
+        Resize(256),
+        CenterCrop(224),
+        ToTensor(),
+        ConvertImageDtype(torch.float),
+        Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+    ])
 
-    train_dataset = ImageFolder(data_dir / "train", transform=transform)
-    test_dataset = ImageFolder(data_dir / "val", transform=transform)
+    train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
+    test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
+
+    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:5000])
+    # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
@@ -167,8 +204,9 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, num_workers=16)
 
-    print("made dataloaders")
+    print(f"made dataloaders, BS:{batch_size}")
     return train_dataloader, val_dataloader, test_dataloader
+
 
 
 def load_data(dataset, data_dir=paths.DATA_PATH, tmp_dir=paths.TMPDIR, resize=None, batch_size=64):
@@ -257,6 +295,11 @@ def torch_deserialize(data: bytes, *args, **kwargs):
 def save_model(model_config, model):
     with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "wb") as f:
         torch.save(model.state_dict(), f)
+
+def save_statedict(name, model):
+    with open(paths.TRAINED_MODELS / f"{name}.pt", "wb") as f:
+        torch.save(model.state_dict(), f)
+    print("model state dict saved")
 
 
 def load_model(model_config):
