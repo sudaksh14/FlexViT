@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 class SelfAttention(Module):
-    def __init__(self, token_size: Iterable[int], heads: Iterable[int], scale_factor=None, dropout=0.0):
+    def __init__(self, token_size: Iterable[int], heads: Iterable[int], dropout=0.0):
         super().__init__()
 
         assert (all(i % j == 0 for i, j in zip(token_size, heads)))
@@ -19,7 +19,6 @@ class SelfAttention(Module):
         self.proj_token_size = token_size
         self.heads = heads
         self.dropout = dropout
-        self.scale_factor = scale_factor
 
         self.max_heads = heads[-1]
         self.max_token_size = token_size[-1]
@@ -38,8 +37,7 @@ class SelfAttention(Module):
         target_hs = target_token // target_heads
         hs_max = self.max_token_size // self.max_heads
 
-        x = x.permute(1, 0, 2)
-
+        # Calculate part of parameters used in this level
         w_in = self.in_weights.view(
             3, self.max_heads, hs_max, self.max_token_size)
         w_in = w_in[:, :target_heads, :target_hs, :target_token]
@@ -49,28 +47,6 @@ class SelfAttention(Module):
         b_in = b_in[:, :target_heads, :target_hs]
         b_in = b_in.reshape(3 * target_token)
 
-        seq_length, batch_size, token_size = x.shape
-        proj = F.linear(x, w_in, b_in)
-        proj = proj.unflatten(-1, (3, token_size))
-        proj = proj.unsqueeze(0)
-        proj = proj.transpose(0, -2)
-        proj = proj.squeeze(-2)
-        proj = proj.contiguous()
-        proj = proj.view(3, seq_length, batch_size, token_size)
-
-        proj = proj.view(3, seq_length, batch_size *
-                         target_heads, target_hs)
-        proj = proj.transpose(1, 2)
-        proj = proj.view(3, batch_size, target_heads,
-                         seq_length, target_hs)
-
-        attn_output = F.scaled_dot_product_attention(
-            *proj, None, self.dropout if self.training else 0.0, False, scale=self.scale_factor)
-
-        attn_output = attn_output.permute(2, 0, 1, 3)
-        attn_output = attn_output.contiguous()
-        attn_output = attn_output.view(batch_size * seq_length, token_size)
-
         w_out = self.out_weights.view(
             self.max_token_size, self.max_heads, hs_max)
         w_out = w_out[:target_token, :target_heads, :target_hs]
@@ -78,12 +54,26 @@ class SelfAttention(Module):
 
         b_out = self.out_bias[:target_token]
 
-        attn_output = F.linear(attn_output, w_out, b_out)
-        attn_output = attn_output.view(
-            seq_length, batch_size, attn_output.size(1))
-
-        attn_output = attn_output.permute(1, 0, 2)
-        return attn_output
+        # compute self attention
+        x = x.transpose(1, 0)
+        attn, _ = F.multi_head_attention_forward(
+            query=x,
+            key=x,
+            value=x,
+            embed_dim_to_check=self.token_size[self.current_level()],
+            num_heads=self.heads[self.current_level()],
+            in_proj_weight=w_in,
+            in_proj_bias=b_in,
+            bias_k=None,
+            bias_v=None,
+            add_zero_attn=False,
+            dropout_p=self.dropout,
+            out_proj_weight=w_out,
+            out_proj_bias=b_out,
+            training=self.training,
+            need_weights=False
+        )
+        return attn.transpose(1, 0)
 
     def set_level_use(self, level: int) -> None:
         assert (level >= 0)
@@ -175,8 +165,6 @@ class SelfAttention(Module):
         hs_target = self.token_size[target_level] // self.heads[target_level]
         hs_curr = self.token_size[cur_level] // self.heads[cur_level]
 
-        a = None
-
         # delta up
         # in weights
         qkv = self.in_weights.data.view(
@@ -207,8 +195,8 @@ class SelfAttention(Module):
             :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[self.token_size[cur_level]
-            :self.token_size[target_level]]
+        out_bias = self.out_bias[
+            self.token_size[cur_level]:self.token_size[target_level]]
 
         delta_up = (
             target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,

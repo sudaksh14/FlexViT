@@ -160,7 +160,7 @@ IMAGENET_TRANSFORMS = [
 ]
 
 
-def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=128):
+def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=512):
     train_transform = Compose(IMAGENET_TRANSFORMS)
     test_transform = Compose([
         Resize(256),

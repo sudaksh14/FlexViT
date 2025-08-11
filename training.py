@@ -98,9 +98,6 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         if stage == "train":
             x,y = self.Mixup(x, y)
 
-            opt = self.optimizers()
-            opt.zero_grad()
-
         if self.distill_net is not None:
             self.distill_net.eval()
             for p in self.distill_net.parameters():
@@ -134,8 +131,9 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.log(f"{stage}_loss", total_loss, prog_bar=(
             stage != 'train'), sync_dist=True)
         if stage == "train":
+            opt = self.optimizers()
+            opt.zero_grad()
             opt.step()
-            self.lr_schedulers().step()
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -179,7 +177,16 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
         scheduler = self.training_context.make_scheduler(optimizer)
-        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
+        return {
+        'optimizer': optimizer,
+        'lr_scheduler': {
+            'scheduler': scheduler,
+            'monitor': 'val_loss',
+            'interval': 'epoch',  # Update the scheduler every epoch
+            'frequency': 1        # Frequency of updates
+        }
+    }
+
 
 
 class SimpleTrainer(pl.LightningModule, BaseTrainer):

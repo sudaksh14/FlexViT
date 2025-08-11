@@ -35,8 +35,6 @@ class ViTConfig(FlexModelConfig):
     num_heads: Iterable[int] = (6, 8, 12)
     mlp_dims: Iterable[int] = (3072 // 2, (3072 // 3) * 2, 3072)
 
-    attention_scale_factor: Optional[float] = None
-
     def make_model(self):
         return VisionTransformer(self)
 
@@ -45,9 +43,6 @@ class ViTConfig(FlexModelConfig):
         return self
 
     def create_base_config(self, level) -> ModelConfig:
-        if self.attention_scale_factor is not None:
-            raise ValueError(
-                "You cannot create a regular ViT with an attention_scale_factor.")
         return networks.vit.ViTConfig(
             networks.vit.ViTStructureConfig(
                 self.structure.image_size,
@@ -90,8 +85,7 @@ class EncoderBlock(nn.Module):
         hidden_dim: Iterable[int],
         mlp_dim: Iterable[int],
         dropout: float,
-        attention_dropout: float,
-        scale_factor: Optional[float]
+        attention_dropout: float
     ):
         super().__init__()
         self.num_heads = num_heads
@@ -99,7 +93,7 @@ class EncoderBlock(nn.Module):
         # Attention block
         self.ln_1 = fm.LayerNorm(hidden_dim, eps=1e-6)
         self.self_attention = fm.SelfAttention(
-            hidden_dim, num_heads, dropout=attention_dropout, scale_factor=scale_factor)
+            hidden_dim, num_heads, dropout=attention_dropout)
         self.dropout = nn.Dropout(dropout)
 
         # MLP block
@@ -132,8 +126,7 @@ class Encoder(nn.Module):
         hidden_dim: Iterable[int],
         mlp_dim: Iterable[int],
         dropout: float,
-        attention_dropout: float,
-        scale_factor: Optional[float]
+        attention_dropout: float
     ):
         super().__init__()
         # Note that batch_size is on the first dim because
@@ -147,8 +140,7 @@ class Encoder(nn.Module):
                 hidden_dim,
                 mlp_dim,
                 dropout,
-                attention_dropout,
-                scale_factor
+                attention_dropout
             )
         self.layers = nn.Sequential(layers)
         self.ln = fm.LayerNorm(hidden_dim, eps=1e-6)
@@ -206,8 +198,7 @@ class VisionTransformer(FlexModel):
             hidden_dim,
             mlp_dim,
             dropout,
-            attention_dropout,
-            config.attention_scale_factor
+            attention_dropout
         )
 
         self.seq_length = seq_length
@@ -308,6 +299,3 @@ class VisionTransformer(FlexModel):
         hidden_dim, module_deltas = level_delta.delta
         FlexModel.apply_level_delta_up(model, module_deltas)
         model.hidden_dim = hidden_dim
-
-
-VisionTransformer.register_self(VisionTransformer)
