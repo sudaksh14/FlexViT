@@ -11,17 +11,26 @@ class SelfAttention(Module):
     def __init__(self, token_size: Iterable[int], heads: Iterable[int], dropout=0.0):
         super().__init__()
 
+        def is_positive(x): return x > 0
+        assert (len(token_size) > 0)
+        assert (len(token_size) == len(heads))
+        assert (all(map(is_positive, token_size)))
+        assert (all(map(is_positive, token_size)))
         assert (all(i % j == 0 for i, j in zip(token_size, heads)))
         head_dims = [i // j for i, j in zip(token_size, heads)]
         assert (sorted(head_dims) == head_dims)
+        assert (max(token_size) == token_size[-1])
+        assert (max(heads) == heads[-1])
+        assert (max(head_dims) == head_dims[-1])
+        assert (dropout >= 0.0)
 
         self.token_size = token_size
         self.proj_token_size = token_size
         self.heads = heads
         self.dropout = dropout
 
-        self.max_heads = heads[-1]
-        self.max_token_size = token_size[-1]
+        self.max_heads = max(heads)
+        self.max_token_size = max(token_size)
         self.level = self.max_level()
 
         self.in_weights = nn.Parameter(
