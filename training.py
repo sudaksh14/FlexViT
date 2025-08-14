@@ -139,12 +139,8 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
 
     def on_train_epoch_end(self):
         # Log the learning rate at the end of each epoch
-        optimizer = self.optimizers()
-        lr = optimizer.param_groups[0]['lr']
-        self.log('learning_rate', lr, prog_bar=True, sync_dist=True)
-
-        sch = self.lr_schedulers()
-        sch.step(self.trainer.callback_metrics["val_loss"])
+        self.log('learning_rate', self.optimizers().param_groups[0]['lr'], prog_bar=True, sync_dist=True)
+        self.lr_schedulers().step()
 
     def training_step(self, b, _) -> torch.Tensor:
         return self._step(b, "train")
@@ -182,7 +178,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.train_loop(self, conf_description)
 
         # utils.save_model(self.model_config, self.submodel)
-        utils.save_statedict("FlexViT_10Levels", self.submodel)
+        utils.save_statedict("FlexViT_5Levels_cosine", self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -276,7 +272,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             if logger is None:
                 logger = WandbLogger(
                     project=config.wandb_project_name,
-                    name="FlexViT-10level_manual_scheduling",
+                    name="FlexViT_5level_cosine",
                     config=model_config.get_flat_dict(),
                     save_dir=paths.LOG_PATH,
                     dir=paths.LOG_PATH,
