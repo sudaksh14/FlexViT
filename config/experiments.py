@@ -224,8 +224,7 @@ CONFIGS = {
             flexvit.ViTConfig(
                 num_classes=10),
             ViTTraining(
-                load_from=vit.ViTConfig(
-                    num_classes=10))
+                load_from='vitprebuild,cifar10')
         ),
         "cifar10.5levels": TrainerBuilder(
             FlexModelTrainer,
@@ -235,16 +234,14 @@ CONFIGS = {
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
             ViTTraining(
-                load_from=vit.ViTConfig(
-                    num_classes=10))
+                load_from='vitprebuild,cifar10')
         ),
         "cifar100": TrainerBuilder(
             FlexModelTrainer,
             flexvit.ViTConfig(
                 num_classes=100),
             ViTTraining100(
-                load_from=vit.ViTConfig(
-                    num_classes=100))
+                load_from='vitprebuild,cifar100')
         ),
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
@@ -263,10 +260,6 @@ CONFIGS = {
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
         VitTrainingImagenet(
-            load_from=flexvit.ViTConfig(
-                num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12),
-                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)))
+            load_from='flexvit,imagenet')
     )
 }
