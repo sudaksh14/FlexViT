@@ -254,14 +254,16 @@ def torch_deserialize(data: bytes, *args, **kwargs):
         return torch.load(f, *args, **kwargs)
 
 
-def save_model(model_config, model):
-    with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "wb") as f:
+def save_model(exp_name, model):
+    exp_name = make_str_filename_safe(exp_name)
+    with open(paths.TRAINED_MODELS / f"{exp_name}.pt", "wb") as f:
         torch.save(model.state_dict(), f)
 
 
-def load_model(model_config):
+def load_model(exp_name, model_config):
+    exp_name = make_str_filename_safe(exp_name)
     model = model_config.make_model()
-    with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "rb") as f:
+    with open(paths.TRAINED_MODELS / f"{exp_name}.pt", "rb") as f:
         sdict = torch.load(f)
         model.load_state_dict(sdict)
     return model

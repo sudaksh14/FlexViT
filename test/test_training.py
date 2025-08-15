@@ -1,3 +1,4 @@
+from config.experiments import CONFIGS
 import shutil
 import dataclasses
 
@@ -163,6 +164,14 @@ dummy_hardware: config.hardware.HardwareConfig = config.hardware.HardwareConfig(
 config.hardware.CurrentDevice.set_hardware(dummy_hardware)
 
 
+CONFIGS['dummy'] = training.TrainerBuilder(
+    training.FlexModelTrainer,
+    DummyFlexModelConfig(),
+    DummyFlexTrainingContext(
+        load_dummy_data, patience=1, epochs=1, wandb_project_name=None, unittest_mode=True)
+)
+
+
 class TestTrainer(unittest.TestCase):
     def test_flex(self):
         training.TrainerBuilder(
@@ -170,7 +179,7 @@ class TestTrainer(unittest.TestCase):
             DummyFlexModelConfig(),
             DummyFlexTrainingContext(
                 load_dummy_data, patience=1, epochs=1, wandb_project_name=None, unittest_mode=True)
-        ).run_training('a')
+        ).run_training('dummy')
 
     def test_flex_load_from(self):
         training.TrainerBuilder(
@@ -182,8 +191,23 @@ class TestTrainer(unittest.TestCase):
                 epochs=1,
                 wandb_project_name=None,
                 unittest_mode=True,
-                load_from=DummyFlexModelConfig())
-        ).run_training('a')
+                load_from='dummy')
+        ).run_training('loadfromdummy')
+
+    def test_flex_load_from(self):
+        training.TrainerBuilder(
+            training.FlexModelTrainer,
+            DummyFlexModelConfig(),
+            DummyFlexTrainingContext(
+                load_dummy_data,
+                patience=1,
+                epochs=1,
+                wandb_project_name=None,
+                unittest_mode=True,
+                load_from='dummy',
+                load_flex_from=(0, 1, 2),
+                load_flex_to=(0, 1, 2))
+        ).run_training('loadfromdummy')
 
     def test_simple(self):
         training.TrainerBuilder(
@@ -191,4 +215,4 @@ class TestTrainer(unittest.TestCase):
             DummyModelConfig(),
             DummyTrainingContext(
                 load_dummy_data, patience=1, epochs=1, wandb_project_name=None, unittest_mode=True)
-        ).run_training('a')
+        ).run_training('dummysimple')

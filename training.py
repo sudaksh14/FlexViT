@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
 
+import flex_modules as fm
 from networks.config import ModelConfig, FlexModelConfig
 import config.hardware as hardware
 import config.paths as paths
@@ -71,7 +72,10 @@ class TrainerBuilder:
 
 @dataclasses.dataclass
 class FlexTrainingContext(TrainingContext):
-    load_from: Optional[ModelConfig] = None
+    load_from: Optional[str] = None
+    load_flex_from: Optional[tuple[int, ...]] = None
+    load_flex_to: Optional[tuple[int, ...]] = None
+
     distill: bool = False
 
 
@@ -140,9 +144,34 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         return self._step(b, "test")
 
     def handle_load_from(self):
-        if self.training_context.load_from is not None:
-            lmodel = utils.load_model(self.training_context.load_from)
+        if self.training_context.load_from is None:
+            return
+
+        from run_experiment import resolve_from_str
+        load_from_tconfig: TrainerBuilder = resolve_from_str(
+            self.training_context.load_from)
+        lmodel = utils.load_model(
+            self.training_context.load_from, load_from_tconfig.model_config)
+
+        if self.training_context.load_flex_from is None and self.training_context.load_flex_to is None:
             utils.flexible_model_copy(lmodel, self.submodel)
+        elif self.training_context.load_flex_from is None:
+            assert (isinstance(self.submodel, fm.Module))
+            for l in self.training_context.load_flex_to:
+                self.submodel.set_level_use(l)
+                utils.flexible_model_copy(lmodel, self.submodel)
+        elif self.training_context.load_flex_to is None:
+            assert (isinstance(lmodel, fm.Module))
+            for l in self.training_context.load_flex_from:
+                lmodel.set_level_use(l)
+                utils.flexible_model_copy(lmodel, self.submodel)
+        else:
+            assert (isinstance(self.submodel, fm.Module))
+            assert (isinstance(lmodel, fm.Module))
+            for lf, lt in zip(self.training_context.load_flex_from, self.training_context.load_flex_to):
+                lmodel.set_level_use(lf)
+                self.submodel.set_level_use(lt)
+                utils.flexible_model_copy(lmodel, self.submodel)
 
     def handle_distill(self):
         if self.training_context.distill:
@@ -151,7 +180,6 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
                 distill_config = distill_config.create_base_config(
                     self.submodel.max_level())
             self.distill_net = distill_config.make_model()
-            utils.flexible_model_copy(self.submodel, self.distill_net)
 
     def train_loop(self, trainer, conf_description):
         trainer = finetune(
@@ -165,7 +193,7 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         self.handle_distill()
         self.train_loop(self, conf_description)
 
-        utils.save_model(self.model_config, self.submodel)
+        utils.save_model(conf_description, self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -212,7 +240,7 @@ class SimpleTrainer(pl.LightningModule, BaseTrainer):
             trainer, self.training_context,
             conf_description, self.model_config)
 
-        utils.save_model(self.model_config, trainer.submodel)
+        utils.save_model(conf_description, trainer.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
