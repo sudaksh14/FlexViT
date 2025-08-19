@@ -10,19 +10,20 @@ import torch.nn.functional as F
 class Conv2d(Module):
     def __init__(self, in_sizes: Iterable[int], out_sizes: Iterable[int], *args, **kwargs) -> None:
         super().__init__()
+
+        def is_positive(x): return x > 0
+        assert (len(in_sizes) > 0)
+        assert (len(in_sizes) == len(out_sizes))
+        assert (all(map(is_positive, in_sizes)))
+        assert (all(map(is_positive, out_sizes)))
+        assert (max(in_sizes) == in_sizes[-1])
+        assert (max(out_sizes) == out_sizes[-1])
+
         self.in_sizes = in_sizes
         self.out_sizes = out_sizes
 
         self._args = args
         self._kwargs = kwargs
-
-        assert (len(self.in_sizes) > 0)
-        assert (len(self.out_sizes) > 0)
-        assert (len(self.in_sizes) == len(self.out_sizes))
-        assert (sorted(self.in_sizes) == list(self.in_sizes))
-        assert (sorted(self.out_sizes) == list(self.out_sizes))
-        assert (self.in_sizes[0] > 0)
-        assert (self.out_sizes[0] > 0)
 
         self.max_in_size = self.in_sizes[-1]
         self.max_out_size = self.out_sizes[-1]

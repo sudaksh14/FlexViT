@@ -28,6 +28,7 @@ echo -n memory=; ulimit -m
 echo -n nproc=; nproc
 
 srun python3 run_experiment.py run flexvit,imagenet
+# srun python plot.py
 
 echo "Job Complete"
 echo | date

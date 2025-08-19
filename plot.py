@@ -23,7 +23,7 @@ class Wandb:
         return __class__.api
 
 
-def get_experiment(name: str):
+def get_experiment(name: str, run_id: str):
     print(f"retrieving experiment '{name}'", file=sys.stderr)
     experiment: training.TrainerBuilder = run_experiment.resolve_from_str(name)
     if not isinstance(experiment, training.TrainerBuilder):
@@ -31,14 +31,20 @@ def get_experiment(name: str):
     entity = Wandb.get().default_entity
     project = experiment.training_context.wandb_project_name
     runs = Wandb.get().runs(f"{entity}/{project}", order="-created_at")
-    run = next(filter(lambda r: r.name == name, runs))
+    
+    # Find the run matching the name
+    run = next((r for r in runs if r.name == run_id), None)
+
+    if run is None:
+        print(f"No run with name '{name}' found in project '{project}'", file=sys.stderr)
+
     return experiment, run
 
 
-def plot_acc_history(name: str, stage: str = "val"):
+def plot_acc_history(name: str, stage: str = "val", run_id: str = None):
     print(
         f"plotting acc history of experiment '{name}' as stage '{stage}'", file=sys.stderr)
-    exp, run = get_experiment(name)
+    exp, run = get_experiment(name, run_id)
 
     for i in itertools.count(0):
         key = f"{stage}_level{i}_acc"
@@ -60,10 +66,10 @@ def plot_acc_history(name: str, stage: str = "val"):
     plt.ylabel("top 1 accuracy")
 
 
-def plot_acc(name: str, stage: str = "val", relative_size=False, label=None, base_accuracy=None):
+def plot_acc(name: str, stage: str = "val", run_id: str = None, relative_size=False, label=None, base_accuracy=None):
     print(
         f"plotting accuracies of experiment '{name}' at stage '{stage}'", file=sys.stderr)
-    exp, run = get_experiment(name)
+    exp, run = get_experiment(name, run_id)
     size_to_acc = dict()
 
     for i in itertools.count(0):
@@ -121,11 +127,11 @@ def moving_avg(axis, data, size=10):
     return axis, mavg
 
 
-def plot_acc_val_and_train(name, level):
+def plot_acc_val_and_train(name, level, run_id):
     print(
         f"plotting validation and train accuracies of '{name}' at level {level}", file=sys.stderr)
 
-    exp, run = get_experiment(name)
+    exp, run = get_experiment(name, run_id)
 
     train_key = f"train_level{level}_acc"
     val_key = f"val_level{level}_acc"
@@ -150,10 +156,10 @@ def plot_acc_val_and_train(name, level):
     plt.legend()
 
 
-def plot_loss_val_and_train(name):
+def plot_loss_val_and_train(name, run_id):
     print(f"plotting validation and train loss of '{name}'", file=sys.stderr)
 
-    exp, run = get_experiment(name)
+    exp, run = get_experiment(name, run_id)
     train_key = "train_loss"
     val_key = "val_loss"
 
@@ -177,51 +183,55 @@ def plot_loss_val_and_train(name):
     plt.legend()
 
 
-def savefig(name: str):
+def savefig(name: str, run_id: str = None):
     print(f"saving figure '{name}'")
-    plt.savefig(paths.FIGURES / f"{name}.pdf", bbox_inches="tight")
+    plt.savefig(paths.FIGURES / f"{name}_{run_id}.pdf", bbox_inches="tight")
     plt.clf()
 
 
 if __name__ == "__main__":
     matplotlib.rc("font", size=13)
 
-    plot_acc_history("flexvit,imagenet")
-    savefig("vit_imagenet_history")
+    exp_name = "flexvit,imagenet"
+    run_id = "FlexViT-5level_manual_scheduling"
+    
 
-    plot_acc("flexvit,imagenet", base_accuracy=.81)
-    savefig("vit_imagenet_acc")
+    plot_acc_history(exp_name, run_id=run_id)
+    savefig("vit_imagenet_history", run_id=run_id)
 
-    plot_acc_val_and_train("flexvit,imagenet", 4)
-    savefig("overfitting")
+    plot_acc(exp_name, run_id=run_id, base_accuracy=.81)
+    savefig("vit_imagenet_acc", run_id=run_id)
 
-    plot_loss_val_and_train("flexvit,imagenet")
-    savefig("overfitting_loss")
+    plot_acc_val_and_train(exp_name, 4, run_id=run_id)
+    savefig("overfitting", run_id=run_id)
 
-    plot_acc_history("flexvit,cifar10.5levels")
-    savefig("cifar10_acc_history")
+    plot_loss_val_and_train(exp_name, run_id=run_id)
+    savefig("overfitting_loss", run_id=run_id)
 
-    plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
-    savefig("cifar10_acc")
+    # plot_acc_history("flexvit,cifar10.5levels")
+    # savefig("cifar10_acc_history")
 
-    plot_acc("flexresnet,resnet20.6_levels.cifar10",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar10",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar10",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar10",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar10_acc")
+    # plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
+    # savefig("cifar10_acc")
 
-    plot_acc("flexresnet,resnet20.6_levels.cifar100",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar100",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar100",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar100",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar100_acc")
+    # plot_acc("flexresnet,resnet20.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar10",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar10",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar10_acc")
+
+    # plot_acc("flexresnet,resnet20.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar100",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar100",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar100_acc")

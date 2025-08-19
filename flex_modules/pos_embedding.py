@@ -10,6 +10,12 @@ import networks.modules as vmod
 class PosEmbeddingLayer(Module):
     def __init__(self, seq_length, hidden_dim: Iterable[int]):
         super().__init__()
+
+        def is_positive(x): return x > 0
+        assert (is_positive(seq_length))
+        assert (all(map(is_positive, hidden_dim)))
+        assert (max(hidden_dim) == hidden_dim[-1])
+
         self.seq_length = seq_length
         self.hidden_dims = hidden_dim
         self.embedding = nn.Parameter(torch.empty(

@@ -10,6 +10,15 @@ from flex_modules.module import Module, DownDelta, UpDelta
 class Linear(Module):
     def __init__(self, in_sizes: Iterable[int], out_sizes: Iterable[int], *args, **kwargs):
         super().__init__()
+
+        def is_positive(x): return x > 0
+        assert (len(in_sizes) > 0)
+        assert (len(in_sizes) == len(out_sizes))
+        assert (all(map(is_positive, in_sizes)))
+        assert (all(map(is_positive, out_sizes)))
+        assert (max(in_sizes) == in_sizes[-1])
+        assert (max(out_sizes) == out_sizes[-1])
+
         self.in_sizes = in_sizes
         self.out_sizes = out_sizes
 

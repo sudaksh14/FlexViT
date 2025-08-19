@@ -10,6 +10,11 @@ import networks.modules as vmod
 class ClassTokenLayer(Module):
     def __init__(self, hidden_dim: Iterable[int]):
         super().__init__()
+        
+        def is_positive(x): return x > 0
+        assert (all(map(is_positive, hidden_dim)))
+        assert (max(hidden_dim) == hidden_dim[-1])
+
         self.hidden_dims = hidden_dim
         self.token = nn.Parameter(torch.zeros(1, 1, hidden_dim[-1]))
         self.level = self.max_level()
