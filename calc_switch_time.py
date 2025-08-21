@@ -394,15 +394,21 @@ if __name__ == "__main__":
     device = utils.get_device()
 
     model = FLEXVIT_CONFIG.make_model()
-    model.load_state_dict(torch.load("./pretrained/FlexViT.pt", map_location=device))
+    model.load_state_dict(torch.load("./pretrained/FlexViT_5Levels.pt", map_location=device))
     model.eval()
-    num_iters = 1000
+    num_iters = 1
+
+    example_input = torch.randn(1, 3, 224, 224).to(device)
 
     # for i in range(model.max_level() + 1):
-    # model.set_level_use(i)
-    # reg_model = model.make_base_copy().eval()
-    # torch.save(reg_model, "./pretrained/FlexViT_level_{}.pt".format(i))
+    #     model.set_level_use(i)
+    #     reg_model = model.make_base_copy().to(device)
+    #     # torch.save(reg_model, "./pretrained/FlexViT_level_{}.pt".format(i))
+    #     traced_model = torch.jit.trace(reg_model.eval(), example_input)
+    #     traced_model.save("./pretrained/FlexViT_level_{}.pt".format(i))
+        
 
+    # exit()
     model_paths = [
         "./pretrained/FlexViT_level_0.pt",
         "./pretrained/FlexViT_level_1.pt",
@@ -432,6 +438,7 @@ if __name__ == "__main__":
     reg_config = FLEXVIT_CONFIG.create_base_config(0).no_prebuilt()
     with delta.file_delta_manager(DELTA_FILENAME, reg_config) as manager:
         reg_model = manager.managed_model()
+        manager.set_managed_model(manager.managed_model().to(utils.get_device()))
 
         data = np.zeros((manager.max_level() + 1, manager.max_level() + 1))
 

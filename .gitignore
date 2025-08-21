@@ -5,6 +5,7 @@ wandb
 .*
 jobs
 pretrained
+figures
 *.pt
 *.pth
 *.delta

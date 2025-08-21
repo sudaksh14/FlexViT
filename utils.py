@@ -116,7 +116,7 @@ def evaluate_model(model: nn.Module, dataloader: DataLoader, device: str) -> tor
             all_labels.extend(labels.cpu().numpy())
 
     accuracy = accuracy_score(all_labels, all_preds)
-    return accuracy
+    return accuracy * 100
 
 
 def count_parameters(model: nn.Module) -> int:

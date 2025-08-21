@@ -4,11 +4,12 @@ import torchvision
 import onnx
 import onnxruntime as ort
 import os
-
+from pathlib import Path
 from networks import level_delta_utils as delta
 from networks import flexvit
 import utils
 import torch_pruning as tp
+import torch_tensorrt
 
 
 def load_flexvit_model(config, state_dict_path=None, device='cuda'):
@@ -20,10 +21,13 @@ def load_flexvit_model(config, state_dict_path=None, device='cuda'):
     model.eval()
     return model
 
-def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100, device='cuda'):
+def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100, device='cuda', quantize=False):
     model.to(device)
     model.eval()
     dummy_input = torch.randn(*input_size).to(device)
+    
+    if quantize:
+        dummy_input = dummy_input.half()  # Convert to half precision if quantizing
 
     # Warm-up
     with torch.no_grad():
@@ -45,7 +49,7 @@ def measure_latency(model, input_size=(32, 3, 224, 224), warmup=10, trials=100, 
 def export_onnx(model, path, dummy_input=torch.randn((1, 3, 224, 224), dtype=torch.float32), device='cuda'):
     print(f"\nExporting PyTorch model to ONNX: {path}...")
     torch.onnx.export(
-        model,                                                                    # The PyTorch model to export
+        model.to(device),                                                                    # The PyTorch model to export
         dummy_input.to(device),                        # A dummy input to trace the model
         path,                                                               # Path where the ONNX model will be saved
         export_params=True,                                                       # Export model parameters (weights)
@@ -60,6 +64,17 @@ def export_onnx(model, path, dummy_input=torch.randn((1, 3, 224, 224), dtype=tor
     )
     print(f"Model successfully exported to {path}")
 
+def optimize_model(model: torch.nn.Module, input_shape=(1, 3, 224, 224), precision="fp16", workspace_size=1<<22):
+    """Optimize the model with Torch-TensorRT."""
+    dtype = torch.half if precision == "fp16" else torch.float
+    trt_model = torch_tensorrt.compile(
+        model.half() if precision == "fp16" else model.float(),
+        inputs=[torch_tensorrt.Input(input_shape, dtype=dtype)],
+        enabled_precisions={dtype},
+        workspace_size=workspace_size
+    )
+    return trt_model
+
 FLEXVIT_CONFIG = flexvit.ViTConfig(
     num_classes=1000,
     num_heads=(12, 12, 12, 12, 12),
@@ -68,20 +83,47 @@ FLEXVIT_CONFIG = flexvit.ViTConfig(
 
 if __name__ == "__main__":
     device = utils.get_device()
+    print(torch.__version__, torch_tensorrt.__version__)
 
-    model = load_flexvit_model(FLEXVIT_CONFIG, "./pretrained/FlexViT.pt", device=device)
+    model = load_flexvit_model(FLEXVIT_CONFIG, "./pretrained/FlexViT_5Levels.pt", device=device)
 
     manager = delta.InMemoryDeltaManager(model, starting_level=0)
     print("Number of Flexible Levels:", manager.max_level() + 1)
 
     BS = 32
 
+    # _,_, test_loader = utils.load_imagenet(data_dir=Path("/ssdstore/ImageNet"), batch_size=BS)
+
+    # USING FLEX MODELS FOR EVALUATION
+    # for i in range(model.max_level() + 1):
+    #     model.set_level_use(i)
+    #     reg_model = model.make_base_copy()
+    #     acc = utils.evaluate_model(reg_model, test_loader, device=device)
+    #     print(f"Accuracy at Level {i}: {acc:.2f}%")
+
+    # # USING FLEX MODELS
     for i in range(model.max_level() + 1):
         model.set_level_use(i)
         reg_model = model.make_base_copy()
-        latency = measure_latency(reg_model, input_size=(BS, 3, 224, 224), warmup=10, trials=100, device=device)
+        latency = measure_latency(reg_model, input_size=(BS, 3, 224, 224), warmup=1, trials=10, device=device)
         flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
         print(f"🕒 Average Latency (BS={BS}, 224x224) Level {i} latency: {latency:.2f} ms, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+
+    # print("------------------------Using TensorRT Optimized Models------------------------")
+    # # USING TENSOR-RT OPTIMIZED MODELS
+    # for i in range(model.max_level() + 1):
+    #     model.set_level_use(i)
+    #     reg_model = model.make_base_copy().to(device)
+    #     trt_model = optimize_model(reg_model, input_shape=(BS, 3, 224, 224), precision="fp16")
+    #     latency = measure_latency(trt_model, input_size=(BS, 3, 224, 224), warmup=1, trials=10, device=device, quantize=True)
+        # print(f"🕒 Average Latency (BS={BS}, 224x224) Level {i} latency: {latency:.2f} ms")
+
+    # USING SEPARATE MODELS
+    # for i in range(5):
+    #     reg_model = torch.load(f"./pretrained/FlexViT_level_{i}.pt").to(device)
+    #     latency = measure_latency(reg_model, input_size=(BS, 3, 224, 224), warmup=1, trials=10, device=device)
+    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+    #     print(f"🕒 Average Latency (BS={BS}, 224x224) Level {i} latency: {latency:.2f} ms, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
 
 
 
