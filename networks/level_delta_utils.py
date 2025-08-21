@@ -96,7 +96,7 @@ class InMemoryDeltaManager(BaseDeltaManager):
 
 
 class FileDeltaManager(BaseDeltaManager):
-    def __init__(self, file: io.BufferedIOBase, managed_config: ModelConfig):
+    def __init__(self, file: io.BufferedIOBase, managed_config: ModelConfig, device):
         """
         Takes in a delta file as genererated by
         `FileDeltaManager.make_delta_file`. It loads in the saved model to a regular
@@ -107,6 +107,7 @@ class FileDeltaManager(BaseDeltaManager):
         self._locations.append(-1)
         self._data_start = file.tell()
         self._managed_config = managed_config
+        self.device = device
 
         maxlevel, level, sdict = self._deserialize_chunk(0, self._locations[0])
         self._managed_model = managed_config.make_model()
@@ -114,7 +115,7 @@ class FileDeltaManager(BaseDeltaManager):
         super().__init__(maxlevel, level)
 
     def managed_model(self):
-        return self._managed_model
+        return self._managed_model.to(self.device)
 
     def set_managed_model(self, model: nn.Module):
         self._managed_model = model
@@ -172,9 +173,9 @@ class FileDeltaManager(BaseDeltaManager):
 
 
 @contextmanager
-def file_delta_manager(path, managed_config):
+def file_delta_manager(path, managed_config, device=None):
     """
     Opens a `FileDeltaManager` with a file from path `path`.
     """
     with open(path, 'rb') as f:
-        yield FileDeltaManager(f, managed_config)
+        yield FileDeltaManager(f, managed_config, device)

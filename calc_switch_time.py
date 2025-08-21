@@ -2,12 +2,17 @@ import numpy as np
 import sys
 from typing import Optional, TextIO, Iterable
 import time
-
+import os
 import colorsys
+import matplotlib.pyplot as plt
+import numpy as np
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 from networks import level_delta_utils as delta
 from networks import flexvit
-
+import utils
 import tqdm
 import tqdm.contrib.itertools as titer
 
@@ -79,6 +84,13 @@ def make_color_map(data):
             colors[i, j] = make_color(data[i, j])
     return colors
 
+def normalize_colors(colors):
+    """Normalize color values to be within the 0-1 range."""
+    colors = np.array(colors)
+    if colors.max() > 1.0 or colors.min() < 0.0:
+        colors = colors / 255.0
+    return colors
+
 
 # if __name__ == "__main__":
 #     points = 20
@@ -101,6 +113,35 @@ def time_manager(manager: delta.FileDeltaManager, level_from: int, level_to: int
     milliseconds /= iters
     return milliseconds
 
+def save_table_to_pdf(data, colors, column_names, row_names, pdf_filename="./figures/delta_level_switching_time.pdf"):
+    # Create a figure and axis for the table
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.axis('tight')
+    ax.axis('off')
+
+    # Normalize color values
+    colors = normalize_colors(colors)
+
+    # Create the table
+    table = ax.table(cellText=data, cellColours=colors, colLabels=column_names, rowLabels=row_names, loc='center')
+
+    # Adjust table properties
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.2)
+
+    # Save the table as an image
+    table_image_filename = 'table_image.png'
+    plt.savefig(table_image_filename, bbox_inches='tight', pad_inches=0.1)
+    plt.close(fig)  # Close the figure to free memory
+
+    # Create a PDF and add the table image
+    c = canvas.Canvas(pdf_filename, pagesize=letter)
+    c.drawImage(ImageReader(table_image_filename), 50, 500, width=500, height=300)
+    c.save()
+
+    # Clean up the image file
+    os.remove(table_image_filename)
 
 DELTA_FILENAME = "vit.delta"
 
@@ -113,23 +154,39 @@ FLEXVIT_CONFIG = flexvit.ViTConfig(
 # This script generates the table with the delta file switching timings
 if __name__ == "__main__":
     model = FLEXVIT_CONFIG.make_model()
+    num_iter = 100
 
     # first create this delta file
+    device = utils.get_device()
+
+    # Open the delta file and create the delta
     with open(DELTA_FILENAME, "wb") as file:
         delta.FileDeltaManager.make_delta_file(file, model, starting_level=0)
 
+    # Create the regular configuration and open the delta file manager
     reg_config = FLEXVIT_CONFIG.create_base_config(0).no_prebuilt()
-    with delta.file_delta_manager(DELTA_FILENAME, reg_config) as manager:
-        reg_model = manager.managed_model()
+    with delta.file_delta_manager(DELTA_FILENAME, reg_config, device) as manager:
+        # Load the managed model to the GPU
+        # manager.set_managed_model(manager.managed_model().to(device))
+        reg_model = manager.managed_model().to(device)
 
+        # Initialize the data array
         data = np.zeros((manager.max_level() + 1, manager.max_level() + 1))
 
+        # Iterate over levels and measure time
         for i, j in titer.product(range(manager.max_level() + 1), range(manager.max_level() + 1)):
-            data[i, j] = time_manager(manager, i, j, 1000)
+            if i == j:
+                data[i, j] = 0.0
+            else:
+                data[i, j] = time_manager(manager, i, j, num_iter)
 
+        # Prepare column and row names for the table
         column_names = ['', *map(str, range(manager.max_level() + 1))]
-        row_names = map(str, range(manager.max_level() + 1))
+        row_names = [*map(str, range(manager.max_level() + 1))]
 
+        # Generate colors for the table
         colors = make_color_map(data)
 
+        # Create the LaTeX table
         make_latex_table(sys.stdout, data, colors, column_names, row_names)
+        save_table_to_pdf(data, colors, column_names, row_names)

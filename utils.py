@@ -194,8 +194,8 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
     test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
 
-    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:2000])
-    # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
+    train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:2000])
+    test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
@@ -302,9 +302,11 @@ def save_statedict(name, model):
     print("model state dict saved")
 
 
-def load_model(model_config):
+def load_model(exp_name, model_config):
+    # exp_name = make_str_filename_safe(exp_name)
     model = model_config.make_model()
-    with open(paths.TRAINED_MODELS / f"{model_config.get_filename_safe_description()}.pt", "rb") as f:
+    with open(paths.TRAINED_MODELS / f"{exp_name}.pt", "rb") as f:
         sdict = torch.load(f)
         model.load_state_dict(sdict)
     return model
+
