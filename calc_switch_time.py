@@ -176,4 +176,4 @@ if __name__ == "__main__":
 
         # Create the LaTeX table
         make_latex_table(sys.stdout, data, colors, column_names, row_names)
-        save_table_to_pdf(data, colors, column_names, row_names)
+        save_table_to_pdf(data, colors, column_names[1:], row_names)
