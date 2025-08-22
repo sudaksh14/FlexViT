@@ -6,9 +6,6 @@ import os
 import colorsys
 import matplotlib.pyplot as plt
 import numpy as np
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 
 from networks import level_delta_utils as delta
 from networks import flexvit
@@ -130,18 +127,9 @@ def save_table_to_pdf(data, colors, column_names, row_names, pdf_filename="./fig
     table.set_fontsize(10)
     table.scale(1.2, 1.2)
 
-    # Save the table as an image
-    table_image_filename = 'table_image.png'
-    plt.savefig(table_image_filename, bbox_inches='tight', pad_inches=0.1)
+    # Save the table
+    plt.savefig(pdf_filename, bbox_inches='tight')
     plt.close(fig)  # Close the figure to free memory
-
-    # Create a PDF and add the table image
-    c = canvas.Canvas(pdf_filename, pagesize=letter)
-    c.drawImage(ImageReader(table_image_filename), 50, 500, width=500, height=300)
-    c.save()
-
-    # Clean up the image file
-    os.remove(table_image_filename)
 
 DELTA_FILENAME = "vit.delta"
 
@@ -154,7 +142,7 @@ FLEXVIT_CONFIG = flexvit.ViTConfig(
 # This script generates the table with the delta file switching timings
 if __name__ == "__main__":
     model = FLEXVIT_CONFIG.make_model()
-    num_iter = 100
+    num_iter = 1000
 
     # first create this delta file
     device = utils.get_device()
@@ -165,10 +153,9 @@ if __name__ == "__main__":
 
     # Create the regular configuration and open the delta file manager
     reg_config = FLEXVIT_CONFIG.create_base_config(0).no_prebuilt()
-    with delta.file_delta_manager(DELTA_FILENAME, reg_config, device) as manager:
-        # Load the managed model to the GPU
-        # manager.set_managed_model(manager.managed_model().to(device))
-        reg_model = manager.managed_model().to(device)
+    with delta.file_delta_manager(DELTA_FILENAME, reg_config) as manager:
+        # Put the managed model on GPU once
+        manager.set_managed_model(manager.managed_model().to(device))
 
         # Initialize the data array
         data = np.zeros((manager.max_level() + 1, manager.max_level() + 1))
