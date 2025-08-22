@@ -4,8 +4,8 @@
 #SBATCH --account=all6000users
 #SBATCH -t 165:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2
 #SBATCH --mem=128G
 #SBATCH --cpus-per-task=16
 #SBATCH --output=./jobs/slurm_output_%A.out

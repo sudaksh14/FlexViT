@@ -11,7 +11,7 @@ from timm.data import Mixup
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 from sklearn.metrics import accuracy_score
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, TensorDataset
 from torch import nn
 import torch
 import tqdm
@@ -149,13 +149,34 @@ def try_make_dir(path):
 def get_num_nodes():
     return int(os.environ.get("SLURM_NNODES", 1))
 
-# IMAGENET_TRANSFORMS = [
-#     Resize(256),
-#     CenterCrop(224),
-#     ToTensor(),
-#     ConvertImageDtype(torch.float),
-#     Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-# ]
+def load_dummy_data(
+    num_classes: int = 1000,
+    num_train: int = 1024,
+    num_val: int = 512,
+    num_test: int = 512,
+    image_size: tuple[int, int, int] = (3, 224, 224),
+    batch_size: int = 512,
+):
+    """
+    Generates dummy data loaders mimicking ImageNet.
+    """
+
+    # Helper to create random tensors
+    def make_dataset(num_samples):
+        images = torch.randn(num_samples, *image_size)
+        labels = torch.randint(0, num_classes, (num_samples,))
+        return TensorDataset(images, labels)
+
+    train_dataset = make_dataset(num_train)
+    val_dataset = make_dataset(num_val)
+    test_dataset = make_dataset(num_test)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+
+    print(f"Dummy dataloaders created, BS:{batch_size}")
+    return train_loader, val_loader, test_loader
 
 IMAGENET_TRANSFORMS = [
     Resize(256),
@@ -194,8 +215,8 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
     train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
     test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
 
-    train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:2000])
-    test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
+    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:2000])
+    # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)

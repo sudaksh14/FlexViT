@@ -60,14 +60,16 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=20, epochs=5,
-                         label_smoothing=0.0, gradient_clip_val=1.0, *args, **kwargs)
+        super().__init__(utils.load_imagenet, patience=20, epochs=100,
+                        label_smoothing=0.0, gradient_clip_val=1.0, *args, **kwargs)
+        # super().__init__(utils.load_dummy_data, patience=20, epochs=5,
+        #                 label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer=optimizer, T_max=5, eta_min=1e-8)
+        return CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=1e-8)
 
 
 class VitTrainingImagenetWarmup(FlexTrainingContext):
