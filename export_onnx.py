@@ -1,6 +1,8 @@
 import torch
 from networks import flexvit
 
+FP16 = True
+ 
 FLEXVIT_CONFIG = flexvit.ViTConfig(
     num_classes=1000,
     num_heads=(12, 12, 12, 12, 12),
@@ -12,11 +14,17 @@ model = FLEXVIT_CONFIG.make_model()
 model.load_state_dict(torch.load("./pretrained/FlexViT_5Levels.pt", map_location=device))
 model.eval()
 
-example_input = torch.randn(1, 3, 224, 224).to(device)
+if FP16:
+    example_input = torch.randn(1, 3, 224, 224).half().to(device)
+else:
+    example_input = torch.randn(1, 3, 224, 224).to(device)
 
 for i in range(model.max_level() + 1):
     model.set_level_use(i)
     reg_model = model.make_base_copy().to(device)
+    if FP16:
+        reg_model.half()
+    
 
     torch.onnx.export(
         reg_model, example_input,
