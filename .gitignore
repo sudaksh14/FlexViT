@@ -6,4 +6,4 @@ wandb
 jobs
 pretrained
 figures
-.delta
+*.delta
