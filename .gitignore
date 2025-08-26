@@ -7,3 +7,4 @@ jobs
 pretrained
 figures
 *.delta
+ssh_authenticate.sh

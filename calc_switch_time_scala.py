@@ -5,6 +5,7 @@ import time
 import os
 import colorsys
 import matplotlib.pyplot as plt
+import torch
 
 from networks import level_delta_utils as delta
 from networks import flexvit
@@ -109,7 +110,7 @@ def time_manager(manager: delta.FileDeltaManager, level_from: int, level_to: int
     milliseconds /= iters
     return milliseconds
 
-def save_table_to_pdf(data, colors, column_names, row_names, pdf_filename="./figures/delta_level_switching_time.pdf"):
+def save_table_to_pdf(data, colors, column_names, row_names, pdf_filename="./figures/delta_level_switching_time_scala.pdf"):
     # Create a figure and axis for the table
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.axis('tight')
@@ -141,7 +142,10 @@ FLEXVIT_CONFIG = flexvit.ViTConfig(
 # This script generates the table with the delta file switching timings
 if __name__ == "__main__":
     model = FLEXVIT_CONFIG.make_model()
-    num_iter = 1000
+    model.eval()
+    _ = model(torch.randn(1, 3, 224, 224))
+
+    num_iter = 1
 
     # first create this delta file
     device = utils.get_device()

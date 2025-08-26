@@ -41,28 +41,44 @@ class SelfAttention(Module):
         self.out_bias = nn.Parameter(torch.rand(self.max_token_size))
 
     def forward(self, x: torch.Tensor):
-        target_heads = self.heads[self.current_level()]
+        # Adapted from the scala slicing strategy, https://github.com/BeSpontaneous/Scala-pytorch/blob/main/models_scala.py
         target_token = self.token_size[self.current_level()]
-        target_hs = target_token // target_heads
-        hs_max = self.max_token_size // self.max_heads
+        
 
         # Calculate part of parameters used in this level
-        w_in = self.in_weights.view(
-            3, self.max_heads, hs_max, self.max_token_size)
-        w_in = w_in[:, :target_heads, :target_hs, :target_token]
-        w_in = w_in.reshape(3 * target_token, target_token)
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
+        else:
+            w_in = self.in_weights[-(target_token*3):, -(target_token):]
+            b_in = self.in_bias[-(target_token*3):]
+            w_out = self.out_weights[(-target_token):, (-target_token):]
+            b_out = self.out_bias[(-target_token):]
 
-        b_in = self.in_bias.view(3, self.max_heads, hs_max)
-        b_in = b_in[:, :target_heads, :target_hs]
-        b_in = b_in.reshape(3 * target_token)
+        # target_heads = self.heads[self.current_level()]
+        # target_token = self.token_size[self.current_level()]
+        # target_hs = target_token // target_heads
+        # hs_max = self.max_token_size // self.max_heads
 
-        w_out = self.out_weights.view(
-            self.max_token_size, self.max_heads, hs_max)
-        w_out = w_out[:target_token, :target_heads, :target_hs]
-        w_out = w_out.reshape(target_token, target_token)
+        # # Calculate part of parameters used in this level
+        # w_in = self.in_weights.view(
+        #     3, self.max_heads, hs_max, self.max_token_size)
+        # w_in = w_in[:, :target_heads, :target_hs, :target_token]
+        # w_in = w_in.reshape(3 * target_token, target_token)
 
-        b_out = self.out_bias[:target_token]
+        # b_in = self.in_bias.view(3, self.max_heads, hs_max)
+        # b_in = b_in[:, :target_heads, :target_hs]
+        # b_in = b_in.reshape(3 * target_token)
 
+        # w_out = self.out_weights.view(
+        #     self.max_token_size, self.max_heads, hs_max)
+        # w_out = w_out[:target_token, :target_heads, :target_hs]
+        # w_out = w_out.reshape(target_token, target_token)
+
+        # b_out = self.out_bias[:target_token]
+        
         # compute self attention
         x = x.transpose(1, 0)
         attn, _ = F.multi_head_attention_forward(
@@ -101,61 +117,100 @@ class SelfAttention(Module):
 
     @torch.no_grad()
     def copy_to_base(self, dest: nn.MultiheadAttention) -> None:
-        target_heads = self.heads[self.current_level()]
         target_token = self.token_size[self.current_level()]
-        target_hs = target_token // target_heads
-        hs_max = self.max_token_size // self.max_heads
-
-        w_in = self.in_weights.view(
-            3, self.max_heads, hs_max, self.max_token_size)
-        w_in = w_in[:, :target_heads, :target_hs, :target_token]
-        w_in = w_in.reshape(3 * target_token, target_token)
+        
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
+        else:
+            w_in = self.in_weights[-(target_token*3):, -(target_token):]
+            b_in = self.in_bias[-(target_token*3):]
+            w_out = self.out_weights[(-target_token):, (-target_token):]
+            b_out = self.out_bias[(-target_token):]
+            
         dest.in_proj_weight.data[:] = w_in.detach()
-
-        b_in = self.in_bias.view(3, self.max_heads, hs_max)
-        b_in = b_in[:, :target_heads, :target_hs]
-        b_in = b_in.reshape(3 * target_token)
         dest.in_proj_bias.data[:] = b_in.detach()
-
-        w_out = self.out_weights.view(
-            self.max_token_size, self.max_heads, hs_max)
-        w_out = w_out[:target_token, :target_heads, :target_hs]
-        w_out = w_out.reshape(target_token, target_token)
         dest.out_proj.weight.data[:] = w_out.detach()
-
-        b_out = self.out_bias[:target_token]
         dest.out_proj.bias.data[:] = b_out.detach()
+
+            
+
+        # target_heads = self.heads[self.current_level()]
+        # target_token = self.token_size[self.current_level()]
+        # target_hs = target_token // target_heads
+        # hs_max = self.max_token_size // self.max_heads
+
+        # w_in = self.in_weights.view(
+        #     3, self.max_heads, hs_max, self.max_token_size)
+        # w_in = w_in[:, :target_heads, :target_hs, :target_token]
+        # w_in = w_in.reshape(3 * target_token, target_token)
+        # dest.in_proj_weight.data[:] = w_in.detach()
+
+        # b_in = self.in_bias.view(3, self.max_heads, hs_max)
+        # b_in = b_in[:, :target_heads, :target_hs]
+        # b_in = b_in.reshape(3 * target_token)
+        # dest.in_proj_bias.data[:] = b_in.detach()
+
+        # w_out = self.out_weights.view(
+        #     self.max_token_size, self.max_heads, hs_max)
+        # w_out = w_out[:target_token, :target_heads, :target_hs]
+        # w_out = w_out.reshape(target_token, target_token)
+        # dest.out_proj.weight.data[:] = w_out.detach()
+
+        # b_out = self.out_bias[:target_token]
+        # dest.out_proj.bias.data[:] = b_out.detach()
 
     @torch.no_grad()
     def load_from_base(self, src: nn.MultiheadAttention) -> None:
-        target_heads = self.heads[self.current_level()]
         target_token = self.token_size[self.current_level()]
-        target_hs = target_token // target_heads
-        hs_max = self.max_token_size // self.max_heads
+        
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
+        else:
+            w_in = self.in_weights[-(target_token*3):, -(target_token):]
+            b_in = self.in_bias[-(target_token*3):]
+            w_out = self.out_weights[(-target_token):, (-target_token):]
+            b_out = self.out_bias[(-target_token):]
+            
+        w_in[:] = src.in_proj_weight.data.detach()
+        b_in[:] = src.in_proj_bias.data.detach()
+        w_out[:] = src.out_proj.weight.data.detach()
+        b_out[:] = src.out_proj.bias.data.detach()
+        
+        
+        # target_heads = self.heads[self.current_level()]
+        # target_token = self.token_size[self.current_level()]
+        # target_hs = target_token // target_heads
+        # hs_max = self.max_token_size // self.max_heads
 
-        w_in = self.in_weights.view(
-            3, self.max_heads, hs_max, self.max_token_size)
-        w_in = w_in[:, :target_heads, :target_hs, :target_token]
-        w_in_src = src.in_proj_weight.data
-        w_in_src = w_in_src.view(3, target_heads, target_hs, target_token)
-        w_in[:] = w_in_src.detach()
+        # w_in = self.in_weights.view(
+        #     3, self.max_heads, hs_max, self.max_token_size)
+        # w_in = w_in[:, :target_heads, :target_hs, :target_token]
+        # w_in_src = src.in_proj_weight.data
+        # w_in_src = w_in_src.view(3, target_heads, target_hs, target_token)
+        # w_in[:] = w_in_src.detach()
 
-        b_in = self.in_bias.view(3, self.max_heads, hs_max)
-        b_in = b_in[:, :target_heads, :target_hs]
-        b_in_src = src.in_proj_bias.data
-        b_in_src = b_in_src.view(3, target_heads, target_hs)
-        b_in[:] = b_in_src.detach()
+        # b_in = self.in_bias.view(3, self.max_heads, hs_max)
+        # b_in = b_in[:, :target_heads, :target_hs]
+        # b_in_src = src.in_proj_bias.data
+        # b_in_src = b_in_src.view(3, target_heads, target_hs)
+        # b_in[:] = b_in_src.detach()
 
-        w_out = self.out_weights.view(
-            self.max_token_size, self.max_heads, hs_max)
-        w_out = w_out[:target_token, :target_heads, :target_hs]
-        w_out_src = src.out_proj.weight.data
-        w_out_src = w_out_src.view(target_token, target_heads, target_hs)
-        w_out[:] = w_out_src.detach()
+        # w_out = self.out_weights.view(
+        #     self.max_token_size, self.max_heads, hs_max)
+        # w_out = w_out[:target_token, :target_heads, :target_hs]
+        # w_out_src = src.out_proj.weight.data
+        # w_out_src = w_out_src.view(target_token, target_heads, target_hs)
+        # w_out[:] = w_out_src.detach()
 
-        b_out = self.out_bias[:target_token]
-        b_out_src = src.out_proj.bias.data
-        b_out[:] = b_out_src.detach()
+        # b_out = self.out_bias[:target_token]
+        # b_out_src = src.out_proj.bias.data
+        # b_out[:] = b_out_src.detach()
 
     def _make_reg_layer(self):
         return nn.MultiheadAttention(
@@ -170,47 +225,71 @@ class SelfAttention(Module):
         target_level = self.current_level()
         cur_level = target_level - 1
 
-        hs_max = self.max_token_size // self.max_heads
-        hs_target = self.token_size[target_level] // self.heads[target_level]
-        hs_curr = self.token_size[cur_level] // self.heads[cur_level]
+        # hs_max = self.max_token_size // self.max_heads
+        # hs_target = self.token_size[target_level] // self.heads[target_level]
+        # hs_curr = self.token_size[cur_level] // self.heads[cur_level]
+        
+        target_token = self.token_size[target_level]
 
         # delta up
         # in weights
-        qkv = self.in_weights.data.view(
-            3, self.max_heads, hs_max, self.max_token_size)
-        qkv = qkv[
-            :, :self.heads[target_level], :hs_target, :self.token_size[target_level]]
-        target_heads_inw = qkv[:, self.heads[cur_level]:].detach()
-        curr_right_inw = qkv[
-            :, :self.heads[cur_level], :, self.token_size[cur_level]:].detach()
-        curr_bottom_inw = qkv[
-            :, :self.heads[cur_level], hs_curr:, :self.token_size[cur_level]].detach()
+        qkv = self.in_weights.data[:target_token*3, :target_token]
+        
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            target_inw = qkv[3*self.token_size[cur_level]:, self.token_size[cur_level:]].detach()
+        else:
+            target_inw = qkv[-(3*self.token_size[cur_level]):, -(self.token_size[cur_level]):].detach()
+
+        # target_heads_inw = qkv[:, self.heads[cur_level]:].detach()
+        # curr_right_inw = qkv[
+        #     :, :self.heads[cur_level], :, self.token_size[cur_level]:].detach()
+        # curr_bottom_inw = qkv[
+        #     :, :self.heads[cur_level], hs_curr:, :self.token_size[cur_level]].detach()
 
         # in bias
-        qkv = self.in_bias.data.view(3, self.max_heads, hs_max)
-        qkv = qkv[:, :self.heads[target_level], :hs_target]
-        target_heads_inb = qkv[:, self.heads[cur_level]:].detach()
-        slimmed_heads_inb = qkv[:, :self.heads[cur_level], hs_curr:].detach()
+        qkv = self.in_bias.data[:target_token*3]
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            target_inb = qkv[3*self.token_size[cur_level]:].detach()
+        else:
+            target_inb = qkv[-(3*self.token_size[cur_level]):].detach()
+        
+        # qkv = self.in_bias.data.view(3, self.max_heads, hs_max)
+        # qkv = qkv[:, :self.heads[target_level], :hs_target]
+        # target_heads_inb = qkv[:, self.heads[cur_level]:].detach()
+        # slimmed_heads_inb = qkv[:, :self.heads[cur_level], hs_curr:].detach()
 
         # out weights
-        qkv = self.out_weights.view(
-            self.max_token_size, self.max_heads, hs_max)
-        qkv = qkv[
-            :self.token_size[target_level], :self.heads[target_level], :hs_target]
-        target_heads_ow = qkv[:, self.heads[cur_level]:]
-        curr_right_ow = qkv[
-            self.token_size[cur_level]:, :self.heads[cur_level], :]
-        curr_bottom_ow = qkv[
-            :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
+        qkv = self.out_weights.data[:target_token, :target_token]
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            target_ow = qkv[self.token_size[cur_level]:, self.token_size[cur_level:]].detach()
+        else:
+            target_ow = qkv[-(self.token_size[cur_level]):, -(self.token_size[cur_level]):].detach()
+            
+        # qkv = self.out_weights.view(
+        #     self.max_token_size, self.max_heads, hs_max)
+        # qkv = qkv[
+        #     :self.token_size[target_level], :self.heads[target_level], :hs_target]
+        # target_heads_ow = qkv[:, self.heads[cur_level]:]
+        # curr_right_ow = qkv[
+        #     self.token_size[cur_level]:, :self.heads[cur_level], :]
+        # curr_bottom_ow = qkv[
+        #     :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
 
         # out bias
-        out_bias = self.out_bias[
-            self.token_size[cur_level]:self.token_size[target_level]]
+        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
+            out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]].detach()
+        else:
+            out_bias = self.out_bias[-(self.token_size[cur_level]):-(self.token_size[target_level])].detach()
+            
+        # out_bias = self.out_bias[
+        #     self.token_size[cur_level]:self.token_size[target_level]]
 
-        delta_up = (
-            target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
-            slimmed_heads_inb, target_heads_ow, curr_right_ow, curr_bottom_ow, out_bias
-        )
+        # delta_up = (
+        #     target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
+        #     slimmed_heads_inb, target_heads_ow, curr_right_ow, curr_bottom_ow, out_bias
+        # )
+        
+        delta_up = (target_inw, target_inb, target_ow, out_bias)
 
         delta_down = (self.token_size[target_level], self.heads[target_level])
 
