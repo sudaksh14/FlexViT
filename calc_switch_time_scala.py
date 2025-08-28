@@ -170,9 +170,9 @@ if __name__ == "__main__":
             if i == j:
                 data[i, j] = 0.0
             else:
-                # print(f"Timing move from level {i} to level {j}")
+                print(f"Timing move from level {i} to level {j}")
                 data[i, j] = time_manager(manager, i, j, num_iter)
-                # print(f"Time taken: {data[i, j]:.2f} ms")
+                print(f"Time taken: {data[i, j]:.2f} ms")
 
         # Prepare column and row names for the table
         column_names = ['', *map(str, range(manager.max_level() + 1))]
