@@ -133,6 +133,7 @@ def save_table_to_pdf(data, colors, column_names, row_names, pdf_filename="./fig
 
 DELTA_FILENAME = "vit.delta"
 
+# FlexViT Config is irrelevant for Scala, only relevant variable is hidden_dims
 FLEXVIT_CONFIG = flexvit.ViTConfig(
     num_classes=1000,
     num_heads=(12, 12, 12, 12, 12),
@@ -144,8 +145,9 @@ if __name__ == "__main__":
     model = FLEXVIT_CONFIG.make_model()
     model.eval()
     _ = model(torch.randn(1, 3, 224, 224))
+    print("Model Working!")
 
-    num_iter = 1
+    num_iter = 1000
 
     # first create this delta file
     device = utils.get_device()
@@ -168,7 +170,9 @@ if __name__ == "__main__":
             if i == j:
                 data[i, j] = 0.0
             else:
+                # print(f"Timing move from level {i} to level {j}")
                 data[i, j] = time_manager(manager, i, j, num_iter)
+                # print(f"Time taken: {data[i, j]:.2f} ms")
 
         # Prepare column and row names for the table
         column_names = ['', *map(str, range(manager.max_level() + 1))]

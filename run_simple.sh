@@ -29,8 +29,10 @@ nvidia-smi
 
 # srun python latency.py
 # srun python plot.py
-srun python calc_switch_time.py
+# srun python calc_switch_time.py
 # srun python head_size.py
+
+srun python3 calc_switch_time_scala.py
 
 echo "Job Complete"
 echo | date

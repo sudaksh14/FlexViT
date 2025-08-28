@@ -46,17 +46,17 @@ class SelfAttention(Module):
         
 
         # Calculate part of parameters used in this level
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            w_in = self.in_weights[:target_token*3, :target_token]
-            b_in = self.in_bias[:target_token*3]
-            w_out = self.out_weights[:target_token, :target_token]
-            b_out = self.out_bias[:target_token]
-        else:
+        if target_token == self.token_size[0]:
             w_in = self.in_weights[-(target_token*3):, -(target_token):]
             b_in = self.in_bias[-(target_token*3):]
             w_out = self.out_weights[(-target_token):, (-target_token):]
             b_out = self.out_bias[(-target_token):]
-
+        else:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
+            
         # target_heads = self.heads[self.current_level()]
         # target_token = self.token_size[self.current_level()]
         # target_hs = target_token // target_heads
@@ -119,16 +119,16 @@ class SelfAttention(Module):
     def copy_to_base(self, dest: nn.MultiheadAttention) -> None:
         target_token = self.token_size[self.current_level()]
         
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            w_in = self.in_weights[:target_token*3, :target_token]
-            b_in = self.in_bias[:target_token*3]
-            w_out = self.out_weights[:target_token, :target_token]
-            b_out = self.out_bias[:target_token]
-        else:
+        if target_token == self.token_size[0]:
             w_in = self.in_weights[-(target_token*3):, -(target_token):]
             b_in = self.in_bias[-(target_token*3):]
             w_out = self.out_weights[(-target_token):, (-target_token):]
             b_out = self.out_bias[(-target_token):]
+        else:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
             
         dest.in_proj_weight.data[:] = w_in.detach()
         dest.in_proj_bias.data[:] = b_in.detach()
@@ -166,16 +166,16 @@ class SelfAttention(Module):
     def load_from_base(self, src: nn.MultiheadAttention) -> None:
         target_token = self.token_size[self.current_level()]
         
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            w_in = self.in_weights[:target_token*3, :target_token]
-            b_in = self.in_bias[:target_token*3]
-            w_out = self.out_weights[:target_token, :target_token]
-            b_out = self.out_bias[:target_token]
-        else:
+        if target_token == self.token_size[0]:
             w_in = self.in_weights[-(target_token*3):, -(target_token):]
             b_in = self.in_bias[-(target_token*3):]
             w_out = self.out_weights[(-target_token):, (-target_token):]
             b_out = self.out_bias[(-target_token):]
+        else:
+            w_in = self.in_weights[:target_token*3, :target_token]
+            b_in = self.in_bias[:target_token*3]
+            w_out = self.out_weights[:target_token, :target_token]
+            b_out = self.out_bias[:target_token]
             
         w_in[:] = src.in_proj_weight.data.detach()
         b_in[:] = src.in_proj_bias.data.detach()
@@ -219,149 +219,216 @@ class SelfAttention(Module):
             dropout=self.dropout,
             batch_first=True
         )
+    
+    # @staticmethod
+    # @torch.no_grad()
+    # def apply_level_delta_down(b: nn.MultiheadAttention, level_delta: DownDelta[tuple[int, int]]) -> None:
+    #     ntoken, nheads = level_delta.delta
+    #     nhs = ntoken // nheads
+
+    #     binws = b.in_proj_weight.data.view(
+    #         3, b.num_heads, b.head_dim, b.embed_dim)
+    #     binws = binws[:, :nheads, :nhs, :ntoken]
+    #     binws = binws.reshape(3 * ntoken, ntoken)
+    #     b.in_proj_weight.data = binws.detach()
+
+    #     binbs = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
+    #     binbs = binbs[:, :nheads, :nhs]
+    #     binbs = binbs.reshape(3 * ntoken)
+    #     b.in_proj_bias.data = binbs.detach()
+
+    #     bows = b.out_proj.weight.data.view(
+    #         b.embed_dim, b.num_heads, b.head_dim)
+    #     bows = bows[:ntoken, :nheads, :nhs]
+    #     bows = bows.reshape(ntoken, ntoken)
+    #     b.out_proj.weight.data = bows.detach()
+
+    #     bobs = b.out_proj.bias.data[:ntoken]
+    #     b.out_proj.bias.data = bobs.detach()
+
+    #     b.embed_dim = ntoken
+    #     b.num_heads = nheads
+    #     b.head_dim = nhs
+
+    # @staticmethod
+    # @torch.no_grad()
+    # def apply_level_delta_up(b: nn.MultiheadAttention, level_delta: UpDelta[tuple[torch.Tensor, ...]]) -> None:
+    #     (
+    #         target_heads_inw, curr_right_inw, curr_bottom_inw,
+    #         target_heads_inb, slimmed_heads_inb,
+    #         target_heads_ow, curr_right_ow, curr_bottom_ow,
+    #         out_bias
+    #     ) = level_delta.delta
+
+    #     nheads = b.num_heads + target_heads_inw.shape[1]
+    #     nhead_dim = b.head_dim + curr_bottom_inw.shape[2]
+    #     nembed_dim = b.embed_dim + curr_right_inw.shape[3]
+
+    #     t = b.in_proj_weight.view(3, b.num_heads, b.head_dim, b.embed_dim)
+    #     t = torch.cat([t, curr_bottom_inw.to(t)], dim=2)
+    #     t = torch.cat([t, curr_right_inw.to(t)], dim=3)
+    #     t = torch.cat([t, target_heads_inw.to(t)], dim=1)
+    #     t = t.view(3 * nembed_dim, nembed_dim)
+    #     b.in_proj_weight.data = t.detach()
+
+    #     t = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
+    #     t = torch.cat([t, slimmed_heads_inb.to(t)], dim=2)
+    #     t = torch.cat([t, target_heads_inb.to(t)], dim=1)
+    #     t = t.view(3 * nembed_dim)
+    #     b.in_proj_bias.data = t.detach()
+
+    #     t = b.out_proj.weight.data.view(b.embed_dim, b.num_heads, b.head_dim)
+    #     t = torch.cat([t, curr_bottom_ow.to(t)], dim=2)
+    #     t = torch.cat([t, curr_right_ow.to(t)], dim=0)
+    #     t = torch.cat([t, target_heads_ow.to(t)], dim=1)
+    #     t = t.view(nembed_dim, nembed_dim)
+    #     b.out_proj.weight.data = t.detach()
+
+    #     t = torch.cat([b.out_proj.bias.data, out_bias.to(t)])
+    #     b.out_proj.bias.data = t.detach()
+
+    #     b.num_heads = nheads
+    #     b.head_dim = nhead_dim
+    #     b.embed_dim = nembed_dim
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[DownDelta[tuple[int, int]], UpDelta[tuple[torch.Tensor, ...]]]:
         target_level = self.current_level()
         cur_level = target_level - 1
 
-        # hs_max = self.max_token_size // self.max_heads
-        # hs_target = self.token_size[target_level] // self.heads[target_level]
-        # hs_curr = self.token_size[cur_level] // self.heads[cur_level]
-        
+        prev_token = self.token_size[cur_level]
         target_token = self.token_size[target_level]
-
-        # delta up
-        # in weights
-        qkv = self.in_weights.data[:target_token*3, :target_token]
         
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            target_inw = qkv[3*self.token_size[cur_level]:, self.token_size[cur_level:]].detach()
-        else:
-            target_inw = qkv[-(3*self.token_size[cur_level]):, -(self.token_size[cur_level]):].detach()
+        if target_level == 0:
+            # Reverse slicing for middle levels
+            w_in_full = self.in_weights[-target_token*3:, -target_token:]
+            b_in_full = self.in_bias[-target_token*3:]
+            w_out_full = self.out_weights[-target_token:, -target_token:]
+            b_out_full = self.out_bias[-target_token:]
 
-        # target_heads_inw = qkv[:, self.heads[cur_level]:].detach()
-        # curr_right_inw = qkv[
-        #     :, :self.heads[cur_level], :, self.token_size[cur_level]:].detach()
-        # curr_bottom_inw = qkv[
-        #     :, :self.heads[cur_level], hs_curr:, :self.token_size[cur_level]].detach()
-
-        # in bias
-        qkv = self.in_bias.data[:target_token*3]
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            target_inb = qkv[3*self.token_size[cur_level]:].detach()
-        else:
-            target_inb = qkv[-(3*self.token_size[cur_level]):].detach()
-        
-        # qkv = self.in_bias.data.view(3, self.max_heads, hs_max)
-        # qkv = qkv[:, :self.heads[target_level], :hs_target]
-        # target_heads_inb = qkv[:, self.heads[cur_level]:].detach()
-        # slimmed_heads_inb = qkv[:, :self.heads[cur_level], hs_curr:].detach()
-
-        # out weights
-        qkv = self.out_weights.data[:target_token, :target_token]
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            target_ow = qkv[self.token_size[cur_level]:, self.token_size[cur_level:]].detach()
-        else:
-            target_ow = qkv[-(self.token_size[cur_level]):, -(self.token_size[cur_level]):].detach()
+            # Delta region = new rows and cols beyond prev_token
+            target_inw = w_in_full.detach()
+            target_inb = b_in_full.detach()
+            target_ow = w_out_full.detach()
+            out_bias = b_out_full.detach()
+            # print("Prev token is level 0")
             
-        # qkv = self.out_weights.view(
-        #     self.max_token_size, self.max_heads, hs_max)
-        # qkv = qkv[
-        #     :self.token_size[target_level], :self.heads[target_level], :hs_target]
-        # target_heads_ow = qkv[:, self.heads[cur_level]:]
-        # curr_right_ow = qkv[
-        #     self.token_size[cur_level]:, :self.heads[cur_level], :]
-        # curr_bottom_ow = qkv[
-        #     :self.token_size[cur_level], :self.heads[cur_level], hs_curr:]
-
-        # out bias
-        if target_token == self.token_size[0] or target_token == self.token_size[-1]:
-            out_bias = self.out_bias[self.token_size[cur_level]:self.token_size[target_level]].detach()
         else:
-            out_bias = self.out_bias[-(self.token_size[cur_level]):-(self.token_size[target_level])].detach()
+            # Forward slicing for first and last level
+            w_in_full = self.in_weights[:target_token*3, :target_token]
+            b_in_full = self.in_bias[:target_token*3]
+            w_out_full = self.out_weights[:target_token, :target_token]
+            b_out_full = self.out_bias[:target_token]
             
-        # out_bias = self.out_bias[
-        #     self.token_size[cur_level]:self.token_size[target_level]]
+            
+            if prev_token == self.token_size[0]:
+                # Delta region = Full weights for Switch from level 0
+                target_inw = w_in_full.detach()
+                target_inb = b_in_full.detach()
+                target_ow = w_out_full.detach()
+                out_bias = b_out_full.detach()
+            else:
+                # Delta region = new rows and cols beyond prev_token
+                target_inw = w_in_full[prev_token*3:, prev_token:].detach()
+                target_inb = b_in_full[prev_token*3:].detach()
+                target_ow = w_out_full[prev_token:, prev_token:].detach()
+                out_bias = b_out_full[prev_token:].detach()
 
-        # delta_up = (
-        #     target_heads_inw, curr_right_inw, curr_bottom_inw, target_heads_inb,
-        #     slimmed_heads_inb, target_heads_ow, curr_right_ow, curr_bottom_ow, out_bias
-        # )
         
-        delta_up = (target_inw, target_inb, target_ow, out_bias)
-
-        delta_down = (self.token_size[target_level], self.heads[target_level])
-
+        if target_level == 0:
+            # UpDelta is irrelevant for level 0 (or can be None)
+            delta_up = (None, None, None, None, torch.tensor([self.heads[target_level]], dtype=torch.int64, device=w_in_full.device))
+            delta_down = (target_inw, target_inb, target_ow, out_bias, target_token, self.heads[target_level])
+        else:
+            delta_up = (target_inw, target_inb, target_ow, out_bias, torch.tensor([self.heads[target_level]], dtype=torch.int64, device=w_in_full.device))
+            delta_down = (target_token, self.heads[target_level])
+            
         return DownDelta(delta_down), UpDelta(delta_up)
 
     @staticmethod
     @torch.no_grad()
-    def apply_level_delta_down(b: nn.MultiheadAttention, level_delta: DownDelta[tuple[int, int]]) -> None:
-        ntoken, nheads = level_delta.delta
-        nhs = ntoken // nheads
+    def apply_level_delta_down(b: nn.MultiheadAttention, level_delta: DownDelta[tuple[Any, ...]], level_zero: bool = False) -> None:
+        # New behavior: use stored weights if provided
+        if len(level_delta.delta) == 6:
+            w_in_full, b_in_full, w_out_full, b_out_full, ntoken, nheads = level_delta.delta
+            b.in_proj_weight.data = w_in_full.detach()
+            b.in_proj_bias.data = b_in_full.detach()
+            b.out_proj.weight.data = w_out_full.detach()
+            b.out_proj.bias.data = b_out_full.detach()
+        else:
+            ntoken, nheads = level_delta.delta
+            binws = b.in_proj_weight.data[:3 * ntoken, :ntoken]
+            binbs = b.in_proj_bias.data[:3 * ntoken]
+            bows = b.out_proj.weight.data[:ntoken, :ntoken]
+            bobs = b.out_proj.bias.data[:ntoken]
 
-        binws = b.in_proj_weight.data.view(
-            3, b.num_heads, b.head_dim, b.embed_dim)
-        binws = binws[:, :nheads, :nhs, :ntoken]
-        binws = binws.reshape(3 * ntoken, ntoken)
-        b.in_proj_weight.data = binws.detach()
-
-        binbs = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
-        binbs = binbs[:, :nheads, :nhs]
-        binbs = binbs.reshape(3 * ntoken)
-        b.in_proj_bias.data = binbs.detach()
-
-        bows = b.out_proj.weight.data.view(
-            b.embed_dim, b.num_heads, b.head_dim)
-        bows = bows[:ntoken, :nheads, :nhs]
-        bows = bows.reshape(ntoken, ntoken)
-        b.out_proj.weight.data = bows.detach()
-
-        bobs = b.out_proj.bias.data[:ntoken]
-        b.out_proj.bias.data = bobs.detach()
+            b.in_proj_weight.data = binws.detach()
+            b.in_proj_bias.data = binbs.detach()
+            b.out_proj.weight.data = bows.detach()
+            b.out_proj.bias.data = bobs.detach()
 
         b.embed_dim = ntoken
         b.num_heads = nheads
-        b.head_dim = nhs
+        b.head_dim = ntoken // nheads
+
+
 
     @staticmethod
     @torch.no_grad()
     def apply_level_delta_up(b: nn.MultiheadAttention, level_delta: UpDelta[tuple[torch.Tensor, ...]]) -> None:
-        (
-            target_heads_inw, curr_right_inw, curr_bottom_inw,
-            target_heads_inb, slimmed_heads_inb,
-            target_heads_ow, curr_right_ow, curr_bottom_ow,
-            out_bias
-        ) = level_delta.delta
+        target_inw, target_inb, target_ow, out_bias, target_nheads_tensor = level_delta.delta
 
-        nheads = b.num_heads + target_heads_inw.shape[1]
-        nhead_dim = b.head_dim + curr_bottom_inw.shape[2]
-        nembed_dim = b.embed_dim + curr_right_inw.shape[3]
+        # target_nheads (int)
+        target_nheads = int(target_nheads_tensor.item())
 
-        t = b.in_proj_weight.view(3, b.num_heads, b.head_dim, b.embed_dim)
-        t = torch.cat([t, curr_bottom_inw.to(t)], dim=2)
-        t = torch.cat([t, curr_right_inw.to(t)], dim=3)
-        t = torch.cat([t, target_heads_inw.to(t)], dim=1)
-        t = t.view(3 * nembed_dim, nembed_dim)
-        b.in_proj_weight.data = t.detach()
+        # Determine if UpDelta is a full-replace (coming from level-0) or incremental deltas.
+        # Full replace: target_inw has shape (3*T, T) and target_ow is (T, T)
+        if target_inw is None:
+            return
 
-        t = b.in_proj_bias.data.view(3, b.num_heads, b.head_dim)
-        t = torch.cat([t, slimmed_heads_inb.to(t)], dim=2)
-        t = torch.cat([t, target_heads_inb.to(t)], dim=1)
-        t = t.view(3 * nembed_dim)
-        b.in_proj_bias.data = t.detach()
+        if (target_inw.dim() == 2 and target_ow.dim() == 2 and
+            target_inw.shape[0] == 3 * target_inw.shape[1] and
+            target_ow.shape[0] == target_ow.shape[1] == target_inw.shape[1]):
+            # Full replace: just set tensors directly
+            T = target_inw.shape[1]
+            b.in_proj_weight.data = target_inw.detach().clone()
+            b.in_proj_bias.data = target_inb.detach().clone()
+            b.out_proj.weight.data = target_ow.detach().clone()
+            b.out_proj.bias.data = out_bias.detach().clone()
 
-        t = b.out_proj.weight.data.view(b.embed_dim, b.num_heads, b.head_dim)
-        t = torch.cat([t, curr_bottom_ow.to(t)], dim=2)
-        t = torch.cat([t, curr_right_ow.to(t)], dim=0)
-        t = torch.cat([t, target_heads_ow.to(t)], dim=1)
-        t = t.view(nembed_dim, nembed_dim)
-        b.out_proj.weight.data = t.detach()
+            b.embed_dim = T
+            b.num_heads = target_nheads
+            b.head_dim = T // target_nheads
+            return
 
-        t = torch.cat([b.out_proj.bias.data, out_bias.to(t)])
-        b.out_proj.bias.data = t.detach()
+        # Otherwise treat as incremental delta: append blocks (right columns, bottom rows, bottom-right)
+        old_in = b.in_proj_weight.data
+        # Append columns (to the right)
+        new_top = torch.cat([old_in, target_inw.to(old_in)], dim=1)
+        # If target also contains bottom rows, append them
+        if target_inw.shape[0] > old_in.shape[0]:
+            # bottom block provided: append rows from appropriate slice if possible
+            bottom = target_inw.to(old_in)
+            new_in = torch.cat([new_top, bottom], dim=0)
+        else:
+            new_in = new_top
 
-        b.num_heads = nheads
-        b.head_dim = nhead_dim
+        b.in_proj_weight.data = new_in.detach()
+
+        # Bias
+        b.in_proj_bias.data = torch.cat([b.in_proj_bias.data, target_inb.to(b.in_proj_bias.data)]).detach()
+
+        # out proj weight: append columns then rows similarly
+        old_out = b.out_proj.weight.data
+        new_out = torch.cat([old_out, target_ow.to(old_out)], dim=1)
+        if target_ow.shape[0] > old_out.shape[0]:
+            new_out = torch.cat([new_out, target_ow.to(new_out)], dim=0)
+        b.out_proj.weight.data = new_out.detach()
+
+        b.out_proj.bias.data = torch.cat([b.out_proj.bias.data, out_bias.to(b.out_proj.bias.data)]).detach()
+
+        # Update dims: set embed_dim and num_heads
+        nembed_dim = b.in_proj_weight.shape[1]
         b.embed_dim = nembed_dim
+        b.num_heads = target_nheads
+        b.head_dim = nembed_dim // target_nheads
