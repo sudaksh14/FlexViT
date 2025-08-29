@@ -27,9 +27,7 @@ echo "Node name: $(hostname)"
 echo -n memory=; ulimit -m
 echo -n nproc=; nproc
 
-srun python3 run_experiment.py run flexvit,imagenet_preflex
-# srun python plot.py
-# srun python calc_switch_time.py
+srun python3 run_experiment.py run flexvit,imagenet_non_uniform_heads
 
 echo "Job Complete"
 echo | date

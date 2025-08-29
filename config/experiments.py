@@ -60,10 +60,10 @@ class ViTTraining100(FlexTrainingContext):
 
 class VitTrainingImagenet(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(utils.load_imagenet, patience=20, epochs=100,
-                        label_smoothing=0.0, gradient_clip_val=1.0, *args, **kwargs)
-        # super().__init__(utils.load_dummy_data, patience=20, epochs=5,
-        #                 label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
+        # super().__init__(utils.load_imagenet, patience=20, epochs=100,
+        #                 label_smoothing=0.0, gradient_clip_val=1.0, *args, **kwargs)
+        super().__init__(utils.load_dummy_data, patience=20, epochs=1,
+                        label_smoothing=0.11, gradient_clip_val=1.0, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.AdamW(model.parameters(), lr=1e-5, weight_decay=0.3)
@@ -255,6 +255,15 @@ CONFIGS = {
                 num_heads=(12, 12, 12, 12, 12),
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+            VitTrainingImagenet()
+        ),
+        "imagenet_non_uniform_heads": TrainerBuilder(
+            FlexModelTrainer,
+            flexvit.ViTConfig(
+                num_classes=1000,
+                num_heads=(4, 6, 8, 10, 12),
+                hidden_dims=(64 * 4, 64 * 6, 64 * 8, 64 * 10, 64 * 12),
+                mlp_dims=(64 * 16, 64 * 24, 64 * 32, 64 * 40, 64 * 48)),
             VitTrainingImagenet()
         ),
         # "imagenet": TrainerBuilder(

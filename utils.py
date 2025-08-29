@@ -11,7 +11,7 @@ from timm.data import Mixup
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 from sklearn.metrics import accuracy_score
-from torch.utils.data import DataLoader, Subset, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 from torch import nn
 import torch
 import tqdm
@@ -214,9 +214,6 @@ def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size
 
     train_dataset = ImageFolder(data_dir / "train", transform=train_transform)
     test_dataset = ImageFolder(data_dir / "val", transform=test_transform)
-
-    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:2000])
-    # test_dataset = Subset(test_dataset, indices=torch.randperm(len(test_dataset))[:1000])
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False, num_workers=16)

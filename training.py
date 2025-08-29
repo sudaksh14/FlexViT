@@ -212,7 +212,8 @@ class FlexModelTrainer(pl.LightningModule, BaseTrainer):
         # utils.save_model(self.model_config, self.submodel)
         # utils.save_statedict("FlexViT_5Levels_cosine", self.submodel)
         # utils.save_statedict("FlexViT_10Levels_cosine", self.submodel)
-        utils.save_statedict("FlexViT_10Levels_preflex", self.submodel)
+        # utils.save_statedict("FlexViT_10Levels_preflex", self.submodel)
+        utils.save_statedict("FlexViT_5Levels_nonuniform", self.submodel)
 
     def configure_optimizers(self):
         optimizer = self.training_context.make_optimizer(self.submodel)
@@ -306,7 +307,7 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
             if logger is None:
                 logger = WandbLogger(
                     project=config.wandb_project_name,
-                    name="FlexViT_10Levels_preflex_ivi",
+                    name="FlexViT_5Levels_nonuniform_ivi",
                     config=model_config.get_flat_dict(),
                     save_dir=paths.LOG_PATH,
                     dir=paths.LOG_PATH,
