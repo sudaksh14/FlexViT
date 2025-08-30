@@ -8,6 +8,12 @@ from functools import partial
 import torch.optim as optim
 
 from torchvision.datasets import CIFAR10, CIFAR100
+import scala.training
+import scala.dataset
+
+import timm.optim
+import timm
+from timm.optim import create_optimizer
 
 
 class ModelTraining(FlexTrainingContext):
@@ -261,5 +267,30 @@ CONFIGS = {
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
         VitTrainingImagenet(
             load_from='flexvit,imagenet')
+    ), 'scala_test': TrainerBuilder(
+        scala.training.ScalaDistillTrainer,
+        flexvgg.VGGConfig(
+            num_classes=100,
+            small_channels=(24, 32, 40, 48, 56, 64),
+            mid_channels=(48, 64, 80, 96, 112, 128),
+            large_channels=(96, 128, 160, 192, 224, 256),
+            max_channels=(192, 256, 320, 384, 448, 512)),
+        scala.training.ScalaDistillContext(
+            loader_function=partial(
+                scala.dataset.load_imagenet,
+                data_set='CIFAR',
+                datapath=paths.DATA_PATH,
+                input_size=32),
+            teacher_loader=flexvgg.VGGConfig(
+                num_classes=100,
+                small_channels=(24, 32, 40, 48, 56, 64),
+                mid_channels=(48, 64, 80, 96, 112, 128),
+                large_channels=(96, 128, 160, 192, 224, 256),
+                max_channels=(192, 256, 320, 384, 448, 512)).make_model,
+            make_optimizer=lambda m: optim.AdamW(
+                m.parameters(), lr=1e-5, weight_decay=0.3),
+            make_scheduler=lambda opt: CosineAnnealingLR(
+                optimizer=opt, T_max=150, eta_min=1e-8)
+        )
     )
 }
