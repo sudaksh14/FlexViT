@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from typing import Optional, TextIO, Iterable
 import time
+import utils
 
 import colorsys
 
@@ -120,12 +121,14 @@ if __name__ == "__main__":
 
     reg_config = FLEXVIT_CONFIG.create_base_config(0).no_prebuilt()
     with delta.file_delta_manager(DELTA_FILENAME, reg_config) as manager:
+        manager.set_managed_model(
+            manager.managed_model().to(utils.get_device()))
         reg_model = manager.managed_model()
 
         data = np.zeros((manager.max_level() + 1, manager.max_level() + 1))
 
         for i, j in titer.product(range(manager.max_level() + 1), range(manager.max_level() + 1)):
-            data[i, j] = time_manager(manager, i, j, 1000)
+            data[i, j] = time_manager(manager, i, j, 100)
 
         column_names = ['', *map(str, range(manager.max_level() + 1))]
         row_names = map(str, range(manager.max_level() + 1))
