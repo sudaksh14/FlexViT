@@ -292,5 +292,31 @@ CONFIGS = {
             make_scheduler=lambda opt: CosineAnnealingLR(
                 optimizer=opt, T_max=150, eta_min=1e-8)
         )
-    )
+    ), 'flexvit_distill': TrainerBuilder(
+        scala.training.ScalaDistillTrainer,
+        flexvit.ViTConfig(
+            num_classes=1000,
+            num_heads=(12, 12, 12, 12, 12),
+            hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+            mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+        scala.training.ScalaDistillContext(
+            # loader_function=partial(
+            #     scala.dataset.load_imagenet,
+            #     data_set='CIFAR',
+            #     datapath=paths.DATA_PATH,
+            #     input_size=32),
+            loader_function=partial(utils.load_dummy_data, batch_size=256),
+            teacher_loader=flexvit.ViTConfig(
+                num_classes=1000,
+                num_heads=(12, 12, 12, 12, 12),
+                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)).make_model,
+            make_optimizer=lambda m: optim.AdamW(
+                m.parameters(), lr=1e-5, weight_decay=0.3),
+            make_scheduler=lambda opt: CosineAnnealingLR(
+                optimizer=opt, T_max=150, eta_min=1e-8),
+            mixup_fn=utils.mixup_fn,
+            patience=20, epochs=1,
+            label_smoothing=0.11, gradient_clip_val=1.0)
+    ) 
 }

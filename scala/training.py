@@ -18,11 +18,16 @@ from timm.utils import accuracy, ModelEma
 import random
 import dataclasses
 import pytorch_lightning as pl
-
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.strategies import DDPStrategy
+import config.paths as paths
 from typing import Callable
+import logging
+import tempfile
 
 import utils
-from training import TrainerBuilder, FlexModelConfig, ModelConfig, BaseTrainer, finetune, TrainingContext
+from training import TrainerBuilder, FlexModelConfig, ModelConfig, BaseTrainer, TrainingContext
 
 
 class DistillationLoss(torch.nn.Module):
@@ -345,3 +350,73 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
         optimizer = self.training_context.make_optimizer(self.submodel)
         scheduler = self.training_context.make_scheduler(optimizer)
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
+
+
+def finetune(model: pl.LightningModule, config: TrainingContext, conf_description, model_config) -> pl.LightningModule:
+    global logger
+
+    if config.unittest_mode:
+        logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
+        logging.getLogger(
+            'lightning_fabric.utilities.distributed').setLevel(logging.ERROR)
+
+    with tempfile.TemporaryDirectory() as tdir:
+        early_stopping = EarlyStopping(
+            monitor='val_loss', patience=config.patience, mode='min', verbose=True)
+
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=tdir,
+            filename='best-model',
+            monitor='val_loss',
+            mode='min',
+            save_top_k=1
+        )
+
+        callbacks = [early_stopping, checkpoint_callback]
+
+        kwargs = dict()
+        if config.wandb_project_name is not None:
+            if logger is None:
+                logger = WandbLogger(
+                    project=config.wandb_project_name,
+                    name=f"{conf_description}_ivi",
+                    config=model_config.get_flat_dict(),
+                    save_dir=paths.LOG_PATH,
+                    dir=paths.LOG_PATH,
+                    log_model=False)
+            kwargs['logger'] = logger
+        else:
+            kwargs['logger'] = False
+
+        if config.unittest_mode:
+            kwargs['enable_progress_bar'] = False
+            kwargs['enable_model_summary'] = False
+
+        ddp = DDPStrategy(process_group_backend='nccl', find_unused_parameters=True)
+        trainer = pl.Trainer(
+            **kwargs,
+            max_epochs=config.epochs,
+            callbacks=callbacks,
+            log_every_n_steps=10,
+            enable_checkpointing=True,
+            accelerator="gpu",
+            devices="auto",
+            num_nodes=utils.get_num_nodes(),
+            strategy=ddp,
+            precision='bf16-mixed'
+        )
+
+        train_loader, val_loader, test_loader = config.loader_function()
+        trainer.fit(model, train_loader, val_loader)
+
+        if utils.get_num_nodes() > 1:
+            if trainer.is_global_zero:
+                model = type(model).load_from_checkpoint(
+                        checkpoint_callback.best_model_path)
+            
+        else:
+            model = type(model).load_from_checkpoint(
+                    checkpoint_callback.best_model_path)
+        trainer.test(model, dataloaders=test_loader, verbose=False)
+
+    return model
