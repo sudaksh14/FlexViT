@@ -15,6 +15,33 @@ import utils
 
 # This model is mostly an adapted version from torchvision.models.vision_transformer
 
+def load_custom_vit_b16(checkpoint_path):
+    model = vision_transformer.vit_b_16(weights=None)  # start uninitialized
+    state_dict = torch.load(checkpoint_path, map_location=utils.get_device())
+    # if wrapped as {"model": ...}, unwrap
+    if "model" in state_dict:
+        state_dict = state_dict["model"]
+    # model.load_state_dict(state_dict, strict=False)
+    # Load state dict with info
+    load_info = model.load_state_dict(state_dict, strict=False)
+    # Print how many keys matched
+    total_keys = len(state_dict)
+    matched_keys = len(load_info.missing_keys) + len(load_info.unexpected_keys)
+    matched_keys = total_keys - matched_keys
+    print(f"{matched_keys}/{total_keys} keys successfully loaded.")
+
+    # Print missing and unexpected keys
+    if load_info.missing_keys:
+        print("Missing keys in checkpoint (not loaded into model):")
+        for k in load_info.missing_keys:
+            print(f"  {k}")
+    if load_info.unexpected_keys:
+        print("\nUnexpected keys in checkpoint (not used by model):")
+        for k in load_info.unexpected_keys:
+            print(f"  {k}")
+            
+    return model
+
 
 @dataclasses.dataclass
 class ViTStructureConfig(utils.SelfDescripting):
@@ -43,6 +70,11 @@ class ViTPrebuilt(Enum):
     imagenet1k_v1 = 2
     imagenet1k_swag_e2e_v1 = 3
     imagenet1k_swag_linear_v1 = 4
+
+    # DeiT v3 from https://arxiv.org/abs/2204.07118
+    Deit_v1 = 5
+    Deit_v3_pretrain_1k = 6
+    Deit_v3_pretrain_21k = 7
 
 
 DEFAULT_NUM_CLASSES = 1000
@@ -77,6 +109,16 @@ KNOWN_MODEL_PRETRAINED = {
     (ViTStructure.b16, ViTPrebuilt.default):
     lambda: vision_transformer.vit_b_16(
         weights=vision_transformer.ViT_B_16_Weights.DEFAULT),
+
+    # custom-trained models from https://github.com/facebookresearch/deit/blob/main/README_revenge.md
+    (ViTStructure.b16, ViTPrebuilt.Deit_v1):
+        lambda: load_custom_vit_b16("/ivi/xfs/skalra/pretrained/deit_base_v1.pth"),
+
+    (ViTStructure.b16, ViTPrebuilt.Deit_v3_pretrain_1k):
+        lambda: load_custom_vit_b16("/ivi/xfs/skalra/pretrained/deit_base_v3.pth"),
+
+    (ViTStructure.b16, ViTPrebuilt.Deit_v3_pretrain_21k):
+        lambda: load_custom_vit_b16("/ivi/xfs/skalra/pretrained/deit_base_v3_21k.pth"),
 
     (ViTStructure.b32, ViTPrebuilt.imagenet1k_v1):
     lambda: vision_transformer.vit_b_32(

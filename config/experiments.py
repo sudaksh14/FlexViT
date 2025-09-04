@@ -2,6 +2,7 @@ import math
 
 from networks import flexresnet, flexvgg, flexvit, vit
 from training import *
+from networks.vit import ViTPrebuilt
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR, ReduceLROnPlateau
 from functools import partial
@@ -55,7 +56,7 @@ class ViTTraining(FlexTrainingContext):
 class ViTTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         super().__init__(partial(utils.load_data, CIFAR100,
-                                 resize=(224, 224)), patience=20, epochs=300, *args, **kwargs)
+                                 resize=(224, 224)), patience=20, epochs=1, *args, **kwargs)
 
     def make_optimizer(self, model):
         return optim.Adam(model.parameters(), lr=1e-5)
@@ -246,8 +247,8 @@ CONFIGS = {
             FlexModelTrainer,
             flexvit.ViTConfig(
                 num_classes=100),
-            ViTTraining100(
-                load_from='vitprebuild,cifar100')
+            ViTTraining100(loader_function=partial(
+                scala.dataset.load_cifar100))
         ),
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
@@ -257,7 +258,15 @@ CONFIGS = {
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
             VitTrainingImagenet()
-        )
+        ),
+        "imagenet_non_uniform_heads": TrainerBuilder(
+            FlexModelTrainer,
+            flexvit.ViTConfig(
+                num_classes=1000,
+                num_heads=(4, 6, 8, 10, 12),
+                hidden_dims=(64 * 4, 64 * 6, 64 * 8, 64 * 10, 64 * 12),
+                mlp_dims=(64 * 16, 64 * 24, 64 * 32, 64 * 40, 64 * 48)),
+            VitTrainingImagenet())
     }, "flexvitcorrect": TrainerBuilder(
         FlexModelTrainer,
         flexvit.ViTConfig(
@@ -300,12 +309,8 @@ CONFIGS = {
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
         scala.training.ScalaDistillContext(
-            # loader_function=partial(
-            #     scala.dataset.load_imagenet,
-            #     data_set='CIFAR',
-            #     datapath=paths.DATA_PATH,
-            #     input_size=32),
-            loader_function=partial(utils.load_dummy_data, batch_size=256),
+            # loader_function=partial(utils.load_dummy_data, batch_size=256),
+            loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
             teacher_loader=flexvit.ViTConfig(
                 num_classes=1000,
                 num_heads=(12, 12, 12, 12, 12),
@@ -316,7 +321,32 @@ CONFIGS = {
             make_scheduler=lambda opt: CosineAnnealingLR(
                 optimizer=opt, T_max=150, eta_min=1e-8),
             mixup_fn=utils.mixup_fn,
-            patience=20, epochs=1,
+            patience=20, epochs=150,
+            label_smoothing=0.11, gradient_clip_val=1.0)
+    ),
+    'flexvit_distill_v3': TrainerBuilder(
+        scala.training.ScalaDistillTrainer,
+        flexvit.ViTConfig(
+            prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
+            num_classes=1000,
+            num_heads=(12, 12, 12, 12, 12),
+            hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+            mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+        scala.training.ScalaDistillContext(
+            # loader_function=partial(utils.load_dummy_data, batch_size=256),
+            loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
+            teacher_loader=flexvit.ViTConfig(
+                prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
+                num_classes=1000,
+                num_heads=(12, 12, 12, 12, 12),
+                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)).make_model,
+            make_optimizer=lambda m: optim.AdamW(
+                m.parameters(), lr=1e-5, weight_decay=0.3),
+            make_scheduler=lambda opt: CosineAnnealingLR(
+                optimizer=opt, T_max=150, eta_min=1e-8),
+            mixup_fn=utils.mixup_fn,
+            patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)
     ) 
 }

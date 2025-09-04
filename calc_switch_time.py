@@ -8,9 +8,12 @@ import colorsys
 
 from networks import level_delta_utils as delta
 from networks import flexvit
+from networks.vit import ViTPrebuilt
 
 import tqdm
 import tqdm.contrib.itertools as titer
+import torch_pruning as tp
+import torch
 
 
 def make_latex_table(file: TextIO, data: np.ndarray, colors: np.ndarray = None, column_names: Optional[Iterable[str]] = None, row_names: Optional[Iterable[str]] = None):

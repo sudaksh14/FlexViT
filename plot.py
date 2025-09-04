@@ -31,7 +31,7 @@ def get_experiment(name: str):
     entity = Wandb.get().default_entity
     project = experiment.training_context.wandb_project_name
     runs = Wandb.get().runs(f"{entity}/{project}", order="-created_at")
-    run = next(filter(lambda r: r.name == name, runs))
+    run = next(filter(lambda r: r.name == "FlexViT_5Levels_nonuniform_ivi", runs))
     return experiment, run
 
 
@@ -186,42 +186,54 @@ def savefig(name: str):
 if __name__ == "__main__":
     matplotlib.rc("font", size=13)
 
-    plot_acc_history("flexvit,imagenet")
+    # plot_acc_history("flexvit,imagenet")
+    # savefig("vit_imagenet_history")
+
+    # plot_acc("flexvit,imagenet", base_accuracy=.81)
+    # savefig("vit_imagenet_acc")
+
+    # plot_acc_val_and_train("flexvit,imagenet", 4)
+    # savefig("overfitting")
+
+    # plot_loss_val_and_train("flexvit,imagenet")
+    # savefig("overfitting_loss")
+
+    # plot_acc_history("flexvit,cifar10.5levels")
+    # savefig("cifar10_acc_history")
+
+    # plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
+    # savefig("cifar10_acc")
+
+    # plot_acc("flexresnet,resnet20.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar10",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar10",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar10",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar10_acc")
+
+    # plot_acc("flexresnet,resnet20.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 20")
+    # plot_acc("flexresnet,resnet56.6_levels.cifar100",
+    #          relative_size=True, label="Resnet 56")
+    # plot_acc("flexvgg,vgg11.6_levels.cifar100",
+    #          relative_size=True, label="VGG 11")
+    # plot_acc("flexvgg,vgg19.6_levels.cifar100",
+    #          relative_size=True, label="VGG 19")
+    # plt.legend()
+    # savefig("cnn_cifar100_acc")
+    
+    plot_acc_history("flexvit,imagenet_non_uniform_heads")
     savefig("vit_imagenet_history")
 
-    plot_acc("flexvit,imagenet", base_accuracy=.81)
+    plot_acc("flexvit,imagenet_non_uniform_heads", base_accuracy=.81)
     savefig("vit_imagenet_acc")
 
-    plot_acc_val_and_train("flexvit,imagenet", 4)
+    plot_acc_val_and_train("flexvit,imagenet_non_uniform_heads", 4)
     savefig("overfitting")
 
-    plot_loss_val_and_train("flexvit,imagenet")
+    plot_loss_val_and_train("flexvit,imagenet_non_uniform_heads")
     savefig("overfitting_loss")
-
-    plot_acc_history("flexvit,cifar10.5levels")
-    savefig("cifar10_acc_history")
-
-    plot_acc("flexvit,cifar10.5levels", base_accuracy=.98)
-    savefig("cifar10_acc")
-
-    plot_acc("flexresnet,resnet20.6_levels.cifar10",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar10",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar10",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar10",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar10_acc")
-
-    plot_acc("flexresnet,resnet20.6_levels.cifar100",
-             relative_size=True, label="Resnet 20")
-    plot_acc("flexresnet,resnet56.6_levels.cifar100",
-             relative_size=True, label="Resnet 56")
-    plot_acc("flexvgg,vgg11.6_levels.cifar100",
-             relative_size=True, label="VGG 11")
-    plot_acc("flexvgg,vgg19.6_levels.cifar100",
-             relative_size=True, label="VGG 19")
-    plt.legend()
-    savefig("cnn_cifar100_acc")

@@ -28,12 +28,13 @@ TMPDIR = make_path(TMPDIR if ON_CLUSTER else (PROJECT_DIR / 'temp'))
 # JOBDIR = make_path(f"{PROJECT_DIR}/jobs/job_{SLURM_JOBID}")
 JOBDIR = make_path(f"{PROJECT_DIR}/wandb/job_{SLURM_JOBID}")
 
-DATA_PATH = make_path(f"{PROJECT_DIR}/data")
+DATA_PATH = make_path("/ivi/xfs/skalra/datasets")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
 TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
+CHECKPOINT_PATH = make_path("/ivi/xfs/skalra/checkpoints")
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
 
-IMAGENET_PATH = Path("/ssdstore/ImageNet")
-# IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")
+# IMAGENET_PATH = Path("/ssdstore/ImageNet")
+IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")

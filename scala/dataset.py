@@ -3,11 +3,13 @@
 import os
 import json
 from config import paths
+import torch
 
 from torchvision import datasets, transforms
 from torchvision.datasets.folder import ImageFolder, default_loader
 
 from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
@@ -119,6 +121,52 @@ def load_imagenet(
         data_set='IMNET',
         datapath=paths.IMAGENET_PATH,
         input_size=224,
+        color_jitter=.3,
+        aa='rand-m9-mstd0.5-inc1',
+        train_interpolation='bicubic',
+        reprob=.25,
+        remode='pixel',
+        recount=1,
+        eval_crop_ratio=0.875,
+        batch_size=128,
+        num_workers=16):
+    class Args:
+        pass
+    args = Args()
+    args.data_set = data_set
+    args.data_path = datapath
+    args.input_size = input_size
+    args.color_jitter = color_jitter
+    args.aa = aa
+    args.train_interpolation = train_interpolation
+    args.reprob = reprob
+    args.remode = remode
+    args.recount = recount
+    args.eval_crop_ratio = eval_crop_ratio
+    train_dataset, _ = build_dataset(is_train=True, args=args)
+    val_dataset, _ = build_dataset(is_train=False, args=args)
+
+    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:4000])
+    # val_dataset = Subset(val_dataset, indices=torch.randperm(len(val_dataset))[:1000])
+
+    train_dataset = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
+    val_dataset = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
+
+    return train_dataset, val_dataset, val_dataset
+
+
+def load_cifar100(
+        data_set='CIFAR',
+        datapath=paths.DATA_PATH,
+        input_size=32,
         color_jitter=.3,
         aa='rand-m9-mstd0.5-inc1',
         train_interpolation='bicubic',
