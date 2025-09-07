@@ -55,11 +55,12 @@ class ViTTraining(FlexTrainingContext):
 
 class ViTTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
-        super().__init__(partial(utils.load_data, CIFAR100,
-                                 resize=(224, 224)), patience=20, epochs=1, *args, **kwargs)
+        # super().__init__(partial(utils.load_data, CIFAR100,
+        #                          resize=(224, 224)), patience=20, epochs=1, *args, **kwargs)
+        super().__init__(scala.dataset.load_cifar100, patience=20, epochs=150, *args, **kwargs)
 
     def make_optimizer(self, model):
-        return optim.Adam(model.parameters(), lr=1e-5)
+        return optim.Adam(model.parameters(), lr=3e-3, weight_decay=0.05)
 
     def make_scheduler(self, optimizer):
         return CosineAnnealingLR(optimizer, T_max=self.epochs)
@@ -95,6 +96,46 @@ class VitTrainingImagenetWarmup(FlexTrainingContext):
                               self.warmup_epochs, eta_min=0.0)
         ], milestones=[self.warmup_epochs])
 
+def load_teacher(ckpt_path: str, device: str = utils.get_device()):
+    """
+    Simple loader for a teacher model with a given architecture and state dict.
+
+
+    Parameters
+    ----------
+    ckpt_path : str
+    Path to the checkpoint (.pth/.pt).
+    arch : str
+    Model architecture name, e.g., 'regnety_160', 'resnet50', 'deit_base_distilled_patch16_224'.
+    device : str
+    'cuda' or 'cpu'.
+
+
+    Returns
+    -------
+    model : torch.nn.Module
+    Teacher model loaded with the state dict and moved to device in eval mode.
+    """
+    # Create a timm ViT without distillation
+    model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
+
+    # # Load checkpoint
+    # state_dict = torch.load(ckpt_path, map_location="cpu")
+    # if "state_dict" in state_dict:
+    #     state_dict = state_dict["state_dict"]
+    # elif "model" in state_dict:
+    #     state_dict = state_dict["model"]
+
+
+    # # Remove DDP prefix if present
+    # state_dict = {k.replace("module.", "", 1) if k.startswith("module.") else k: v
+    #                 for k, v in state_dict.items()}
+
+
+    # model.load_state_dict(state_dict, strict=False)
+    model.eval().to(device)
+
+    return model
 
 CONFIGS = {
     "flexresnet": {
@@ -246,9 +287,11 @@ CONFIGS = {
         "cifar100": TrainerBuilder(
             FlexModelTrainer,
             flexvit.ViTConfig(
-                num_classes=100),
-            ViTTraining100(loader_function=partial(
-                scala.dataset.load_cifar100))
+                num_classes=100,
+                num_heads=(12, 12, 12, 12, 12),
+                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
+            ViTTraining100()
         ),
         "imagenet": TrainerBuilder(
             FlexModelTrainer,
@@ -317,9 +360,9 @@ CONFIGS = {
                 hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
                 mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)).make_model,
             make_optimizer=lambda m: optim.AdamW(
-                m.parameters(), lr=1e-5, weight_decay=0.3),
+                m.parameters(), lr=5e-4, weight_decay=0.05),
             make_scheduler=lambda opt: CosineAnnealingLR(
-                optimizer=opt, T_max=150, eta_min=1e-8),
+                optimizer=opt, T_max=150, eta_min=1e-5),
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)
@@ -335,16 +378,11 @@ CONFIGS = {
         scala.training.ScalaDistillContext(
             # loader_function=partial(utils.load_dummy_data, batch_size=256),
             loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
-            teacher_loader=flexvit.ViTConfig(
-                prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
-                num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12),
-                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)).make_model,
+            teacher_loader=load_teacher,
             make_optimizer=lambda m: optim.AdamW(
-                m.parameters(), lr=1e-5, weight_decay=0.3),
+                m.parameters(), lr=3e-4, weight_decay=0.02),
             make_scheduler=lambda opt: CosineAnnealingLR(
-                optimizer=opt, T_max=150, eta_min=1e-8),
+                optimizer=opt, T_max=150, eta_min=1e-5),
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)

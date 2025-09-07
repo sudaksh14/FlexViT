@@ -27,8 +27,9 @@ echo "Node name: $(hostname)"
 echo -n memory=; ulimit -m
 echo -n nproc=; nproc
 
-srun python3 run_experiment.py run flexvit,cifar100
-# srun python3 run_experiment.py run flexvit_distill
+
+srun python3 run_experiment.py run flexvit_distill
+# srun python3 run_experiment.py run flexvit,cifar100
 # srun python eval.py
 
 echo "Job Complete"

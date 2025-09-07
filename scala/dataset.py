@@ -13,6 +13,7 @@ from torch.utils.data import Subset
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
+from scala.augment import new_data_aug_generator
 
 
 class INatDataset(ImageFolder):
@@ -60,7 +61,10 @@ class INatDataset(ImageFolder):
 
 
 def build_dataset(is_train, args):
-    transform = build_transform(is_train, args)
+    if is_train:
+        transform = new_data_aug_generator(args)
+    else:
+        transform = build_transform(is_train, args)
 
     if args.data_set == 'CIFAR':
         dataset = datasets.CIFAR100(
@@ -166,7 +170,7 @@ def load_imagenet(
 def load_cifar100(
         data_set='CIFAR',
         datapath=paths.DATA_PATH,
-        input_size=32,
+        input_size=224,
         color_jitter=.3,
         aa='rand-m9-mstd0.5-inc1',
         train_interpolation='bicubic',
@@ -174,7 +178,7 @@ def load_cifar100(
         remode='pixel',
         recount=1,
         eval_crop_ratio=0.875,
-        batch_size=128,
+        batch_size=256,
         num_workers=16):
     class Args:
         pass
@@ -195,12 +199,12 @@ def load_cifar100(
     train_dataset = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        num_workers=num_workers,
+        num_workers=num_workers, pin_memory=True
     )
     val_dataset = DataLoader(
         val_dataset,
         batch_size=batch_size,
-        num_workers=num_workers,
+        num_workers=num_workers, pin_memory=True
     )
 
     return train_dataset, val_dataset, val_dataset

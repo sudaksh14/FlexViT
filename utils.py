@@ -191,7 +191,7 @@ IMAGENET_TRANSFORMS = [
 
 # ----- Mixup + CutMix -----
 mixup_fn = Mixup(
-    mixup_alpha=0.2,
+    mixup_alpha=0.8,
     cutmix_alpha=1.0,
     cutmix_minmax=None,
     prob=1.0,
