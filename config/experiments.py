@@ -96,20 +96,9 @@ class VitTrainingImagenetWarmup(FlexTrainingContext):
                               self.warmup_epochs, eta_min=0.0)
         ], milestones=[self.warmup_epochs])
 
-def load_teacher(ckpt_path: str, device: str = utils.get_device()):
+def load_teacher():
     """
-    Simple loader for a teacher model with a given architecture and state dict.
-
-
-    Parameters
-    ----------
-    ckpt_path : str
-    Path to the checkpoint (.pth/.pt).
-    arch : str
-    Model architecture name, e.g., 'regnety_160', 'resnet50', 'deit_base_distilled_patch16_224'.
-    device : str
-    'cuda' or 'cpu'.
-
+    Simple loader for a teacher model with a given architecture.
 
     Returns
     -------
@@ -118,23 +107,7 @@ def load_teacher(ckpt_path: str, device: str = utils.get_device()):
     """
     # Create a timm ViT without distillation
     model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
-
-    # # Load checkpoint
-    # state_dict = torch.load(ckpt_path, map_location="cpu")
-    # if "state_dict" in state_dict:
-    #     state_dict = state_dict["state_dict"]
-    # elif "model" in state_dict:
-    #     state_dict = state_dict["model"]
-
-
-    # # Remove DDP prefix if present
-    # state_dict = {k.replace("module.", "", 1) if k.startswith("module.") else k: v
-    #                 for k, v in state_dict.items()}
-
-
-    # model.load_state_dict(state_dict, strict=False)
-    model.eval().to(device)
-
+    model.eval().to(utils.get_device())
     return model
 
 CONFIGS = {
@@ -354,11 +327,7 @@ CONFIGS = {
         scala.training.ScalaDistillContext(
             # loader_function=partial(utils.load_dummy_data, batch_size=256),
             loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
-            teacher_loader=flexvit.ViTConfig(
-                num_classes=1000,
-                num_heads=(12, 12, 12, 12, 12),
-                hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-                mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)).make_model,
+            teacher_loader=load_teacher,
             make_optimizer=lambda m: optim.AdamW(
                 m.parameters(), lr=5e-4, weight_decay=0.05),
             make_scheduler=lambda opt: CosineAnnealingLR(
@@ -370,14 +339,13 @@ CONFIGS = {
     'flexvit_distill_v3': TrainerBuilder(
         scala.training.ScalaDistillTrainer,
         flexvit.ViTConfig(
-            prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
             num_classes=1000,
             num_heads=(12, 12, 12, 12, 12),
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
         scala.training.ScalaDistillContext(
             # loader_function=partial(utils.load_dummy_data, batch_size=256),
-            loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
+            loader_function=partial(scala.dataset.load_imagenet, batch_size=128),
             teacher_loader=load_teacher,
             make_optimizer=lambda m: optim.AdamW(
                 m.parameters(), lr=3e-4, weight_decay=0.02),

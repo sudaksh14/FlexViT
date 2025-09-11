@@ -302,6 +302,11 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
         self.log("train_loss", loss, sync_dist=True)
         self.log('learning_rate', opt.param_groups[0]['lr'], prog_bar=True, sync_dist=True)
 
+        
+        
+    def on_train_epoch_end(self):
+        # Log the learning rate at the end of each epoch
+        self.log('learning_rate', self.optimizers().param_groups[0]['lr'], prog_bar=True, sync_dist=True)
         self.lr_schedulers().step()
 
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], _) -> torch.Tensor:
