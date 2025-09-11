@@ -335,8 +335,7 @@ CONFIGS = {
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)
-    ),
-    'flexvit_distill_v3': TrainerBuilder(
+    ), 'flexvit_distill_v3': TrainerBuilder(
         scala.training.ScalaDistillTrainer,
         flexvit.ViTConfig(
             num_classes=1000,
