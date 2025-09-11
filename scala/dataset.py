@@ -178,7 +178,7 @@ def load_cifar100(
         remode='pixel',
         recount=1,
         eval_crop_ratio=0.875,
-        batch_size=256,
+        batch_size=128,
         num_workers=16):
     class Args:
         pass

@@ -201,6 +201,16 @@ mixup_fn = Mixup(
     num_classes=1000
 )
 
+mixup_fn_cifar100 = Mixup(
+    mixup_alpha=0.8,  # Mixup parameter
+    cutmix_alpha=1.0, # CutMix parameter
+    cutmix_minmax=None,
+    prob=1.0,         # apply either mixup or cutmix with 100% prob
+    switch_prob=0.5,  # 50% chance to switch between mixup/cutmix
+    mode='batch',
+    label_smoothing=0.1,
+    num_classes=100
+)
 
 def load_imagenet(data_dir=paths.IMAGENET_PATH, tmp_dir=paths.TMPDIR, batch_size=512):
     train_transform = Compose(IMAGENET_TRANSFORMS)

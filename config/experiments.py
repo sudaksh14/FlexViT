@@ -50,7 +50,7 @@ class ViTTraining(FlexTrainingContext):
         return optim.Adam(model.parameters(), lr=1e-5)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=300)
+        return CosineAnnealingLR(optimizer, T_max=self.epochs)
 
 
 class ViTTraining100(FlexTrainingContext):
@@ -60,10 +60,12 @@ class ViTTraining100(FlexTrainingContext):
         super().__init__(scala.dataset.load_cifar100, patience=20, epochs=150, *args, **kwargs)
 
     def make_optimizer(self, model):
-        return optim.Adam(model.parameters(), lr=3e-3, weight_decay=0.05)
+        return torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.01)
 
     def make_scheduler(self, optimizer):
-        return CosineAnnealingLR(optimizer, T_max=self.epochs)
+        warmup = LinearLR(optimizer, start_factor=0.1, total_iters=10)
+        cosine = CosineAnnealingLR(optimizer, T_max=self.epochs-10)
+        return SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[10])
 
 
 class VitTrainingImagenet(FlexTrainingContext):
