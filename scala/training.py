@@ -300,9 +300,7 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
         self.log(f"train_level{level_2q}_loss", loss_2q, sync_dist=True)
         self.log(f"train_level0_loss", loss_1q, sync_dist=True)
         self.log("train_loss", loss, sync_dist=True)
-        self.log('learning_rate', opt.param_groups[0]['lr'], prog_bar=True, sync_dist=True)
 
-        
         
     def on_train_epoch_end(self):
         # Log the learning rate at the end of each epoch
@@ -336,12 +334,12 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
             loss = F.cross_entropy(
                 logits, y, label_smoothing=self.training_context.label_smoothing)
             acc = (logits.argmax(1) == y).float().mean()
-            self.log(f"val_level{i}_loss", loss,
+            self.log(f"test_level{i}_loss", loss,
                      prog_bar=False, sync_dist=True)
-            self.log(f"val_level{i}_acc",  acc, prog_bar=False, sync_dist=True)
+            self.log(f"test_level{i}_acc",  acc, prog_bar=False, sync_dist=True)
             total_loss += loss.clone().detach()
 
-        self.log(f"val_loss", total_loss, prog_bar=True, sync_dist=True)
+        self.log(f"test_loss", total_loss, prog_bar=True, sync_dist=True)
 
     def run_training(self, conf_description: str) -> None:
         torch.set_float32_matmul_precision('high')

@@ -10,6 +10,13 @@ import torch_pruning as tp
 import torch
 
 
+def load_flexvit_model(model, ckpt_path, device):
+    ckpt = torch.load(ckpt_path, map_location=device)
+    sdict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
+    model.load_state_dict(sdict, strict=False)
+    return model
+
+
 def remap_state_dict_keys(state_dict):
     new_state_dict = {}
     for k, v in state_dict.items():
@@ -166,13 +173,26 @@ if __name__ == "__main__":
     # exit()
 
     device = utils.get_device()
-    # model1 = FLEXVIT_CONFIG.make_model()
+    model1 = FLEXVIT_CONFIG.make_model()
     # model2 = FLEXVIT_CONFIG_V2.make_model()
-    model3 = FLEXVIT_CONFIG_V3.make_model()
-    model4 = FLEXVIT_CONFIG_V4.make_model()
-    model5 = FLEXVIT_CONFIG_V5.make_model()
+    # model3 = FLEXVIT_CONFIG_V3.make_model()
+    # model4 = FLEXVIT_CONFIG_V4.make_model()
+    # model5 = FLEXVIT_CONFIG_V5.make_model()
 
-    _,_,test_loader = utils.load_imagenet()
+    _,_,test_loader = utils.load_imagenet(batch_size=512)
+    
+    paths = ["./pretrained/flexxxxvit_distill.pt",
+             "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model.ckpt",
+             "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model-v1.ckpt"]
+        
+    print(f"Using FlexViT saved weights at {paths[0]}")
+    model = load_flexvit_model(model1, ckpt_path=paths[0], device=device)
+    for i in range(model.max_level() + 1):
+        model.set_level_use(i)
+        reg_model = model.make_base_copy()
+        acc = utils.evaluate_model(reg_model, test_loader, device)
+        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
     
     
     # print("Using Default weights")
@@ -190,39 +210,30 @@ if __name__ == "__main__":
     #     acc = utils.evaluate_model(reg_model, test_loader, device)
     #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
     #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-        
-    # print("Using FlexViT saved weights")
-    # model = load_flexvit_model(FLEXVIT_CONFIG, state_dict_path="./pretrained/FlexViT_5Levels.pt", device=device)
-    # for i in range(model.max_level(), model.max_level() + 1):
-    #     model.set_level_use(i)
-    #     reg_model = model.make_base_copy()
+
+    # print("Using DeiT v1 weights")
+    # for i in range(model3.max_level(), model3.max_level() + 1):
+    #     model3.set_level_use(i)
+    #     reg_model = model3.make_base_copy()
+    #     acc = utils.evaluate_model(reg_model, test_loader, device)
+    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+    
+    # print("Using DeiT v3 weights with Imagenet-1k pretraining")
+    # for i in range(model4.max_level(), model4.max_level() + 1):
+    #     model4.set_level_use(i)
+    #     reg_model = model4.make_base_copy()
     #     acc = utils.evaluate_model(reg_model, test_loader, device)
     #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
     #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
 
-    print("Using DeiT v1 weights")
-    for i in range(model3.max_level(), model3.max_level() + 1):
-        model3.set_level_use(i)
-        reg_model = model3.make_base_copy()
-        acc = utils.evaluate_model(reg_model, test_loader, device)
-        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-    
-    print("Using DeiT v3 weights with Imagenet-1k pretraining")
-    for i in range(model4.max_level(), model4.max_level() + 1):
-        model4.set_level_use(i)
-        reg_model = model4.make_base_copy()
-        acc = utils.evaluate_model(reg_model, test_loader, device)
-        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-
-    print("Using DeiT v3 weights with Imagenet-21k pretraining")
-    for i in range(model5.max_level(), model5.max_level() + 1):
-        model5.set_level_use(i)
-        reg_model = model5.make_base_copy()
-        acc = utils.evaluate_model(reg_model, test_loader, device)
-        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+    # print("Using DeiT v3 weights with Imagenet-21k pretraining")
+    # for i in range(model5.max_level(), model5.max_level() + 1):
+    #     model5.set_level_use(i)
+    #     reg_model = model5.make_base_copy()
+    #     acc = utils.evaluate_model(reg_model, test_loader, device)
+    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
     
 
     
