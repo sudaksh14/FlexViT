@@ -5,4 +5,7 @@ wandb
 pretrained
 figures
 jobs
+run_all6000.sh
+run_eval.sh
+run_job.sh
 .*
