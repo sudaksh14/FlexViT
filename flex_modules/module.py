@@ -178,7 +178,11 @@ class LevelDeltas:
             base_type = cls.base_type()
         except NotImplementedError:
             return
-        assert (not __class__.is_registered(base_type))
+        # assert (not __class__.is_registered(base_type))
+        assert (not __class__.is_registered(base_type)), (
+            f"Duplicate registration for base_type: {base_type.__name__}, "
+            f"attempted by: {cls.__name__}"
+        )
         __class__.registered[base_type] = cls
 
     @staticmethod

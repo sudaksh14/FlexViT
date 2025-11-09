@@ -1,20 +1,19 @@
 import math
+from xml.parsers.expat import model
 
-from networks import flexresnet, flexvgg, flexvit, vit
+from networks import flexresnet, flexvgg, flexvit, vit, flexdeit_v3
 from training import *
 from networks.vit import ViTPrebuilt
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR, ReduceLROnPlateau
 from functools import partial
 import torch.optim as optim
-
-from torchvision.datasets import CIFAR10, CIFAR100
-import scala.training
-import scala.dataset
-
-import timm.optim
 import timm
-from timm.optim import create_optimizer
+from torchvision.datasets import CIFAR10, CIFAR100
+import distillation.training
+import distillation.dataset
+from timm.optim import Lamb
+from timm.scheduler import CosineLRScheduler
 
 
 class ModelTraining(FlexTrainingContext):
@@ -57,7 +56,7 @@ class ViTTraining100(FlexTrainingContext):
     def __init__(self, *args, **kwargs):
         # super().__init__(partial(utils.load_data, CIFAR100,
         #                          resize=(224, 224)), patience=20, epochs=1, *args, **kwargs)
-        super().__init__(scala.dataset.load_cifar100, patience=20, epochs=150, *args, **kwargs)
+        super().__init__(distillation.dataset.load_cifar100, patience=20, epochs=150, *args, **kwargs)
 
     def make_optimizer(self, model):
         return torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.01)
@@ -295,16 +294,16 @@ CONFIGS = {
         VitTrainingImagenet(
             load_from='flexvit,imagenet')
     ), 'scala_test': TrainerBuilder(
-        scala.training.ScalaDistillTrainer,
+        distillation.training.ScalaDistillTrainer,
         flexvgg.VGGConfig(
             num_classes=100,
             small_channels=(24, 32, 40, 48, 56, 64),
             mid_channels=(48, 64, 80, 96, 112, 128),
             large_channels=(96, 128, 160, 192, 224, 256),
             max_channels=(192, 256, 320, 384, 448, 512)),
-        scala.training.ScalaDistillContext(
+        distillation.training.ScalaDistillContext(
             loader_function=partial(
-                scala.dataset.load_imagenet,
+                distillation.dataset.load_imagenet,
                 data_set='CIFAR',
                 datapath=paths.DATA_PATH,
                 input_size=32),
@@ -320,15 +319,15 @@ CONFIGS = {
                 optimizer=opt, T_max=150, eta_min=1e-8)
         )
     ), 'flexvit_distill': TrainerBuilder(
-        scala.training.ScalaDistillTrainer,
+        distillation.training.ScalaDistillTrainer,
         flexvit.ViTConfig(
             num_classes=1000,
             num_heads=(12, 12, 12, 12, 12),
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
-        scala.training.ScalaDistillContext(
+        distillation.training.ScalaDistillContext(
             # loader_function=partial(utils.load_dummy_data, batch_size=256),
-            loader_function=partial(scala.dataset.load_imagenet, batch_size=512),
+            loader_function=partial(distillation.dataset.load_imagenet, batch_size=512),
             teacher_loader=load_teacher,
             make_optimizer=lambda m: optim.AdamW(
                 m.parameters(), lr=5e-4, weight_decay=0.05),
@@ -337,23 +336,24 @@ CONFIGS = {
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)
-    ), 'flexvit_distill_v3': TrainerBuilder(
-        scala.training.ScalaDistillTrainer,
-        flexvit.ViTConfig(
+    ), 'flexvit_v3': TrainerBuilder(
+        distillation.training.ScalaDistillTrainer,
+        flexdeit_v3.ViTConfig(
             num_classes=1000,
             num_heads=(12, 12, 12, 12, 12),
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
-        scala.training.ScalaDistillContext(
-            # loader_function=partial(utils.load_dummy_data, batch_size=256),
-            loader_function=partial(scala.dataset.load_imagenet, batch_size=128),
+        distillation.training.ScalaDistillContext(
+            loader_function=partial(utils.load_dummy_data, batch_size=256),
+            # loader_function=partial(scala.dataset.load_imagenet, batch_size=128),
             teacher_loader=load_teacher,
-            make_optimizer=lambda m: optim.AdamW(
-                m.parameters(), lr=3e-4, weight_decay=0.02),
-            make_scheduler=lambda opt: CosineAnnealingLR(
-                optimizer=opt, T_max=150, eta_min=1e-5),
+            make_optimizer=lambda m: Lamb(m.parameters(),
+                lr=5e-4, weight_decay=0.05, betas=(0.9, 0.999)),
+            make_scheduler=lambda opt: CosineLRScheduler(optimizer=opt,
+                t_initial=100, lr_min=1e-6, warmup_lr_init=1e-6,
+                warmup_t=5, cycle_limit=1),
             mixup_fn=utils.mixup_fn,
-            patience=20, epochs=150,
+            patience=20, epochs=1,
             label_smoothing=0.11, gradient_clip_val=1.0)
     ) 
 }

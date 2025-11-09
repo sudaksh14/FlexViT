@@ -3,17 +3,19 @@ import sys
 import time
 import utils
 
-from networks import flexvit
-from networks.vit import ViTPrebuilt
+from networks import flexvit, flexdeit_v3
+from networks.vit_v3 import ViTPrebuilt
 
 import torch_pruning as tp
 import torch
+import timm
 
 
 def load_flexvit_model(model, ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location=device)
+    print(ckpt.keys())
     sdict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
-    model.load_state_dict(sdict, strict=False)
+    model.load_state_dict(sdict, strict=True)
     return model
 
 
@@ -80,6 +82,8 @@ def compare_state_dicts(model, checkpoint_path):
     # ckpt_state = ckpt.get("state_dict", ckpt)  # handle both Lightning & raw dict
     ckpt_state = ckpt["model"] if "model" in ckpt else ckpt
 
+    print(ckpt_state.keys())
+
     # Remap checkpoint keys
     ckpt_remapped = remap_state_dict_keys(ckpt_state)
 
@@ -107,41 +111,7 @@ def compare_state_dicts(model, checkpoint_path):
     return ckpt_remapped
 
 
-FLEXVIT_CONFIG_NOPREBUILT = flexvit.ViTConfig(
-    prebuilt=ViTPrebuilt.noprebuild,
-    num_classes=1000,
-    num_heads=(12, 12, 12, 12, 12),
-    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
-
-FLEXVIT_CONFIG = flexvit.ViTConfig(
-    num_classes=1000,
-    num_heads=(12, 12, 12, 12, 12),
-    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
-
-FLEXVIT_CONFIG_V2 = flexvit.ViTConfig(
-    prebuilt=ViTPrebuilt.imagenet1k_v1,
-    num_classes=1000,
-    num_heads=(12, 12, 12, 12, 12),
-    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
-
-FLEXVIT_CONFIG_V3 = flexvit.ViTConfig(
-    prebuilt=ViTPrebuilt.Deit_v1,
-    num_classes=1000,
-    num_heads=(12, 12, 12, 12, 12),
-    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
-
-FLEXVIT_CONFIG_V4 = flexvit.ViTConfig(
-    prebuilt=ViTPrebuilt.Deit_v3_pretrain_1k,
-    num_classes=1000,
-    num_heads=(12, 12, 12, 12, 12),
-    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
-    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
-
-FLEXVIT_CONFIG_V5 = flexvit.ViTConfig(
+FLEXVIT_CONFIG_V3 = flexdeit_v3.ViTConfig_v3(
     prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
     num_classes=1000,
     num_heads=(12, 12, 12, 12, 12),
@@ -150,49 +120,59 @@ FLEXVIT_CONFIG_V5 = flexvit.ViTConfig(
 
 # This script generates the table with the delta file switching timings
 if __name__ == "__main__":
-
-    # paths = ["/ivi/xfs/skalra/pretrained/deit_base_patch16_224-b5f2ef4d.pth",
-    #          "/ivi/xfs/skalra/pretrained/deit_3_base_224_1k.pth",
-    #          "/ivi/xfs/skalra/pretrained/deit_3_base_224_21k.pth"]
-    
-    # model = FLEXVIT_CONFIG_NOPREBUILT.make_model()
-    # model.set_level_use(model.max_level())
-    # reg_model = model.make_base_copy()
-
-    # ckpt_deit = compare_state_dicts(reg_model, paths[0])
-
-    # # Compare dicts
-    # ckpt_remapped = compare_state_dicts(reg_model, paths[2])
-    # ckpt_remapped['encoder.pos_embedding.embedding'] = ckpt_deit['encoder.pos_embedding.embedding']
-    # torch.save(ckpt_remapped, "/ivi/xfs/skalra/pretrained/deit_base_v3_21k.pth")
-
-    # missing, unexpected = reg_model.load_state_dict(ckpt_remapped, strict=False)
-    # print("Missing:", missing)
-    # print("Unexpected:", unexpected)
-
-    # exit()
-
     device = utils.get_device()
-    model1 = FLEXVIT_CONFIG.make_model()
-    # model2 = FLEXVIT_CONFIG_V2.make_model()
-    # model3 = FLEXVIT_CONFIG_V3.make_model()
-    # model4 = FLEXVIT_CONFIG_V4.make_model()
-    # model5 = FLEXVIT_CONFIG_V5.make_model()
+    # model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
+    # for name, param in model.state_dict().items():
+    #     print(f"{name}: {param.shape}")
+    # model = timm.create_model('deit3_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000)
+    # for name, param in model.state_dict().items():
+    #     print(f"{name}: {param.shape}")
 
-    _,_,test_loader = utils.load_imagenet(batch_size=512)
+    # model = FLEXVIT_CONFIG_V3.make_model()
+    model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
+    model.set_level_use(model.max_level())
+    model = model.make_base_copy()
+    model.eval().to(device)
+    for name, param in model.state_dict().items():
+        print(f"{name}: {param.shape}")
+
+    # _,_,test_loader = utils.load_imagenet(batch_size=512)
+    _,_,test_loader = utils.load_dummy_data(batch_size=512)
+
+    acc = utils.evaluate_model(model, test_loader, device)
+    flops, param = tp.utils.count_ops_and_params(model, torch.randn(1,3,224,224).to(device))
+    print(f"Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+
+    exit()
+
+    paths = ["/ivi/xfs/skalra/pretrained/deit_base_patch16_224-b5f2ef4d.pth",
+             "/ivi/xfs/skalra/pretrained/deit_3_base_224_1k.pth",
+             "/ivi/xfs/skalra/pretrained/deit_3_base_224_21k.pth"]
     
-    paths = ["./pretrained/flexxxxvit_distill.pt",
-             "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model.ckpt",
-             "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model-v1.ckpt"]
+    model = FLEXVIT_CONFIG_NOPREBUILT.make_model()
+    model.set_level_use(model.max_level())
+    reg_model = model.make_base_copy()
+
+    ckpt_deit = compare_state_dicts(reg_model, paths[2])
+
+    missing, unexpected = reg_model.load_state_dict(ckpt_deit, strict=False)
+    print("Missing:", missing)
+    print("Unexpected:", unexpected)
+
+    exit()
+    
+    # paths = ["./pretrained/flexxxxvit_distill.pt",
+    #          "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model.ckpt",
+    #          "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model-v1.ckpt"]
         
-    print(f"Using FlexViT saved weights at {paths[0]}")
-    model = load_flexvit_model(model1, ckpt_path=paths[0], device=device)
-    for i in range(model.max_level() + 1):
-        model.set_level_use(i)
-        reg_model = model.make_base_copy()
-        acc = utils.evaluate_model(reg_model, test_loader, device)
-        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+    # print(f"Using FlexViT saved weights at {paths[2]}")
+    # model = load_flexvit_model(model1, ckpt_path=paths[2], device=device)
+    # for i in range(model.max_level() + 1):
+    #     model.set_level_use(i)
+    #     reg_model = model.make_base_copy()
+    #     acc = utils.evaluate_model(reg_model, test_loader, device)
+    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
     
     
     # print("Using Default weights")

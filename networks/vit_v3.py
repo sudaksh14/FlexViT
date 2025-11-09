@@ -5,7 +5,8 @@ from enum import Enum
 import dataclasses
 import math
 import copy
-
+import timm
+from timm.models.layers import DropPath
 from torchvision.models import vision_transformer
 from torch import nn
 import torch
@@ -13,7 +14,36 @@ import torch
 from networks.config import ModelConfig
 import utils
 
-# This model is mostly an adapted version from torchvision.models.vision_transformer
+# This model is mostly an adapted version from DeiT v3: Revenge of the ViT
+
+def load_custom_vit_b16(checkpoint_path):
+    model = vision_transformer.vit_b_16(weights=None)  # start uninitialized
+    state_dict = torch.load(checkpoint_path, map_location=utils.get_device())
+    # if wrapped as {"model": ...}, unwrap
+    if "model" in state_dict:
+        state_dict = state_dict["model"]
+    # model.load_state_dict(state_dict, strict=False)
+    # Load state dict with info
+    load_info = model.load_state_dict(state_dict, strict=False)
+    # Print how many keys matched
+    total_keys = len(state_dict)
+    matched_keys = len(load_info.missing_keys) + len(load_info.unexpected_keys)
+    matched_keys = total_keys - matched_keys
+    print(f"{matched_keys}/{total_keys} keys successfully loaded.")
+
+    # Print missing and unexpected keys
+    if load_info.missing_keys:
+        print("Missing keys in checkpoint (not loaded into model):")
+        for k in load_info.missing_keys:
+            print(f"  {k}")
+    if load_info.unexpected_keys:
+        print("\nUnexpected keys in checkpoint (not used by model):")
+        for k in load_info.unexpected_keys:
+            print(f"  {k}")
+            
+    return model
+
+
 @dataclasses.dataclass
 class ViTStructureConfig(utils.SelfDescripting):
     image_size: int
@@ -42,20 +72,27 @@ class ViTPrebuilt(Enum):
     imagenet1k_swag_e2e_v1 = 3
     imagenet1k_swag_linear_v1 = 4
 
+    # DeiT v3 from https://arxiv.org/abs/2204.07118
+    Deit_v1 = 5
+    Deit_v3_pretrain_1k = 6
+    Deit_v3_pretrain_21k = 7
+
 
 DEFAULT_NUM_CLASSES = 1000
 
 
 @dataclasses.dataclass
-class ViTConfig(ModelConfig):
+class ViTConfig_v3(ModelConfig):
     structure: ViTStructureConfig = ViTStructure.b16
     prebuilt: ViTPrebuilt = ViTPrebuilt.default
     num_classes: int = DEFAULT_NUM_CLASSES
     dropout: float = 0.0
     attention_dropout: float = 0.0
+    drop_path_rate: float = 0.1
+    init_value: float = 1e-4
 
     def make_model(self):
-        return VisionTransformer(self)
+        return VisionTransformer_v3(self)
 
     def no_prebuilt(self):
         self.prebuilt = ViTPrebuilt.noprebuild
@@ -63,18 +100,12 @@ class ViTConfig(ModelConfig):
 
 
 KNOWN_MODEL_PRETRAINED = {
-    (ViTStructure.b16, ViTPrebuilt.imagenet1k_v1):
-    lambda: vision_transformer.vit_b_16(
-        weights=vision_transformer.ViT_B_16_Weights.IMAGENET1K_V1),
-    (ViTStructure.b16, ViTPrebuilt.imagenet1k_swag_linear_v1):
-    lambda: vision_transformer.vit_b_16(
-        weights=vision_transformer.ViT_B_16_Weights.IMAGENET1K_SWAG_LINEAR_V1),
-    (ViTStructure.b16, ViTPrebuilt.imagenet1k_swag_e2e_v1):
-    lambda: vision_transformer.vit_b_16(
-        weights=vision_transformer.ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1),
-    (ViTStructure.b16, ViTPrebuilt.default):
-    lambda: vision_transformer.vit_b_16(
-        weights=vision_transformer.ViT_B_16_Weights.DEFAULT),
+    (ViTStructure.b16, ViTPrebuilt.Deit_v3_pretrain_1k):
+        lambda: timm.create_model('deit3_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000),
+
+    (ViTStructure.b16, ViTPrebuilt.Deit_v3_pretrain_21k):
+        lambda: timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000),
+
     (ViTStructure.b32, ViTPrebuilt.imagenet1k_v1):
     lambda: vision_transformer.vit_b_32(
         weights=vision_transformer.ViT_B_32_Weights.IMAGENET1K_V1),
@@ -145,6 +176,8 @@ class EncoderBlock(nn.Module):
         mlp_dim: int,
         dropout: float,
         attention_dropout: float,
+        init_value: float,
+        drop_path_rate: float = 0.1,
         norm_layer: Callable[..., torch.nn.Module] = partial(
             nn.LayerNorm, eps=1e-6),
     ):
@@ -155,11 +188,14 @@ class EncoderBlock(nn.Module):
         self.ln_1 = norm_layer(hidden_dim)
         self.self_attention = nn.MultiheadAttention(
             hidden_dim, num_heads, dropout=attention_dropout, batch_first=True)
-        self.dropout = nn.Dropout(dropout)
+        self.ls1 = utils.LayerScale(hidden_dim, init_value=init_value)
 
         # MLP block
         self.ln_2 = norm_layer(hidden_dim)
         self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
+        self.ls2 = utils.LayerScale(hidden_dim, init_value=init_value)
+
+        self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
 
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim(
@@ -167,13 +203,14 @@ class EncoderBlock(nn.Module):
         x = self.ln_1(input)
         x, _ = self.self_attention(x, x, x, need_weights=False)
 
-        x = self.dropout(x)
-        x = x + input
+        x = self.ls1(x)
+        x = self.drop_path(x) + input
 
         y = self.ln_2(x)
         y = self.mlp(y)
+        y = self.ls2(y)
 
-        return x + y
+        return x + self.drop_path(y)
 
 
 class Encoder(nn.Module):
@@ -188,8 +225,11 @@ class Encoder(nn.Module):
         mlp_dim: int,
         dropout: float,
         attention_dropout: float,
+        max_drop_path: float,
+        init_value: float,
         norm_layer: Callable[..., torch.nn.Module] = partial(
             nn.LayerNorm, eps=1e-6),
+    
     ):
         super().__init__()
         # Note that batch_size is on the first dim because
@@ -204,7 +244,9 @@ class Encoder(nn.Module):
                 mlp_dim,
                 dropout,
                 attention_dropout,
-                norm_layer,
+                init_value,
+                drop_path_rate=max_drop_path * i / (num_layers - 1),
+                norm_layer=norm_layer
             )
         self.layers = nn.Sequential(layers)
         self.ln = norm_layer(hidden_dim)
@@ -216,12 +258,12 @@ class Encoder(nn.Module):
         return self.ln(self.layers(self.dropout(input)))
 
 
-class VisionTransformer(nn.Module):
+class VisionTransformer_v3(nn.Module):
     """Vision Transformer as per https://arxiv.org/abs/2010.11929."""
 
     def __init__(
         self,
-        config: ViTConfig,
+        config: ViTConfig_v3,
     ):
         image_size = config.structure.image_size
         patch_size = config.structure.patch_size
@@ -233,6 +275,8 @@ class VisionTransformer(nn.Module):
         num_classes = config.num_classes
         dropout = config.dropout
         attention_dropout = config.attention_dropout
+        max_drop_path = config.drop_path_rate
+        init_values = config.init_value
         norm_layer = partial(nn.LayerNorm, eps=1e-6)
 
         super().__init__()
@@ -265,6 +309,8 @@ class VisionTransformer(nn.Module):
             mlp_dim,
             dropout,
             attention_dropout,
+            max_drop_path,
+            init_values,
             norm_layer,
         )
 

@@ -124,7 +124,7 @@ class ScalaDistillContext(TrainingContext):
                                 tuple[torch.Tensor, torch.Tensor]]] = None
     cosub: bool = False
     base_criterion: Callable[[], nn.Module] = nn.CrossEntropyLoss
-    distillation_alpha: float = .5
+    distillation_alpha: float = 0.5
     distillation_tau: float = 1.0
 
     make_optimizer: Callable[[nn.Module], torch.optim.Optimizer] = None

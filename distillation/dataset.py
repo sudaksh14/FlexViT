@@ -13,7 +13,7 @@ from torch.utils.data import Subset
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
-from scala.augment import new_data_aug_generator
+from distillation.augment import new_data_aug_generator
 
 
 class INatDataset(ImageFolder):

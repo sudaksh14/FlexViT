@@ -32,8 +32,8 @@ export NCCL_BLOCKING_WAIT=1
 export NCCL_DEBUG=INFO
 export MASTER_PORT=12345
 
-# srun python3 run_experiment.py run flexvit_distill_v3
-srun python3 run_experiment.py run flexvit,cifar100
+srun python3 run_experiment.py run flexvit_distill_v3
+# srun python3 run_experiment.py run flexvit,cifar100
 
 echo "Job Complete"
 echo | date

@@ -16,7 +16,7 @@ import torch
 import tqdm
 from timm.data import Mixup
 from flex_modules.module import Module
-from networks.modules import ClassTokenLayer, PosEmbeddingLayer, LinearHead
+from networks.modules import ClassTokenLayer, PosEmbeddingLayer, LinearHead, LayerScale
 import config.paths as paths
 
 
