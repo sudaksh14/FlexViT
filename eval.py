@@ -19,73 +19,54 @@ def load_flexvit_model(model, ckpt_path, device):
     return model
 
 
-def remap_state_dict_keys(state_dict):
-    new_state_dict = {}
+def remap_deitv3_to_flexvit(state_dict):
+    remapped = {}
     for k, v in state_dict.items():
-        # class token
-        if k == "cls_token":
-            new_state_dict["class_token.token"] = v
+        new_k = k
 
-        # positional embedding
-        elif k == "pos_embed":
-            new_state_dict["encoder.pos_embedding.embedding"] = v
+        # --- Top-level tokens ---
+        new_k = new_k.replace("cls_token", "class_token.token")
+        new_k = new_k.replace("pos_embed", "pos_embedding.embedding")
+        new_k = new_k.replace("patch_embed.proj.weight", "conv_proj.weight")
+        new_k = new_k.replace("patch_embed.proj.bias", "conv_proj.bias")
+        new_k = new_k.replace("head.weight", "heads.head.weight")
+        new_k = new_k.replace("head.bias", "heads.head.bias")
 
-        # patch embedding
-        elif k.startswith("patch_embed.proj."):
-            new_key = k.replace("patch_embed.proj.", "conv_proj.")
-            new_state_dict[new_key] = v
+        # --- Encoder blocks ---
+        if new_k.startswith("blocks."):
+            new_k = new_k.replace("blocks.", "encoder.layers.encoder_layer_")
 
-        # transformer blocks
-        elif k.startswith("blocks."):
-            parts = k.split(".")
-            block_id = int(parts[1])
-            sublayer = parts[2]
-            prefix = f"encoder.layers.encoder_layer_{block_id}"
+            # Normalization
+            new_k = new_k.replace(".norm1.", ".ln_1.")
+            new_k = new_k.replace(".norm2.", ".ln_2.")
 
-            if sublayer == "norm1":
-                new_state_dict[f"{prefix}.ln_1.{parts[3]}"] = v
+            # LayerScale
+            new_k = new_k.replace(".ls1.", ".ls1.")
+            new_k = new_k.replace(".ls2.", ".ls2.")
 
-            elif sublayer == "attn":
-                if parts[3] == "qkv":
-                    # timm packs qkv together, while your model may expect separate?
-                    # If same packed format, map directly:
-                    new_state_dict[f"{prefix}.self_attention.in_proj_{parts[4]}"] = v
-                elif parts[3] == "proj":
-                    new_state_dict[f"{prefix}.self_attention.out_proj.{parts[4]}"] = v
+            # Attention
+            new_k = new_k.replace(".attn.qkv.", ".self_attention.in_proj_")
+            new_k = new_k.replace(".attn.proj.", ".self_attention.out_proj.")
 
-            elif sublayer == "norm2":
-                new_state_dict[f"{prefix}.ln_2.{parts[3]}"] = v
+            # MLP
+            new_k = new_k.replace(".mlp.fc1.", ".mlp.0.")
+            new_k = new_k.replace(".mlp.fc2.", ".mlp.3.")
 
-            elif sublayer == "mlp":
-                if parts[3] == "fc1":
-                    new_state_dict[f"{prefix}.mlp.0.{parts[4]}"] = v
-                elif parts[3] == "fc2":
-                    new_state_dict[f"{prefix}.mlp.3.{parts[4]}"] = v
+        remapped[new_k] = v
 
-        # final norm
-        elif k.startswith("norm."):
-            new_state_dict[f"encoder.ln.{k.split('.')[-1]}"] = v
-
-        # classification head
-        elif k.startswith("head."):
-            new_state_dict[f"heads.head.{k.split('.')[-1]}"] = v
-
-        else:
-            print("⚠️ Unmapped key:", k)
-    return new_state_dict
-
-
+    return remapped
 
 def compare_state_dicts(model, checkpoint_path):
     # Load checkpoint
-    ckpt = torch.load(checkpoint_path, map_location=utils.get_device())
+    # ckpt = torch.load(checkpoint_path, map_location=utils.get_device())
     # ckpt_state = ckpt.get("state_dict", ckpt)  # handle both Lightning & raw dict
-    ckpt_state = ckpt["model"] if "model" in ckpt else ckpt
+    # ckpt_state = ckpt["model"] if "model" in ckpt else ckpt
+    ckpt_state = checkpoint_path
 
-    print(ckpt_state.keys())
+    # print(ckpt_state.keys())
 
     # Remap checkpoint keys
-    ckpt_remapped = remap_state_dict_keys(ckpt_state)
+    ckpt_remapped = remap_deitv3_to_flexvit(ckpt_state)
 
     model_state = model.state_dict()
 
@@ -98,22 +79,49 @@ def compare_state_dicts(model, checkpoint_path):
     print(f"❌ Missing in checkpoint: {len(missing)}")
     print(f"⚠️ Unexpected in checkpoint: {len(unexpected)}")
 
+    print("\n--- Matching keys ---")
+    for k in list(common_keys)[:]:  # only show first 20
+        print(k)
+
     if missing:
         print("\n--- Missing keys ---")
-        for k in list(missing)[:20]:  # only show first 20
+        for k in list(missing)[:]:  # only show first 20
             print(k)
 
     if unexpected:
         print("\n--- Unexpected keys ---")
-        for k in list(unexpected)[:20]:
+        for k in list(unexpected)[:]:
             print(k)
 
     return ckpt_remapped
 
+def load_flexvit_weights(flexvit_model, remapped_state_dict, verbose=1):
+    model_dict = flexvit_model.state_dict()
+    matched, skipped = {}, []
+
+    for k, v in remapped_state_dict.items():
+        if k in model_dict and model_dict[k].shape == v.shape:
+            matched[k] = v
+        else:
+            skipped.append(k)
+            print(f"⚠️ Skipped {k}: {model_dict[k].shape} vs {v.shape}")
+
+    model_dict.update(matched)
+    flexvit_model.load_state_dict(model_dict)
+
+    if verbose:
+        print(f"✅ Loaded {len(matched)} keys, skipped {len(skipped)}.")
+        if skipped:
+            print("⚠️ Skipped examples:", skipped[:10])
+
+FLEXVIT_CONFIG_V1 = flexvit.ViTConfig(
+    prebuilt=flexvit.ViTPrebuilt.noprebuild,
+    num_classes=1000,
+    num_heads=(12, 12, 12, 12, 12),
+    hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
+    mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
 
 FLEXVIT_CONFIG_V3 = flexdeit_v3.ViTConfig_v3(
-    prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
-    num_classes=1000,
     num_heads=(12, 12, 12, 12, 12),
     hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
     mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
@@ -121,20 +129,26 @@ FLEXVIT_CONFIG_V3 = flexdeit_v3.ViTConfig_v3(
 # This script generates the table with the delta file switching timings
 if __name__ == "__main__":
     device = utils.get_device()
-    # model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
-    # for name, param in model.state_dict().items():
-    #     print(f"{name}: {param.shape}")
-    # model = timm.create_model('deit3_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000)
+    model_orig = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
+    # print(len(model_orig.state_dict().keys()))
+    # model_orig = timm.create_model('deit3_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000)
+    # compare_state_dicts(model, "/ivi/xfs/skalra/pretrained/deit_3_base_224_21k.pth")
+
     # for name, param in model.state_dict().items():
     #     print(f"{name}: {param.shape}")
 
-    # model = FLEXVIT_CONFIG_V3.make_model()
-    model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
+    # model = FLEXVIT_CONFIG_V1.make_model()
+    # model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
+    model = FLEXVIT_CONFIG_V3.make_model()
     model.set_level_use(model.max_level())
     model = model.make_base_copy()
+    # print(model.state_dict().keys())
+    # load_flexvit_weights(model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    # compare_state_dicts(model, model_orig.state_dict())
+
     model.eval().to(device)
-    for name, param in model.state_dict().items():
-        print(f"{name}: {param.shape}")
+    # for name, param in model.state_dict().items():
+    #     print(f"{name}: {param.shape}")
 
     # _,_,test_loader = utils.load_imagenet(batch_size=512)
     _,_,test_loader = utils.load_dummy_data(batch_size=512)

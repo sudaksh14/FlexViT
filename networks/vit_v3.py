@@ -14,36 +14,45 @@ import torch
 from networks.config import ModelConfig
 import utils
 
+
+def remap_deitv3_to_flexvit(state_dict):
+    remapped = {}
+    for k, v in state_dict.items():
+        new_k = k
+
+        # --- Top-level tokens ---
+        new_k = new_k.replace("cls_token", "class_token.token")
+        new_k = new_k.replace("pos_embed", "pos_embedding.embedding")
+        new_k = new_k.replace("patch_embed.proj.weight", "conv_proj.weight")
+        new_k = new_k.replace("patch_embed.proj.bias", "conv_proj.bias")
+        new_k = new_k.replace("head.weight", "heads.head.weight")
+        new_k = new_k.replace("head.bias", "heads.head.bias")
+
+        # --- Encoder blocks ---
+        if new_k.startswith("blocks."):
+            new_k = new_k.replace("blocks.", "encoder.layers.encoder_layer_")
+
+            # Normalization
+            new_k = new_k.replace(".norm1.", ".ln_1.")
+            new_k = new_k.replace(".norm2.", ".ln_2.")
+
+            # LayerScale
+            new_k = new_k.replace(".ls1.", ".ls1.")
+            new_k = new_k.replace(".ls2.", ".ls2.")
+
+            # Attention
+            new_k = new_k.replace(".attn.qkv.", ".self_attention.in_proj_")
+            new_k = new_k.replace(".attn.proj.", ".self_attention.out_proj.")
+
+            # MLP
+            new_k = new_k.replace(".mlp.fc1.", ".mlp.0.")
+            new_k = new_k.replace(".mlp.fc2.", ".mlp.3.")
+
+        remapped[new_k] = v
+
+    return remapped
+
 # This model is mostly an adapted version from DeiT v3: Revenge of the ViT
-
-def load_custom_vit_b16(checkpoint_path):
-    model = vision_transformer.vit_b_16(weights=None)  # start uninitialized
-    state_dict = torch.load(checkpoint_path, map_location=utils.get_device())
-    # if wrapped as {"model": ...}, unwrap
-    if "model" in state_dict:
-        state_dict = state_dict["model"]
-    # model.load_state_dict(state_dict, strict=False)
-    # Load state dict with info
-    load_info = model.load_state_dict(state_dict, strict=False)
-    # Print how many keys matched
-    total_keys = len(state_dict)
-    matched_keys = len(load_info.missing_keys) + len(load_info.unexpected_keys)
-    matched_keys = total_keys - matched_keys
-    print(f"{matched_keys}/{total_keys} keys successfully loaded.")
-
-    # Print missing and unexpected keys
-    if load_info.missing_keys:
-        print("Missing keys in checkpoint (not loaded into model):")
-        for k in load_info.missing_keys:
-            print(f"  {k}")
-    if load_info.unexpected_keys:
-        print("\nUnexpected keys in checkpoint (not used by model):")
-        for k in load_info.unexpected_keys:
-            print(f"  {k}")
-            
-    return model
-
-
 @dataclasses.dataclass
 class ViTStructureConfig(utils.SelfDescripting):
     image_size: int
@@ -234,7 +243,6 @@ class Encoder(nn.Module):
         super().__init__()
         # Note that batch_size is on the first dim because
         # we have batch_first=True in nn.MultiAttention() by default
-        self.pos_embedding = utils.PosEmbeddingLayer(seq_length, hidden_dim)
         self.dropout = nn.Dropout(dropout)
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         for i in range(num_layers):
@@ -249,13 +257,11 @@ class Encoder(nn.Module):
                 norm_layer=norm_layer
             )
         self.layers = nn.Sequential(layers)
-        self.ln = norm_layer(hidden_dim)
 
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim(
         ) == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
-        input = self.pos_embedding(input)
-        return self.ln(self.layers(self.dropout(input)))
+        return self.layers(input)
 
 
 class VisionTransformer_v3(nn.Module):
@@ -291,15 +297,18 @@ class VisionTransformer_v3(nn.Module):
         self.num_classes = num_classes
         self.norm_layer = norm_layer
 
-        self.class_token = utils.ClassTokenLayer(hidden_dim)
-
+        # Patch embedding
         self.conv_proj = nn.Conv2d(
             in_channels=3, out_channels=hidden_dim, kernel_size=patch_size, stride=patch_size)
 
         seq_length = (image_size // patch_size) ** 2
 
         # Add a class token
-        seq_length += 1
+        # seq_length += 1
+
+        # Learnable class token and position embedding
+        self.class_token = utils.ClassTokenLayer(hidden_dim)
+        self.pos_embedding = utils.PosEmbeddingLayer(seq_length, hidden_dim)
 
         self.encoder = Encoder(
             seq_length,
@@ -315,6 +324,7 @@ class VisionTransformer_v3(nn.Module):
         )
 
         self.seq_length = seq_length
+        self.norm = norm_layer(hidden_dim)
 
         heads = OrderedDict()
         heads['head'] = utils.LinearHead(hidden_dim, DEFAULT_NUM_CLASSES)
@@ -336,10 +346,7 @@ class VisionTransformer_v3(nn.Module):
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
             sdict = prebuilt.state_dict()
-
-            sdict['class_token.token'] = sdict.pop('class_token')
-            sdict['encoder.pos_embedding.embedding'] = sdict.pop(
-                'encoder.pos_embedding')
+            sdict = remap_deitv3_to_flexvit(sdict)
 
             utils.flexible_model_copy(sdict, self)
             # self.class_token.token = copy.deepcopy(prebuilt.class_token)
@@ -379,8 +386,17 @@ class VisionTransformer_v3(nn.Module):
         x = self._process_input(x)
         n = x.shape[0]
 
-        x = self.class_token(x, n)
+        # Class token
+        cls_tokens = self.class_token.token.expand(n, -1, -1)  # (B, 1, hidden_dim)
+        
+        # Add positional embedding
+        x = x + self.pos_embedding.embedding  # (B, num_patches, hidden_dim)
+        
+        # Concatenate CLS token
+        x = torch.cat((cls_tokens, x), dim=1)  # (B, num_patches+1, hidden_dim)
+        
         x = self.encoder(x)
+        x = self.norm(x)
 
         # Classifier "token" as used by standard language architectures
         x = x[:, 0]

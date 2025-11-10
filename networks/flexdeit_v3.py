@@ -7,7 +7,7 @@ from torch import nn
 import torch
 from timm.models.layers import DropPath
 
-from networks.vit_v3 import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES
+from networks.vit_v3 import ViTStructureConfig, ViTStructure, ViTPrebuilt, KNOWN_MODEL_PRETRAINED, DEFAULT_NUM_CLASSES, remap_deitv3_to_flexvit
 from networks.flex_model import FlexModel
 from networks.config import FlexModelConfig, ModelConfig
 import flex_modules as fm
@@ -153,7 +153,7 @@ class Encoder(nn.Module):
         super().__init__()
         # Note that batch_size is on the first dim because
         # we have batch_first=True in nn.MultiAttention() by default
-        self.pos_embedding = fm.PosEmbeddingLayer(seq_length, hidden_dim)
+        # self.pos_embedding = fm.PosEmbeddingLayer(seq_length, hidden_dim)
         self.dropout = nn.Dropout(dropout)
         layers: OrderedDict[str, nn.Module] = OrderedDict()
         for i in range(num_layers):
@@ -167,13 +167,12 @@ class Encoder(nn.Module):
                 init_values=init_values
             )
         self.layers = nn.Sequential(layers)
-        self.ln = fm.LayerNorm(hidden_dim, eps=1e-6)
 
     def forward(self, input: torch.Tensor):
         torch._assert(input.dim(
         ) == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
-        input = self.pos_embedding(input)
-        return self.ln(self.layers(self.dropout(input)))
+        # input = self.pos_embedding(input)
+        return self.layers(self.dropout(input))
 
 
 class VisionTransformer_v3(FlexModel):
@@ -205,15 +204,6 @@ class VisionTransformer_v3(FlexModel):
         self.num_classes = num_classes
         self.use_distillation = use_distillation
 
-        # Class token
-        self.class_token = fm.ClassTokenLayer(hidden_dim)
-
-        # Distillation token (for DeiT)
-        if self.use_distillation:
-            self.dist_token = fm.DistillTokenLayer(hidden_dim)
-        else:
-            self.dist_token = None
-
         # Patch embedding
         self.conv_proj = fm.Conv2d(
             [3] * len(hidden_dim),
@@ -223,9 +213,19 @@ class VisionTransformer_v3(FlexModel):
         )
 
         # Sequence length (patches + class + optional dist token)
-        seq_length = (image_size // patch_size) ** 2 + 1
+        seq_length = (image_size // patch_size) ** 2
         if self.use_distillation:
             seq_length += 1
+
+        # Learnable class token and position embedding
+        self.class_token = fm.ClassTokenLayer(hidden_dim)
+        self.pos_embedding = fm.PosEmbeddingLayer(seq_length, hidden_dim)
+
+        # Distillation token (for DeiT)
+        if self.use_distillation:
+            self.dist_token = fm.DistillTokenLayer(hidden_dim)
+        else:
+            self.dist_token = None
 
         self.encoder = Encoder(
             seq_length,
@@ -240,6 +240,7 @@ class VisionTransformer_v3(FlexModel):
         )
 
         self.seq_length = seq_length
+        self.norm = fm.LayerNorm(hidden_dim, eps=1e-6)
 
         heads = OrderedDict()
         heads['head'] = fm.LinearSelect(
@@ -253,10 +254,12 @@ class VisionTransformer_v3(FlexModel):
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
+            print(type(prebuilt))
+            print(prebuilt.state_dict().keys())
             utils.flexible_model_copy(prebuilt, self)
-            self.class_token.token = copy.deepcopy(prebuilt.class_token)
-            self.encoder.pos_embedding.embedding = copy.deepcopy(
-                prebuilt.encoder.pos_embedding)
+            # self.class_token.token = copy.deepcopy(prebuilt.class_token)
+            # self.pos_embedding.embedding = copy.deepcopy(
+            #     prebuilt.pos_embedding)
 
         if config.num_classes != DEFAULT_NUM_CLASSES:
             heads = OrderedDict()
@@ -292,13 +295,21 @@ class VisionTransformer_v3(FlexModel):
         x = self._process_input(x)
         n = x.shape[0]
 
-        # Add tokens
-        x = self.class_token(x, n)
-        if self.use_distillation:
-            x = self.dist_token(x, n)
+        # Class token
+        cls_tokens = self.class_token.token[:, :, :self.hidden_dims[self.current_level()]].expand(n, -1, -1)  # (n, 1, hidden_dim)
+        
+        # if self.use_distillation:
+        #     x = self.dist_token(x, n)
+
+        # Add positional embedding
+        x = x + self.pos_embedding.embedding[:, :, :self.hidden_dims[self.current_level()]]  # (n, num_patches, hidden_dim)
+
+        # Concatenate CLS token
+        x = torch.cat((cls_tokens, x), dim=1)  # (n, num_patches+1, hidden_dim)
 
         # Encode sequence
         x = self.encoder(x)
+        x = self.norm(x)
 
         # Class token output
         cls_out = self.heads["head"](x[:, 0])

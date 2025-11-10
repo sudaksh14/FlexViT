@@ -40,64 +40,122 @@ class FlexModel(fm.Module):
             return False
         return child in parent.modules()
 
+    # @staticmethod
+    # def flexible_copy(src, dest, verbose=1):
+    #     print(type(src), type(dest))
+    #     print("src length:", len(list(src.named_modules())))
+    #     print("dest length:", len(list(dest.named_modules())))
+              
+    #     for src_name, src_module in src.named_modules():
+    #         print(src_name)
+    #     for dest_name, dest_module in dest.named_modules():
+    #         print(dest_name)
+    #     dest_iter = iter(dest.named_modules())
+    #     exit()
+
+    #     last_copied_from = None
+    #     last_copied_to: nn.Module = None
+
+    #     for src_name, src_module in src.named_modules():
+    #         if src_module is src:
+    #             continue
+
+    #         src_is_flexible = isinstance(src_module, fm.Module)
+    #         if not src_is_flexible and not fm.LevelDeltas.is_registered(type(src_module)):
+    #             continue
+
+    #         if FlexModel._is_module_in(src_module, last_copied_from):
+    #             if verbose >= 2:
+    #                 print(f"Skip copying layer {src_name}")
+    #             continue
+
+    #         while True:
+    #             try:
+    #                 dest_name, dest_module = next(dest_iter)
+    #             except StopIteration as e:
+    #                 print(type(e))
+    #                 print(src_module, src_name)
+    #                 raise
+
+    #             if dest_module is dest:
+    #                 continue
+
+    #             dest_is_flexible = isinstance(dest_module, fm.Module)
+
+    #             if FlexModel._is_module_in(dest_module, last_copied_to):
+    #                 continue
+
+    #             if verbose >= 1:
+    #                 print(f"copy from {src_name} to {dest_name}")
+    #             try:
+    #                 if src_is_flexible:
+    #                     # print("here")
+    #                     if dest_is_flexible:
+    #                         dest_module.load_from_base(
+    #                             src_module.make_base_copy())
+    #                     else:
+    #                         src_module.copy_to_base(dest_module)
+    #                 else:
+    #                     if dest_is_flexible:
+    #                         # print("there")
+    #                         dest_module.load_from_base(src_module)
+    #                     else:
+    #                         dest_module.load_state_dict(
+    #                             src_module.state_dict())
+    #                 last_copied_to = dest_module
+    #                 break
+    #             except Exception as e:
+    #                 if verbose >= 2:
+    #                     print(e)
+
+    #         last_copied_from = src_module
+
     @staticmethod
-    def flexible_copy(src, dest, verbose=0):
-        dest_iter = iter(dest.named_modules())
-
-        last_copied_from = None
-        last_copied_to: nn.Module = None
-
-        for src_name, src_module in src.named_modules():
-            if src_module is src:
-                continue
-
-            src_is_flexible = isinstance(src_module, fm.Module)
-            if not src_is_flexible and not fm.LevelDeltas.is_registered(type(src_module)):
-                continue
-
-            if FlexModel._is_module_in(src_module, last_copied_from):
-                if verbose >= 2:
-                    print(f"Skip copying layer {src_name}")
-                continue
-
-            while True:
-                try:
-                    dest_name, dest_module = next(dest_iter)
-                except StopIteration as e:
-                    print(type(e))
-                    print(src_module, src_name)
-                    raise
-
-                if dest_module is dest:
-                    continue
-
-                dest_is_flexible = isinstance(dest_module, fm.Module)
-
-                if FlexModel._is_module_in(dest_module, last_copied_to):
-                    continue
-
+    def flexible_copy(src, dest, verbose=2):
+        """
+        Copy weights flexibly from src → dest, handling structural differences like ls1/ls2.
+        """
+        def try_copy(src_m, dest_m, src_name, dest_name):
+            try:
+                if isinstance(src_m, fm.Module) and isinstance(dest_m, fm.Module):
+                    dest_m.load_from_base(src_m.make_base_copy())
+                elif isinstance(src_m, fm.Module):
+                    src_m.copy_to_base(dest_m)
+                elif isinstance(dest_m, fm.Module):
+                    dest_m.load_from_base(src_m)
+                else:
+                    dest_m.load_state_dict(src_m.state_dict(), strict=False)
                 if verbose >= 1:
                     print(f"copy from {src_name} to {dest_name}")
-                try:
-                    if src_is_flexible:
-                        if dest_is_flexible:
-                            dest_module.load_from_base(
-                                src_module.make_base_copy())
-                        else:
-                            src_module.copy_to_base(dest_module)
-                    else:
-                        if dest_is_flexible:
-                            dest_module.load_from_base(src_module)
-                        else:
-                            dest_module.load_state_dict(
-                                src_module.state_dict())
-                    last_copied_to = dest_module
-                    break
-                except Exception as e:
-                    if verbose >= 2:
-                        print(e)
+            except Exception as e:
+                if verbose >= 2:
+                    print(f"⚠️ Failed copy {src_name} → {dest_name}: {e}")
 
-            last_copied_from = src_module
+        # Case 1: Encoder layers exist
+        if hasattr(src, "encoder") and hasattr(dest, "encoder"):
+            for (src_layer_name, src_layer), (dest_layer_name, dest_layer) in zip(
+                src.encoder.layers.named_children(),
+                dest.encoder.layers.named_children(),
+            ):
+                for sub_name, src_sub in src_layer.named_children():
+                    if sub_name in dest_layer._modules:
+                        try_copy(src_sub, dest_layer._modules[sub_name],
+                                f"{src_layer_name}.{sub_name}", f"{dest_layer_name}.{sub_name}")
+                    elif "ls" in sub_name:
+                        if verbose >= 2:
+                            print(f"skip {src_layer_name}.{sub_name} (no dest match)")
+                    else:
+                        if verbose >= 1:
+                            print(f"⚠️ {sub_name} not found in dest {dest_layer_name}")
+        else:
+            # fallback: original global iteration
+            print("⚠️ No encoder layers found, falling back to global iteration")
+            for src_name, src_module in src.named_modules():
+                if src_module is src:
+                    continue
+                for dest_name, dest_module in dest.named_modules():
+                    try_copy(src_module, dest_module, src_name, dest_name)
+
 
     def copy_to_base(self, dest: nn.Module) -> None:
         self.flexible_copy(self, dest)

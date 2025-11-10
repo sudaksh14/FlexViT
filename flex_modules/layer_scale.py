@@ -17,10 +17,8 @@ class LayerScale(Module):
         self.level = self.max_level()
         self.init_value = init_value
 
-        # Learnable scaling parameters (1, 1, dim)
-        self.gamma = nn.Parameter(
-            torch.ones(1, 1, hidden_dim[-1]) * init_value
-        )
+        # Learnable scaling parameters
+        self.gamma = nn.Parameter(torch.ones(hidden_dim[-1]) * init_value)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Apply per-channel scaling

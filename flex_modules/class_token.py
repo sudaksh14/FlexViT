@@ -19,11 +19,11 @@ class ClassTokenLayer(Module):
         self.token = nn.Parameter(torch.zeros(1, 1, hidden_dim[-1]))
         self.level = self.max_level()
 
-    def forward(self, x, n):
-        batch_class_token = self.token[
-            :, :, :self.hidden_dims[self.level]].expand(n, -1, -1)
-        x = torch.cat([batch_class_token, x], dim=1)
-        return x
+    # def forward(self, x, n):
+    #     batch_class_token = self.token[
+    #         :, :, :self.hidden_dims[self.level]].expand(n, -1, -1)
+    #     x = torch.cat([batch_class_token, x], dim=1)
+    #     return x
 
     def set_level_use(self, level: int) -> None:
         self.level = level
