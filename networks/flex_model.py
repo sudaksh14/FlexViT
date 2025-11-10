@@ -111,7 +111,7 @@ class FlexModel(fm.Module):
     #         last_copied_from = src_module
 
     @staticmethod
-    def flexible_copy(src, dest, verbose=2):
+    def flexible_copy(src, dest, verbose=0):
         """
         Copy weights flexibly from src → dest, handling structural differences like ls1/ls2.
         """

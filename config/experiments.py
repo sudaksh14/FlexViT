@@ -336,9 +336,9 @@ CONFIGS = {
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=150,
             label_smoothing=0.11, gradient_clip_val=1.0)
-    ), 'flexvit_v3': TrainerBuilder(
+    ), 'flexdeit_v3': TrainerBuilder(
         distillation.training.ScalaDistillTrainer,
-        flexdeit_v3.ViTConfig(
+        flexdeit_v3.ViTConfig_v3(
             num_classes=1000,
             num_heads=(12, 12, 12, 12, 12),
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),

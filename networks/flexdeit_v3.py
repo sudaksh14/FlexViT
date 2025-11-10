@@ -249,14 +249,19 @@ class VisionTransformer_v3(FlexModel):
 
         self.set_level_use(self.max_level())
         self.level = self.max_level()
+
         if config.prebuilt != ViTPrebuilt.noprebuild:
             prebuild_config = (config.structure, config.prebuilt)
             if prebuild_config not in KNOWN_MODEL_PRETRAINED:
                 raise RuntimeError("prebuilt model not found")
             prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            print(type(prebuilt))
-            print(prebuilt.state_dict().keys())
-            utils.flexible_model_copy(prebuilt, self)
+            # print(type(prebuilt))
+            # print(prebuilt.state_dict().keys())
+            reg_model = self.make_base_copy()
+            reg_model.load_state_dict(remap_deitv3_to_flexvit(prebuilt.state_dict()))
+            self.load_from_base(reg_model)
+            del reg_model
+            # utils.flexible_model_copy(prebuilt, self)
             # self.class_token.token = copy.deepcopy(prebuilt.class_token)
             # self.pos_embedding.embedding = copy.deepcopy(
             #     prebuilt.pos_embedding)
@@ -296,13 +301,13 @@ class VisionTransformer_v3(FlexModel):
         n = x.shape[0]
 
         # Class token
-        cls_tokens = self.class_token.token[:, :, :self.hidden_dims[self.current_level()]].expand(n, -1, -1)  # (n, 1, hidden_dim)
+        cls_tokens = self.class_token.token[:, :, :self.hidden_dim[self.current_level()]].expand(n, -1, -1)  # (n, 1, hidden_dim)
         
         # if self.use_distillation:
         #     x = self.dist_token(x, n)
 
         # Add positional embedding
-        x = x + self.pos_embedding.embedding[:, :, :self.hidden_dims[self.current_level()]]  # (n, num_patches, hidden_dim)
+        x = x + self.pos_embedding.embedding[:, :, :self.hidden_dim[self.current_level()]]  # (n, num_patches, hidden_dim)
 
         # Concatenate CLS token
         x = torch.cat((cls_tokens, x), dim=1)  # (n, num_patches+1, hidden_dim)

@@ -40,11 +40,11 @@ class LayerScale(Module):
 
     @torch.no_grad()
     def copy_to_base(self, dest: vmod.LayerScale) -> None:
-        dest.gamma.data = self.gamma.data[:, :, :self.hidden_dims[self.level]]
+        dest.gamma.data = self.gamma.data[:self.hidden_dims[self.level]]
 
     @torch.no_grad()
     def load_from_base(self, src: vmod.LayerScale) -> None:
-        self.gamma.data[:, :, :self.hidden_dims[self.level]] = src.gamma.data
+        self.gamma.data[:self.hidden_dims[self.level]] = src.gamma.data
 
     def _make_reg_layer(self) -> nn.Module:
         return vmod.LayerScale(self.hidden_dims[self.level], self.init_value)
@@ -54,20 +54,17 @@ class LayerScale(Module):
         return (
             DownDelta(self.hidden_dims[self.level]),
             UpDelta(
-                self.gamma.data[
-                    :, :, self.hidden_dims[self.level - 1]:self.hidden_dims[self.level]
-                ]
+                self.gamma.data[self.hidden_dims[self.level - 1]:self.hidden_dims[self.level]]
             ),
         )
 
     @staticmethod
     @torch.no_grad()
     def apply_level_delta_down(model: vmod.LayerScale, level_delta: DownDelta[int]) -> None:
-        model.gamma.data = model.gamma.data[:, :, :level_delta.delta].to(model.gamma.data)
+        model.gamma.data = model.gamma.data[:level_delta.delta].to(model.gamma.data)
 
     @staticmethod
     @torch.no_grad()
     def apply_level_delta_up(model: vmod.LayerScale, level_delta: UpDelta[torch.Tensor]) -> None:
         model.gamma.data = torch.cat(
-            [model.gamma.data, level_delta.delta.to(model.gamma.data)], dim=2
-        )
+            [model.gamma.data, level_delta.delta.to(model.gamma.data)])

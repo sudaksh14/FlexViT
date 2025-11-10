@@ -122,6 +122,7 @@ FLEXVIT_CONFIG_V1 = flexvit.ViTConfig(
     mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
 
 FLEXVIT_CONFIG_V3 = flexdeit_v3.ViTConfig_v3(
+    prebuilt=ViTPrebuilt.Deit_v3_pretrain_21k,
     num_heads=(12, 12, 12, 12, 12),
     hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
     mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48))
@@ -138,42 +139,34 @@ if __name__ == "__main__":
     #     print(f"{name}: {param.shape}")
 
     # model = FLEXVIT_CONFIG_V1.make_model()
-    # model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
-    model = FLEXVIT_CONFIG_V3.make_model()
-    model.set_level_use(model.max_level())
-    model = model.make_base_copy()
+    model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
+    # model = FLEXVIT_CONFIG_V3.make_model()
+    # model.set_level_use(model.max_level())
+    reg_model = model.make_base_copy()
     # print(model.state_dict().keys())
-    # load_flexvit_weights(model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    load_flexvit_weights(reg_model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    model.load_from_base(reg_model)
     # compare_state_dicts(model, model_orig.state_dict())
 
     model.eval().to(device)
-    # for name, param in model.state_dict().items():
-    #     print(f"{name}: {param.shape}")
 
-    # _,_,test_loader = utils.load_imagenet(batch_size=512)
-    _,_,test_loader = utils.load_dummy_data(batch_size=512)
+    _,_,test_loader = utils.load_imagenet(batch_size=512)
+    # _,_,test_loader = utils.load_dummy_data(batch_size=512)
 
-    acc = utils.evaluate_model(model, test_loader, device)
-    flops, param = tp.utils.count_ops_and_params(model, torch.randn(1,3,224,224).to(device))
+    print("Evaluating full Regular model")
+    acc = utils.evaluate_model(reg_model, test_loader, device)
+    flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
     print(f"Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
 
-    exit()
-
-    paths = ["/ivi/xfs/skalra/pretrained/deit_base_patch16_224-b5f2ef4d.pth",
-             "/ivi/xfs/skalra/pretrained/deit_3_base_224_1k.pth",
-             "/ivi/xfs/skalra/pretrained/deit_3_base_224_21k.pth"]
     
-    model = FLEXVIT_CONFIG_NOPREBUILT.make_model()
-    model.set_level_use(model.max_level())
-    reg_model = model.make_base_copy()
+    print("Using DeiT v3 weights with Imagenet-21k pretraining")
+    for i in range(0, model.max_level() + 1):
+        model.set_level_use(i)
+        reg_model = model.make_base_copy()
+        acc = utils.evaluate_model(reg_model, test_loader, device)
+        flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+        print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
 
-    ckpt_deit = compare_state_dicts(reg_model, paths[2])
-
-    missing, unexpected = reg_model.load_state_dict(ckpt_deit, strict=False)
-    print("Missing:", missing)
-    print("Unexpected:", unexpected)
-
-    exit()
     
     # paths = ["./pretrained/flexxxxvit_distill.pt",
     #          "/ivi/xfs/skalra/checkpoints/flexvit_distill_best_model.ckpt",
@@ -184,47 +177,6 @@ if __name__ == "__main__":
     # for i in range(model.max_level() + 1):
     #     model.set_level_use(i)
     #     reg_model = model.make_base_copy()
-    #     acc = utils.evaluate_model(reg_model, test_loader, device)
-    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-    
-    
-    # print("Using Default weights")
-    # for i in range(model1.max_level(), model1.max_level() + 1):
-    #     model1.set_level_use(i)
-    #     reg_model = model1.make_base_copy()
-    #     acc = utils.evaluate_model(reg_model, test_loader, device)
-    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-       
-    # print("Using DeiT (v1) weights")
-    # for i in range(model2.max_level(), model2.max_level() + 1):
-    #     model2.set_level_use(i)
-    #     reg_model = model2.make_base_copy()
-    #     acc = utils.evaluate_model(reg_model, test_loader, device)
-    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-
-    # print("Using DeiT v1 weights")
-    # for i in range(model3.max_level(), model3.max_level() + 1):
-    #     model3.set_level_use(i)
-    #     reg_model = model3.make_base_copy()
-    #     acc = utils.evaluate_model(reg_model, test_loader, device)
-    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-    
-    # print("Using DeiT v3 weights with Imagenet-1k pretraining")
-    # for i in range(model4.max_level(), model4.max_level() + 1):
-    #     model4.set_level_use(i)
-    #     reg_model = model4.make_base_copy()
-    #     acc = utils.evaluate_model(reg_model, test_loader, device)
-    #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
-
-    # print("Using DeiT v3 weights with Imagenet-21k pretraining")
-    # for i in range(model5.max_level(), model5.max_level() + 1):
-    #     model5.set_level_use(i)
-    #     reg_model = model5.make_base_copy()
     #     acc = utils.evaluate_model(reg_model, test_loader, device)
     #     flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
     #     print(f"Level {i} Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
