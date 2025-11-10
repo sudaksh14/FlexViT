@@ -8,7 +8,6 @@ from networks.vit import ViTPrebuilt
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR, ReduceLROnPlateau
 from functools import partial
 import torch.optim as optim
-import timm
 from torchvision.datasets import CIFAR10, CIFAR100
 import distillation.training
 import distillation.dataset
@@ -97,19 +96,6 @@ class VitTrainingImagenetWarmup(FlexTrainingContext):
                               self.warmup_epochs, eta_min=0.0)
         ], milestones=[self.warmup_epochs])
 
-def load_teacher():
-    """
-    Simple loader for a teacher model with a given architecture.
-
-    Returns
-    -------
-    model : torch.nn.Module
-    Teacher model loaded with the state dict and moved to device in eval mode.
-    """
-    # Create a timm ViT without distillation
-    model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
-    model.eval().to(utils.get_device())
-    return model
 
 CONFIGS = {
     "flexresnet": {
@@ -328,7 +314,6 @@ CONFIGS = {
         distillation.training.ScalaDistillContext(
             # loader_function=partial(utils.load_dummy_data, batch_size=256),
             loader_function=partial(distillation.dataset.load_imagenet, batch_size=512),
-            teacher_loader=load_teacher,
             make_optimizer=lambda m: optim.AdamW(
                 m.parameters(), lr=5e-4, weight_decay=0.05),
             make_scheduler=lambda opt: CosineAnnealingLR(
@@ -344,16 +329,15 @@ CONFIGS = {
             hidden_dims=(32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12),
             mlp_dims=(32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)),
         distillation.training.ScalaDistillContext(
-            loader_function=partial(utils.load_dummy_data, batch_size=256),
-            # loader_function=partial(scala.dataset.load_imagenet, batch_size=128),
-            teacher_loader=load_teacher,
+            # loader_function=partial(utils.load_dummy_data, batch_size=256),
+            loader_function=partial(distillation.dataset.load_imagenet, batch_size=256),
             make_optimizer=lambda m: Lamb(m.parameters(),
                 lr=5e-4, weight_decay=0.05, betas=(0.9, 0.999)),
             make_scheduler=lambda opt: CosineLRScheduler(optimizer=opt,
                 t_initial=100, lr_min=1e-6, warmup_lr_init=1e-6,
-                warmup_t=5, cycle_limit=1),
+                warmup_t=5, cycle_limit=1, t_in_epochs=True),
             mixup_fn=utils.mixup_fn,
-            patience=20, epochs=1,
+            patience=20, epochs=100,
             label_smoothing=0.11, gradient_clip_val=1.0)
     ) 
 }

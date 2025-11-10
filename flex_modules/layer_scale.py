@@ -22,7 +22,7 @@ class LayerScale(Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Apply per-channel scaling
-        gamma = self.gamma[:, :, :self.hidden_dims[self.level]]
+        gamma = self.gamma[:self.hidden_dims[self.level]]
         return x * gamma
 
     def set_level_use(self, level: int) -> None:

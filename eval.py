@@ -141,17 +141,17 @@ if __name__ == "__main__":
     # model = FLEXVIT_CONFIG_V1.make_model()
     model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
     # model = FLEXVIT_CONFIG_V3.make_model()
-    # model.set_level_use(model.max_level())
     reg_model = model.make_base_copy()
     # print(model.state_dict().keys())
     load_flexvit_weights(reg_model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    # model.set_level_use(model.max_level())
     model.load_from_base(reg_model)
     # compare_state_dicts(model, model_orig.state_dict())
 
     model.eval().to(device)
 
-    _,_,test_loader = utils.load_imagenet(batch_size=512)
-    # _,_,test_loader = utils.load_dummy_data(batch_size=512)
+    # _,_,test_loader = utils.load_imagenet(batch_size=512)
+    _,_,test_loader = utils.load_dummy_data(batch_size=512)
 
     print("Evaluating full Regular model")
     acc = utils.evaluate_model(reg_model, test_loader, device)

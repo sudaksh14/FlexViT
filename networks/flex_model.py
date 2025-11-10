@@ -46,12 +46,13 @@ class FlexModel(fm.Module):
     #     print("src length:", len(list(src.named_modules())))
     #     print("dest length:", len(list(dest.named_modules())))
               
-    #     for src_name, src_module in src.named_modules():
-    #         print(src_name)
-    #     for dest_name, dest_module in dest.named_modules():
-    #         print(dest_name)
+    #     # for src_name, src_module in src.named_modules():
+    #     #     print(src_name)
+    #     # for dest_name, dest_module in dest.named_modules():
+    #     #     print(dest_name)
+    #     # exit()
+
     #     dest_iter = iter(dest.named_modules())
-    #     exit()
 
     #     last_copied_from = None
     #     last_copied_to: nn.Module = None

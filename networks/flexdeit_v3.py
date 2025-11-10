@@ -14,8 +14,7 @@ import flex_modules as fm
 import networks.vit_v3
 import utils
 
-
-# This model is mostly an adapted version from torchvision.models.vision_transformer
+# This model is mostly an adapted version from DeiT v3: Revenge of the ViT
 
 def scale_with_heads_list(heads, max_hidden_dims):
     max_num_heads = heads[-1]
@@ -317,11 +316,11 @@ class VisionTransformer_v3(FlexModel):
         x = self.norm(x)
 
         # Class token output
-        cls_out = self.heads["head"](x[:, 0])
+        cls_out = self.heads(x[:, 0])
 
         # Distillation head output (if enabled)
         if self.use_distillation:
-            dist_out = self.heads["head_dist"](x[:, -1])
+            dist_out = self.heads(x[:, -1])
             # During training: return both heads
             if self.training:
                 return cls_out, dist_out

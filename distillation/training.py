@@ -6,7 +6,7 @@ Implements the knowledge distillation loss
 from timm import create_model
 import torch
 from torch.nn import functional as F
-
+import timm
 import math
 import sys
 from typing import Iterable, Optional
@@ -110,10 +110,23 @@ def load_teacher_model(model_name, model_path, num_classes=1000):
     teacher_model.to(utils.get_device())
     teacher_model.eval()
 
+def load_teacher():
+    """
+    Simple loader for a teacher model with a given architecture.
+
+    Returns
+    -------
+    model : torch.nn.Module
+    Teacher model loaded with the state dict and moved to device in eval mode.
+    """
+    # Create a timm ViT without distillation
+    model = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
+    model.eval().to(utils.get_device())
+    return model
 
 @dataclasses.dataclass
 class ScalaDistillContext(TrainingContext):
-    teacher_loader: Callable[[], nn.Module] = lambda: None
+    teacher_loader: Callable[[], nn.Module] = lambda: load_teacher()
     ce_coefficient: float = 1.0
     transfer_type: str = 'progressive'
     distillation_type: str = 'none'
@@ -305,7 +318,7 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
     def on_train_epoch_end(self):
         # Log the learning rate at the end of each epoch
         self.log('learning_rate', self.optimizers().param_groups[0]['lr'], prog_bar=True, sync_dist=True)
-        self.lr_schedulers().step()
+        self.lr_schedulers().step(self.current_epoch)
 
     def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], _) -> torch.Tensor:
         x, y = batch
