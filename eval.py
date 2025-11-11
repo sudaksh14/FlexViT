@@ -18,6 +18,43 @@ def load_flexvit_model(model, ckpt_path, device):
     model.load_state_dict(sdict, strict=True)
     return model
 
+def remap_timm_to_flexvit(state_dict):
+    remapped = {}
+    for k, v in state_dict.items():
+        new_k = k
+
+        # --- Top-level tokens ---
+        new_k = new_k.replace("cls_token", "class_token.token")
+        new_k = new_k.replace("pos_embed", "encoder.pos_embedding.embedding")
+        new_k = new_k.replace("patch_embed.proj.weight", "conv_proj.weight")
+        new_k = new_k.replace("patch_embed.proj.bias", "conv_proj.bias")
+        new_k = new_k.replace("head.weight", "heads.head.weight")
+        new_k = new_k.replace("head.bias", "heads.head.bias")
+        
+        # Norm Layer
+        new_k = new_k.replace("norm.weight", "encoder.ln.weight")
+        new_k = new_k.replace("norm.bias", "encoder.ln.bias")
+
+        # --- Encoder blocks ---
+        if new_k.startswith("blocks."):
+            new_k = new_k.replace("blocks.", "encoder.layers.encoder_layer_")
+
+            # Normalization
+            new_k = new_k.replace(".norm1.", ".ln_1.")
+            new_k = new_k.replace(".norm2.", ".ln_2.")
+            
+            # Attention
+            new_k = new_k.replace(".attn.qkv.", ".self_attention.in_proj_")
+            new_k = new_k.replace(".attn.proj.", ".self_attention.out_proj.")
+
+            # MLP
+            new_k = new_k.replace(".mlp.fc1.", ".mlp.0.")
+            new_k = new_k.replace(".mlp.fc2.", ".mlp.3.")
+            
+
+        remapped[new_k] = v
+
+    return remapped
 
 def remap_deitv3_to_flexvit(state_dict):
     remapped = {}
@@ -66,7 +103,8 @@ def compare_state_dicts(model, checkpoint_path):
     # print(ckpt_state.keys())
 
     # Remap checkpoint keys
-    ckpt_remapped = remap_deitv3_to_flexvit(ckpt_state)
+    # ckpt_remapped = remap_deitv3_to_flexvit(ckpt_state)
+    ckpt_remapped = remap_timm_to_flexvit(ckpt_state)
 
     model_state = model.state_dict()
 
@@ -80,17 +118,17 @@ def compare_state_dicts(model, checkpoint_path):
     print(f"⚠️ Unexpected in checkpoint: {len(unexpected)}")
 
     print("\n--- Matching keys ---")
-    for k in list(common_keys)[:]:  # only show first 20
+    for k in list(common_keys)[:20]:  # only show first 20
         print(k)
 
     if missing:
         print("\n--- Missing keys ---")
-        for k in list(missing)[:]:  # only show first 20
+        for k in list(missing)[:20]:  # only show first 20
             print(k)
 
     if unexpected:
         print("\n--- Unexpected keys ---")
-        for k in list(unexpected)[:]:
+        for k in list(unexpected)[:20]:
             print(k)
 
     return ckpt_remapped
@@ -131,9 +169,9 @@ FLEXVIT_CONFIG_V3 = flexdeit_v3.ViTConfig_v3(
 if __name__ == "__main__":
     device = utils.get_device()
     model_orig = timm.create_model('deit3_base_patch16_224.fb_in22k_ft_in1k', pretrained=True, num_classes=1000)
+    # model_orig = timm.create_model('deit_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000)
     # print(len(model_orig.state_dict().keys()))
     # model_orig = timm.create_model('deit3_base_patch16_224.fb_in1k', pretrained=True, num_classes=1000)
-    # compare_state_dicts(model, "/ivi/xfs/skalra/pretrained/deit_3_base_224_21k.pth")
 
     # for name, param in model.state_dict().items():
     #     print(f"{name}: {param.shape}")
@@ -141,22 +179,24 @@ if __name__ == "__main__":
     # model = FLEXVIT_CONFIG_V1.make_model()
     model = FLEXVIT_CONFIG_V3.no_prebuilt().make_model()
     # model = FLEXVIT_CONFIG_V3.make_model()
-    reg_model = model.make_base_copy()
+    # reg_model = model.make_base_copy()
     # print(model.state_dict().keys())
-    load_flexvit_weights(reg_model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    # compare_state_dicts(reg_model, model_orig.state_dict())
+    # load_flexvit_weights(reg_model, remap_deitv3_to_flexvit(model_orig.state_dict()))
+    # load_flexvit_weights(reg_model, remap_timm_to_flexvit(model_orig.state_dict()))
     # model.set_level_use(model.max_level())
-    model.load_from_base(reg_model)
-    # compare_state_dicts(model, model_orig.state_dict())
+    # model.load_from_base(reg_model)
+    
 
     model.eval().to(device)
 
     # _,_,test_loader = utils.load_imagenet(batch_size=512)
     _,_,test_loader = utils.load_dummy_data(batch_size=512)
 
-    print("Evaluating full Regular model")
-    acc = utils.evaluate_model(reg_model, test_loader, device)
-    flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
-    print(f"Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
+    # print("Evaluating full Regular model")
+    # acc = utils.evaluate_model(reg_model, test_loader, device)
+    # flops, param = tp.utils.count_ops_and_params(reg_model, torch.randn(1,3,224,224).to(device))
+    # print(f"Accuracy: {acc*100:.2f}%, GFLOPs: {flops / 1e9:.2f}, Params (M): {param / 1e6:.2f}")
 
     
     print("Using DeiT v3 weights with Imagenet-21k pretraining")

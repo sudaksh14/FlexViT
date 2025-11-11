@@ -106,12 +106,13 @@ class EncoderBlock(nn.Module):
         self.ln_2 = fm.LayerNorm(hidden_dim, eps=1e-6)
         self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
 
-        # === Stochastic depth ===
-        self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
-
         # === LayerScale (optional, for DeiT-3) ===
         self.ls1 = fm.LayerScale(hidden_dim, init_value=init_values)
         self.ls2 = fm.LayerScale(hidden_dim, init_value=init_values)
+        
+        # === Stochastic depth ===
+        self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
+
 
     def forward(self, x: torch.Tensor):
         """

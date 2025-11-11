@@ -197,11 +197,13 @@ class EncoderBlock(nn.Module):
         self.ln_1 = norm_layer(hidden_dim)
         self.self_attention = nn.MultiheadAttention(
             hidden_dim, num_heads, dropout=attention_dropout, batch_first=True)
-        self.ls1 = utils.LayerScale(hidden_dim, init_value=init_value)
+        
 
         # MLP block
         self.ln_2 = norm_layer(hidden_dim)
         self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
+        
+        self.ls1 = utils.LayerScale(hidden_dim, init_value=init_value)
         self.ls2 = utils.LayerScale(hidden_dim, init_value=init_value)
 
         self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
