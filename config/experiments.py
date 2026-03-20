@@ -339,5 +339,23 @@ CONFIGS = {
             mixup_fn=utils.mixup_fn,
             patience=20, epochs=100,
             label_smoothing=0.11, gradient_clip_val=1.0)
-    ) 
+    ), 'flexdeit_v3_ablation': TrainerBuilder(
+        distillation.training.ScalaDistillTrainer,
+        flexdeit_v3.ViTConfig_v3(
+            num_classes=1000,
+            num_heads=(4, 6, 8, 10, 12),
+            hidden_dims=(64 * 4, 64 * 6, 64 * 8, 64 * 10, 64 * 12),
+            mlp_dims=(64 * 16, 64 * 24, 64 * 32, 64 * 40, 64 * 48)),
+        distillation.training.ScalaDistillContext(
+            # loader_function=partial(utils.load_dummy_data, batch_size=256),
+            loader_function=partial(distillation.dataset.load_imagenet, batch_size=256),
+            make_optimizer=lambda m: Lamb(m.parameters(),
+                lr=5e-4, weight_decay=0.05, betas=(0.9, 0.999)),
+            make_scheduler=lambda opt: CosineLRScheduler(optimizer=opt,
+                t_initial=100, lr_min=1e-6, warmup_lr_init=1e-6,
+                warmup_t=5, cycle_limit=1, t_in_epochs=True),
+            mixup_fn=utils.mixup_fn,
+            patience=20, epochs=100,
+            label_smoothing=0.11, gradient_clip_val=1.0)
+    )  
 }
