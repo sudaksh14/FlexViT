@@ -13,6 +13,7 @@ from networks.config import FlexModelConfig, ModelConfig
 import flex_modules as fm
 import networks.vit_v3
 import utils
+import networks.head_ablations as ha
 
 # This model is mostly an adapted version from DeiT v3: Revenge of the ViT
 
@@ -33,6 +34,7 @@ class ViTConfig_v3(FlexModelConfig):
     drop_path_rate: float = 0.1
     init_value: float = 1e-4
     use_distillation: bool = False
+    head_permutation : str = "none"  # options: {"none", "random", "importance"}
 
     hidden_dims: Iterable[int] = (768 // 2, (768 // 3) * 2, 768)
     num_heads: Iterable[int] = (6, 8, 12)
@@ -259,6 +261,13 @@ class VisionTransformer_v3(FlexModel):
             # print(prebuilt.state_dict().keys())
             reg_model = self.make_base_copy()
             reg_model.load_state_dict(remap_deitv3_to_flexvit(prebuilt.state_dict()))
+            
+            # Head based ablations
+            if config.head_permutation == "importance":
+                ha.reorder_all_attention_heads(reg_model)
+            elif config.head_permutation == "random":
+                ha.reorder_all_attention_heads_random(reg_model, seed=42)
+                
             self.load_from_base(reg_model)
             del reg_model
             # utils.flexible_model_copy(prebuilt, self)

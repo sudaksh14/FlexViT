@@ -31,7 +31,7 @@ JOBDIR = make_path(f"{PROJECT_DIR}/wandb/job_{SLURM_JOBID}")
 DATA_PATH = make_path("/ivi/xfs/skalra/datasets")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
-TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
+TRAINED_MODELS = make_path("/ivi/zfs/s0/original_homes/skalra/Saved Models")
 CHECKPOINT_PATH = make_path("/ivi/xfs/skalra/checkpoints")
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
