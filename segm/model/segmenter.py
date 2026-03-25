@@ -21,8 +21,20 @@ class Segmenter(nn.Module):
 
     @torch.jit.ignore
     def no_weight_decay(self):
+        # def append_prefix_no_weight_decay(prefix, module):
+        #     return set(map(lambda x: prefix + x, module.no_weight_decay()))
         def append_prefix_no_weight_decay(prefix, module):
-            return set(map(lambda x: prefix + x, module.no_weight_decay()))
+            nwd = set()
+
+            if hasattr(module, "no_weight_decay"):
+                nwd |= set(prefix + x for x in module.no_weight_decay())
+
+            # Handle containers like ModuleList / Sequential
+            for name, child in module.named_children():
+                child_prefix = prefix + name + "."
+                nwd |= append_prefix_no_weight_decay(child_prefix, child)
+
+            return nwd
 
         nwd_params = append_prefix_no_weight_decay("encoder.", self.encoder).union(
             append_prefix_no_weight_decay("decoder.", self.decoder)

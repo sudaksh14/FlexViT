@@ -13,10 +13,12 @@ import segm.utils.torch as ptu
 from segm import config
 
 from segm.model.factory import create_segmenter_shard
-from segm.optim.factory import create_optimizer, create_scheduler
+from segm.optim.factory import *
 from segm.data.factory import create_dataset
 from segm.model.utils import num_params
 
+from timm.optim import create_optimizer
+from timm.scheduler import create_scheduler
 from timm.utils import NativeScaler
 from contextlib import suppress
 
@@ -136,17 +138,34 @@ def main(
             num_epochs=num_epochs,
             eval_freq=eval_freq,
         ),
+        # optimizer_kwargs=dict(
+        #     opt=optimizer,
+        #     lr=lr,
+        #     weight_decay=weight_decay,
+        #     momentum=0.9,
+        #     clip_grad=None,
+        #     sched=scheduler,
+        #     epochs=num_epochs,
+        #     min_lr=1e-5,
+        #     poly_power=0.9,
+        #     poly_step_size=1,
         optimizer_kwargs=dict(
-            opt=optimizer,
-            lr=lr,
-            weight_decay=weight_decay,
-            momentum=0.9,
-            clip_grad=None,
-            sched=scheduler,
-            epochs=num_epochs,
-            min_lr=1e-5,
-            poly_power=0.9,
-            poly_step_size=1,
+                opt = 'adamw',
+                lr = 6e-5,
+                weight_decay = 0.05,
+                sched = 'cosine',
+                epochs = num_epochs,
+                warmup_epochs = 5,
+                min_lr = 1e-6,
+                momentum = 0.9,
+                decay_rate = 0.1,
+                decay_epochs = 30,
+                cooldown_epochs = 0,
+                patience_epochs = 10,
+                lr_noise = None,
+                lr_noise_pct = 0.67,
+                lr_noise_std = 1.0,
+                warmup_lr = 1e-6,
         ),
         net_kwargs=model_cfg,
         amp=amp,
@@ -196,8 +215,41 @@ def main(
     opt_vars = vars(opt_args)
     for k, v in optimizer_kwargs.items():
         opt_vars[k] = v
+    # optimizer = create_optimizer(opt_args, model)
+    # lr_scheduler = create_scheduler(opt_args, optimizer)
+    
+    # opt_args.opt = 'adamw'
+    # opt_args.lr = 6e-5
+    # opt_args.weight_decay = 0.05
+    # opt_args.sched = 'cosine'
+    # opt_args.epochs = 30
+    # opt_args.warmup_epochs = 5
+    # opt_args.min_lr = 1e-6
+    # opt_args.momentum = 0.9
+    # opt_args.decay_rate = 0.1
+    # opt_args.decay_epochs = 30
+    # opt_args.cooldown_epochs = 0
+    # opt_args.patience_epochs = 10
+    # opt_args.lr_noise = None
+    # opt_args.lr_noise_pct = 0.67
+    # opt_args.lr_noise_std = 1.0
+    # opt_args.warmup_lr = 1e-6
+
     optimizer = create_optimizer(opt_args, model)
-    lr_scheduler = create_scheduler(opt_args, optimizer)
+    lr_scheduler, _ = create_scheduler(opt_args, optimizer)
+    
+    # optimizer = build_optimizer(model)
+
+    # iters_per_epoch = len(train_loader)
+    # total_iters = iters_per_epoch * 30  # epochs = 30
+
+    # scheduler = WarmupCosineScheduler(
+    #     optimizer,
+    #     total_iters=total_iters,
+    #     warmup_iters=5 * iters_per_epoch,
+    #     min_lr=1e-6,
+    # )
+    
     num_iterations = 0
     amp_autocast = suppress
     loss_scaler = None

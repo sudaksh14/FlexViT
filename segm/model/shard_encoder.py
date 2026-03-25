@@ -270,6 +270,10 @@ class VisionTransformer_v3(FlexModel):
 
     def max_level(self) -> int:
         return len(self.hidden_dim) - 1
+    
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {"pos_embed", "cls_token", "dist_token"}
 
     def _process_input(self, x: torch.Tensor):
         n, c, h, w = x.shape
