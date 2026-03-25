@@ -2,7 +2,7 @@ from collections import OrderedDict
 from typing import Iterable, Optional
 import dataclasses
 import copy
-
+import torch.nn.functional as F
 from torch import nn
 import torch
 from timm.models.layers import DropPath
@@ -28,6 +28,9 @@ def scale_with_heads_list(heads, max_hidden_dims):
 class ViTConfig_v3(FlexModelConfig):
     structure: ViTStructureConfig = ViTStructure.b16
     prebuilt: ViTPrebuilt = ViTPrebuilt.Deit_v3_pretrain_21k
+    image_size = 224
+    patch_size = 16
+    num_layers = 12
     num_classes: int = DEFAULT_NUM_CLASSES
     dropout: float = 0.0
     attention_dropout: float = 0.0
@@ -36,9 +39,13 @@ class ViTConfig_v3(FlexModelConfig):
     use_distillation: bool = False
     head_permutation : str = "none"  # options: {"none", "random", "importance"}
 
-    hidden_dims: Iterable[int] = (768 // 2, (768 // 3) * 2, 768)
-    num_heads: Iterable[int] = (6, 8, 12)
-    mlp_dims: Iterable[int] = (3072 // 2, (3072 // 3) * 2, 3072)
+    # hidden_dims: Iterable[int] = (768 // 2, (768 // 3) * 2, 768)
+    # num_heads: Iterable[int] = (6, 8, 12)
+    # mlp_dims: Iterable[int] = (3072 // 2, (3072 // 3) * 2, 3072)
+    
+    hidden_dims: Iterable[int] = (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
+    num_heads: Iterable[int] = (12, 12, 12, 12, 12)
+    mlp_dims: Iterable[int] = (32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)
 
     def make_model(self):
         return VisionTransformer_v3(self)
@@ -181,9 +188,9 @@ class VisionTransformer_v3(FlexModel):
     """Vision Transformer with optional Distillation Token (DeiT-style)."""
 
     def __init__(self, config: ViTConfig_v3):
-        image_size = config.structure.image_size
-        patch_size = config.structure.patch_size
-        num_layers = config.structure.num_layers
+        image_size = config.image_size
+        patch_size = config.patch_size
+        num_layers = config.num_layers
         num_heads = config.num_heads
         hidden_dim = config.hidden_dims
         mlp_dim = config.mlp_dims
@@ -216,6 +223,8 @@ class VisionTransformer_v3(FlexModel):
 
         # Sequence length (patches + class + optional dist token)
         seq_length = (image_size // patch_size) ** 2
+        # Add a class token
+        seq_length += 1
         if self.use_distillation:
             seq_length += 1
 
@@ -252,35 +261,6 @@ class VisionTransformer_v3(FlexModel):
         self.set_level_use(self.max_level())
         self.level = self.max_level()
 
-        if config.prebuilt != ViTPrebuilt.noprebuild:
-            prebuild_config = (config.structure, config.prebuilt)
-            if prebuild_config not in KNOWN_MODEL_PRETRAINED:
-                raise RuntimeError("prebuilt model not found")
-            prebuilt = KNOWN_MODEL_PRETRAINED[prebuild_config]()
-            # print(type(prebuilt))
-            # print(prebuilt.state_dict().keys())
-            reg_model = self.make_base_copy()
-            reg_model.load_state_dict(remap_deitv3_to_flexvit(prebuilt.state_dict()))
-            
-            # Head based ablations
-            if config.head_permutation == "importance":
-                ha.reorder_all_attention_heads(reg_model)
-            elif config.head_permutation == "random":
-                ha.reorder_all_attention_heads_random(reg_model, seed=42)
-                
-            self.load_from_base(reg_model)
-            del reg_model
-            # utils.flexible_model_copy(prebuilt, self)
-            # self.class_token.token = copy.deepcopy(prebuilt.class_token)
-            # self.pos_embedding.embedding = copy.deepcopy(
-            #     prebuilt.pos_embedding)
-
-        if config.num_classes != DEFAULT_NUM_CLASSES:
-            heads = OrderedDict()
-            heads['head'] = fm.LinearSelect(
-                hidden_dim, [num_classes] * len(hidden_dim))
-            self.heads = nn.Sequential(heads)
-
     @staticmethod
     def base_type() -> type[nn.Module]:
         return networks.vit_v3.VisionTransformer_v3
@@ -291,53 +271,112 @@ class VisionTransformer_v3(FlexModel):
     def max_level(self) -> int:
         return len(self.hidden_dim) - 1
 
-    def _process_input(self, x: torch.Tensor) -> torch.Tensor:
+    def _process_input(self, x: torch.Tensor):
         n, c, h, w = x.shape
         p = self.patch_size
-        torch._assert(h == self.image_size, f"Wrong image height! Expected {self.image_size} but got {h}!")
-        torch._assert(w == self.image_size, f"Wrong image width! Expected {self.image_size} but got {w}!")
+
+        # ✅ allow dynamic size
+        assert h % p == 0 and w % p == 0, "Input must be divisible by patch size"
+
         n_h = h // p
         n_w = w // p
 
         x = self.conv_proj(x)
         x = x.reshape(n, self.hidden_dim[self.current_level()], n_h * n_w)
         x = x.permute(0, 2, 1)
-        return x
 
-    def forward(self, x: torch.Tensor):
-        # Patchify + embed
-        x = self._process_input(x)
+        return x, (n_h, n_w)
+    
+
+    def _resize_pos_embed(self,
+        posemb,
+        grid_old_shape,
+        grid_new_shape,
+        num_extra_tokens=1,
+        dim=None,   # 🔥 current level dim
+    ):
+        """
+        FlexViT-compatible positional embedding resize.
+
+        Args:
+            posemb: (1, N, D_total)
+            grid_old_shape: (H_old, W_old)  # MUST be provided for FlexViT
+            grid_new_shape: (H_new, W_new)
+            num_extra_tokens: CLS (+ dist)
+            dim: current level embedding dim (optional slicing)
+        """
+
+        # 🔥 handle multi-dim (FlexViT)
+        if dim is not None:
+            posemb = posemb[:, :, :dim]
+
+        # split tokens
+        posemb_tok = posemb[:, :num_extra_tokens]
+        posemb_grid = posemb[:, num_extra_tokens:]
+
+        # 🔥 DO NOT use sqrt fallback unless absolutely needed
+        if grid_old_shape is None:
+            raise ValueError("grid_old_shape must be provided for FlexViT")
+
+        gs_old_h, gs_old_w = grid_old_shape
+        gs_new_h, gs_new_w = grid_new_shape
+
+        # sanity check
+        assert posemb_grid.shape[1] == gs_old_h * gs_old_w, \
+            f"Mismatch: {posemb_grid.shape[1]} vs {gs_old_h * gs_old_w}"
+
+        dim = posemb_grid.shape[-1]
+
+        # reshape → interpolate → reshape back
+        posemb_grid = posemb_grid.reshape(1, gs_old_h, gs_old_w, dim).permute(0, 3, 1, 2)
+
+        posemb_grid = F.interpolate(
+            posemb_grid,
+            size=(gs_new_h, gs_new_w),
+            mode="bilinear",
+            align_corners=False,
+        )
+
+        posemb_grid = posemb_grid.permute(0, 2, 3, 1).reshape(1, gs_new_h * gs_new_w, dim)
+
+        # concat back extra tokens
+        posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
+
+        return posemb
+
+    def forward(self, x: torch.Tensor, return_features=False):
+        # Patchify
+        x, (n_h, n_w) = self._process_input(x)
         n = x.shape[0]
 
-        # Class token
-        cls_tokens = self.class_token.token[:, :, :self.hidden_dim[self.current_level()]].expand(n, -1, -1)  # (n, 1, hidden_dim)
-        
-        if self.use_distillation:
-            x = self.dist_token(x, n)
+        dim = self.hidden_dim[self.current_level()]
 
-        # Add positional embedding
-        x = x + self.pos_embedding.embedding[:, :, :self.hidden_dim[self.current_level()]]  # (n, num_patches, hidden_dim)
+        pos_embed = self._resize_pos_embed(
+            self.pos_embedding.embedding,
+            grid_old_shape=(self.image_size // self.patch_size, self.image_size // self.patch_size),
+            grid_new_shape=(n_h, n_w),
+            dim=dim
+        )
 
-        # Concatenate CLS token
-        x = torch.cat((cls_tokens, x), dim=1)  # (n, num_patches+1, hidden_dim)
+        # add positional embedding (exclude CLS part for now)
+        x = x + pos_embed[:, 1:]
 
-        # Encode sequence
+        # CLS token
+        cls_tokens = self.class_token.token[:, :, :dim].expand(n, -1, -1)
+        cls_tokens = cls_tokens + pos_embed[:, :1]
+        # concat CLS
+        x = torch.cat((cls_tokens, x), dim=1)
+
+        # encoder
         x = self.encoder(x)
         x = self.norm(x)
 
-        # Class token output
-        cls_out = self.heads(x[:, 0])
+        if return_features:
+            return x
 
-        # Distillation head output (if enabled)
-        if self.use_distillation:
-            dist_out = self.heads(x[:, -1])
-            # During training: return both heads
-            if self.training:
-                return cls_out, dist_out
-            # During inference: average outputs
-            return (cls_out + dist_out) / 2
-        else:
-            return cls_out
+        # classification head (if used)
+        cls_out = x[:, 0]
+        return self.heads(cls_out)
 
     @torch.no_grad()
     def export_level_delta(self) -> tuple[
