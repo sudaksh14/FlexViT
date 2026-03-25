@@ -9,7 +9,7 @@ model:
     num_heads: (12, 12, 12, 12, 12)
     hidden_dims: (32 * 12, 40 * 12, 48 * 12, 56 * 12, 64 * 12)
     mlp_dims: (32 * 48, 40 * 48, 48 * 48, 56 * 48, 64 * 48)
-    pretrained_model: /var/scratch/skalra/pretrained/flexdeit_v3.pt
+    pretrained_model: /ivi/zfs/s0/original_homes/skalra/Saved Models/flexdeit_v3.pt
 
   # deit
   deit_tiny_distilled_patch16_224:

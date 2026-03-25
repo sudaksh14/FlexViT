@@ -6,6 +6,7 @@ from segm.data import PascalContextDataset
 from segm.data import CityscapesDataset
 from segm.data import Loader
 from segm.data.dummy import DummySegDataset
+from torch.utils.data import Subset
 
 
 def create_dataset(dataset_kwargs):
@@ -30,6 +31,12 @@ def create_dataset(dataset_kwargs):
     else:
         raise ValueError(f"Dataset {dataset_name} is unknown.")
 
+    if False:
+        if split == "train":
+            max_samples = 1000
+            if len(dataset) > max_samples:
+                dataset = Subset(dataset, list(range(max_samples)))
+        
     dataset = Loader(
         dataset=dataset,
         batch_size=batch_size,

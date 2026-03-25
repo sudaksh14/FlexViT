@@ -151,7 +151,7 @@ def main(
         #     poly_step_size=1,
         optimizer_kwargs=dict(
                 opt = 'adamw',
-                lr = 6e-5,
+                lr = 1e-4,
                 weight_decay = 0.05,
                 sched = 'cosine',
                 epochs = num_epochs,
@@ -200,6 +200,7 @@ def main(
     val_kwargs["crop"] = False
     val_loader = create_dataset(val_kwargs)
     n_cls = train_loader.unwrapped.n_cls
+    # n_cls = val_loader.unwrapped.n_cls
 
     # model
     net_kwargs = variant["net_kwargs"]
@@ -217,23 +218,6 @@ def main(
         opt_vars[k] = v
     # optimizer = create_optimizer(opt_args, model)
     # lr_scheduler = create_scheduler(opt_args, optimizer)
-    
-    # opt_args.opt = 'adamw'
-    # opt_args.lr = 6e-5
-    # opt_args.weight_decay = 0.05
-    # opt_args.sched = 'cosine'
-    # opt_args.epochs = 30
-    # opt_args.warmup_epochs = 5
-    # opt_args.min_lr = 1e-6
-    # opt_args.momentum = 0.9
-    # opt_args.decay_rate = 0.1
-    # opt_args.decay_epochs = 30
-    # opt_args.cooldown_epochs = 0
-    # opt_args.patience_epochs = 10
-    # opt_args.lr_noise = None
-    # opt_args.lr_noise_pct = 0.67
-    # opt_args.lr_noise_std = 1.0
-    # opt_args.warmup_lr = 1e-6
 
     optimizer = create_optimizer(opt_args, model)
     lr_scheduler, _ = create_scheduler(opt_args, optimizer)
@@ -327,7 +311,7 @@ def main(
         # evaluate
         eval_epoch = epoch % eval_freq == 0 or epoch == num_epochs - 1
         if eval_epoch:
-            eval_logger = evaluate(
+            eval_logger, eval_results = evaluate(
                 model,
                 val_loader,
                 val_seg_gt,
@@ -350,25 +334,29 @@ def main(
                 }
 
             log_stats = {
-                **{f"train_{k}": v for k, v in train_stats.items()},
-                **{f"val_{k}": v for k, v in val_stats.items()},
+                **{f"train_{k}": float(v) for k, v in train_stats.items()},
+                **{f"val_{k}": float(v) for k, v in val_stats.items()},
                 "epoch": epoch,
                 "num_updates": (epoch + 1) * len(train_loader),
-                "lr": optimizer.param_groups[0]["lr"],
+                "lr": float(optimizer.param_groups[0]["lr"]),
             }
+            
+            for level, scores in eval_results.items():
+                for k, v in scores.items():
+                    log_stats[f"{k}_level{level}"] = v
 
             with open(log_dir / "log.txt", "a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+                f.write(json.dumps({k: (v.item() if hasattr(v, "item") else v) for k, v in log_stats.items()}) + "\n")
                 
             # Log to W&B
-            wandb.log(log_stats)
+            if wb:
+                wandb.log(log_stats)
 
-    if ptu.dist_rank == 0:
+    if ptu.dist_rank == 0  and wb:
         wandb.finish()
 
     distributed.barrier()
     distributed.destroy_process()
-    sys.exit(1)
 
 if __name__ == "__main__":
     main()

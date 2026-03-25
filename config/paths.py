@@ -30,9 +30,11 @@ JOBDIR = make_path(f"{PROJECT_DIR}/wandb/job_{SLURM_JOBID}")
 DATA_PATH = make_path(f"{PROJECT_DIR}/data")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
-TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
+# TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
+TRAINED_MODELS = make_path("/ivi/zfs/s0/original_homes/skalra/Saved Models")
+CHECKPOINT_PATH = make_path("/ivi/xfs/skalra/checkpoints")
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
-CHECKPOINT_PATH = make_path("/var/scratch/skalra/checkpoints")
 
-IMAGENET_PATH = Path("/var/scratch/dchabal/quokka/data/imagenet")
+# IMAGENET_PATH = Path("/ssdstore/ImageNet")
+IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")
