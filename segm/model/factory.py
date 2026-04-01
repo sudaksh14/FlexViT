@@ -51,6 +51,7 @@ def create_vit(model_cfg):
 
     if backbone in default_cfgs:
         default_cfg = default_cfgs[backbone]
+        print(f"Using default config for {backbone}: {default_cfg}")
     else:
         default_cfg = dict(
             pretrained=False,
@@ -60,29 +61,46 @@ def create_vit(model_cfg):
             drop_block_rate=None,
         )
 
-    default_cfg["input_size"] = (
-        3,
-        model_cfg["image_size"][0],
-        model_cfg["image_size"][1],
-    )
+    # default_cfg["input_size"] = (
+    #     3,
+    #     model_cfg["image_size"][0],
+    #     model_cfg["image_size"][1],
+    # )
     model = VisionTransformer(**model_cfg)
-    if backbone == "vit_base_patch8_384":
-        path = os.path.expandvars("$TORCH_HOME/hub/checkpoints/vit_base_patch8_384.pth")
-        state_dict = torch.load(path, map_location="cpu")
-        filtered_dict = checkpoint_filter_fn(state_dict, model)
-        model.load_state_dict(filtered_dict, strict=True)
-    elif "deit" in backbone:
-        load_pretrained(model, default_cfg, filter_fn=checkpoint_filter_fn)
-    else:
-        load_custom_pretrained(model, default_cfg)
+    # if backbone == "vit_base_patch8_384":
+    #     path = os.path.expandvars("$TORCH_HOME/hub/checkpoints/vit_base_patch8_384.pth")
+    #     state_dict = torch.load(path, map_location="cpu")
+    #     filtered_dict = checkpoint_filter_fn(state_dict, model)
+    #     model.load_state_dict(filtered_dict, strict=True)
+    # elif "deit" in backbone:
+    #     load_pretrained(model, default_cfg, filter_fn=checkpoint_filter_fn)
+    # else:
+    #     load_custom_pretrained(model, default_cfg)
 
     return model
-
 
 def create_decoder(encoder, decoder_cfg):
     decoder_cfg = decoder_cfg.copy()
     name = decoder_cfg.pop("name")
-    # decoder_cfg["d_encoder"] = encoder.d_model
+    decoder_cfg["d_encoder"] = encoder.d_model
+    decoder_cfg["patch_size"] = encoder.patch_size
+
+    if "linear" in name:
+        decoder = DecoderLinear(**decoder_cfg)
+    elif name == "mask_transformer":
+        dim = encoder.d_model
+        n_heads = dim // 64
+        decoder_cfg["n_heads"] = n_heads
+        decoder_cfg["d_model"] = dim
+        decoder_cfg["d_ff"] = 4 * dim
+        decoder = MaskTransformer(**decoder_cfg)
+    else:
+        raise ValueError(f"Unknown decoder: {name}")
+    return decoder
+
+def create_decoder_shard(encoder, decoder_cfg):
+    decoder_cfg = decoder_cfg.copy()
+    name = decoder_cfg.pop("name")
     
     decoder_cfg["d_encoder"] = encoder.hidden_dim[encoder.current_level()]
     decoder_cfg["patch_size"] = encoder.patch_size
@@ -122,7 +140,7 @@ def create_segmenter_shard(model_cfg):
     for i in range(encoder.max_level() + 1):
         encoder.set_level_use(i)
         print(f"Creating decoder for level {i} with encoder output dim {encoder.hidden_dim[i]}")
-        decoders.append(create_decoder(encoder, decoder_cfg))
+        decoders.append(create_decoder_shard(encoder, decoder_cfg))
     decoder = nn.ModuleList(decoders)
     model = Segmenter(encoder, decoder, n_cls=model_cfg["n_cls"])
 
@@ -134,7 +152,10 @@ def load_model(model_path):
         variant = yaml.load(f, Loader=yaml.FullLoader)
     net_kwargs = variant["net_kwargs"]
 
-    model = create_segmenter(net_kwargs)
+    if net_kwargs["backbone"] == "shard":
+        model = create_segmenter_shard(net_kwargs)
+    else:
+        model = create_segmenter(net_kwargs)
     data = torch.load(model_path, map_location=ptu.device)
     checkpoint = data["model"]
 

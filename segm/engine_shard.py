@@ -70,7 +70,8 @@ def train_one_epoch(
                     F.softmax(out_full.detach(), dim=1),
                 )
 
-            loss_3q = kd_alpha * kd_3q + (1 - kd_alpha) * ce_loss_fn(out_3q, seg_gt)
+            # loss_3q = kd_alpha * kd_3q + (1 - kd_alpha) * ce_loss_fn(out_3q, seg_gt)
+            loss_3q = ce_loss_fn(out_3q, seg_gt)
             
             if loss_scaler is not None:
                 loss_scaler.scale(loss_3q).backward()
@@ -99,7 +100,8 @@ def train_one_epoch(
                     F.softmax(teacher_2q.detach(), dim=1),
                 )
 
-            loss_2q = kd_alpha * kd_2q + (1 - kd_alpha) * ce_loss_fn(out_2q, seg_gt)
+            # loss_2q = kd_alpha * kd_2q + (1 - kd_alpha) * ce_loss_fn(out_2q, seg_gt)
+            loss_2q = ce_loss_fn(out_2q, seg_gt)
             
             if loss_scaler is not None:
                 loss_scaler.scale(loss_2q).backward()
@@ -124,7 +126,8 @@ def train_one_epoch(
                     F.softmax(teacher_1q.detach(), dim=1),
                 )
 
-            loss_1q = kd_alpha * kd_1q + (1 - kd_alpha) * ce_loss_fn(out_1q, seg_gt)
+            # loss_1q = kd_alpha * kd_1q + (1 - kd_alpha) * ce_loss_fn(out_1q, seg_gt)
+            loss_1q = ce_loss_fn(out_1q, seg_gt)
             
             if loss_scaler is not None:
                 loss_scaler.scale(loss_1q).backward()
@@ -155,8 +158,8 @@ def train_one_epoch(
         # =========================
         # LR STEP
         # =========================
-        num_updates += 1
-        lr_scheduler.step_update(num_updates=num_updates)
+        # num_updates += 1
+        # lr_scheduler.step_update(num_updates=num_updates)
 
         torch.cuda.synchronize()
 
@@ -169,7 +172,8 @@ def train_one_epoch(
             loss_3q=loss_3q.item(),
             loss_2q=loss_2q.item(),
             loss_1q=loss_1q.item(),
-            learning_rate=optimizer.param_groups[0]["lr"],
+            lr_backbone=float(optimizer.param_groups[0]["lr"]),
+            lr_decoder=float(optimizer.param_groups[1]["lr"]),
         )
 
     return logger

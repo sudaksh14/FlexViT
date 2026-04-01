@@ -1,4 +1,0 @@
-epoch,learning_rate,step,test_level0_acc,test_level0_loss,test_level1_acc,test_level1_loss,test_level2_acc,test_level2_loss,test_level3_acc,test_level3_loss,test_level4_acc,test_level4_loss,test_loss,val_level0_acc,val_level0_loss,val_level1_acc,val_level1_loss,val_level2_acc,val_level2_loss,val_level3_acc,val_level3_loss,val_level4_acc,val_level4_loss,val_loss
-0,,1,,,,,,,,,,,,0.0,7.065854072570801,0.0,7.101799011230469,0.0,7.077552795410156,0.0,7.017982482910156,0.0,8.73775863647461,37.000946044921875
-0,9.999999974752427e-07,1,,,,,,,,,,,,,,,,,,,,,,
-1,,2,0.001953125,7.054394721984863,0.0,7.118147850036621,0.0,7.049792766571045,0.0,7.105113983154297,0.001953125,8.700660705566406,37.02811050415039,,,,,,,,,,,

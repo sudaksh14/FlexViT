@@ -133,7 +133,8 @@ def load_imagenet(
         recount=1,
         eval_crop_ratio=0.875,
         batch_size=128,
-        num_workers=16):
+        num_workers=16,
+        debug=False):
     class Args:
         pass
     args = Args()
@@ -150,8 +151,9 @@ def load_imagenet(
     train_dataset, _ = build_dataset(is_train=True, args=args)
     val_dataset, _ = build_dataset(is_train=False, args=args)
 
-    # train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:4000])
-    # val_dataset = Subset(val_dataset, indices=torch.randperm(len(val_dataset))[:1000])
+    if debug:
+        train_dataset = Subset(train_dataset, indices=torch.randperm(len(train_dataset))[:4000])
+        val_dataset = Subset(val_dataset, indices=torch.randperm(len(val_dataset))[:1000])
 
     train_dataset = DataLoader(
         train_dataset,

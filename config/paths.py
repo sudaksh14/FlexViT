@@ -36,5 +36,5 @@ CHECKPOINT_PATH = make_path("/ivi/xfs/skalra/checkpoints")
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
 
-# IMAGENET_PATH = Path("/ssdstore/ImageNet")
-IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")
+IMAGENET_PATH = Path("/ssdstore/ImageNet")
+# IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")

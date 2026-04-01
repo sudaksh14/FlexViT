@@ -88,6 +88,7 @@ class MetricLogger(object):
         for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
+                # print(f"Logging {k}: {v}")
             assert isinstance(v, (float, int))
             self.meters[k].update(v, n)
 

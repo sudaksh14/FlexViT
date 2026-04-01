@@ -64,25 +64,19 @@ class Segmenter(nn.Module):
     #     H_ori, W_ori = im.size(2), im.size(3)
     #     im = padding(im, self.patch_size)
     #     H, W = im.size(2), im.size(3)
-    #     print(f"Encoder input shape: {im.shape}")
 
-    #     outputs = []
-    #     for i in range(self.encoder.max_level() + 1):
-    #         self.encoder.set_level_use(i)
-    #         x = self.encoder(im, return_features=True)
+    #     x = self.encoder(im, return_features=True)
 
-    #         # remove CLS/DIST tokens for decoding
-    #         num_extra_tokens = 1 + self.encoder.use_distillation
-    #         x = x[:, num_extra_tokens:]
+    #     # remove CLS/DIST tokens for decoding
+    #     num_extra_tokens = 1 + self.encoder.distilled
+    #     x = x[:, num_extra_tokens:]
 
-    #         masks = self.decoder[i](x, (H, W))
+    #     masks = self.decoder(x, (H, W))
 
-    #         masks = F.interpolate(masks, size=(H, W), mode="bilinear")
-    #         masks = unpadding(masks, (H_ori, W_ori))
-            
-    #         outputs.append(masks)
+    #     masks = F.interpolate(masks, size=(H, W), mode="bilinear")
+    #     masks = unpadding(masks, (H_ori, W_ori))
 
-    #     return outputs
+    #     return masks
     
     def get_attention_map_enc(self, im, layer_id):
         return self.encoder.get_attention_map(im, layer_id)

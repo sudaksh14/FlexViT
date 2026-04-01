@@ -17,8 +17,7 @@ from segm.optim.factory import *
 from segm.data.factory import create_dataset
 from segm.model.utils import num_params
 
-from timm.optim import create_optimizer
-from timm.scheduler import create_scheduler
+from timm.scheduler import create_scheduler as create_timm_scheduler
 from timm.utils import NativeScaler
 from contextlib import suppress
 
@@ -139,14 +138,14 @@ def main(
             eval_freq=eval_freq,
         ),
         # optimizer_kwargs=dict(
-        #     opt=optimizer,
-        #     lr=lr,
+        #     opt='adamw',
+        #     lr=1e-4,
         #     weight_decay=weight_decay,
         #     momentum=0.9,
         #     clip_grad=None,
         #     sched=scheduler,
         #     epochs=num_epochs,
-        #     min_lr=1e-5,
+        #     min_lr=1e-6,
         #     poly_power=0.9,
         #     poly_step_size=1,
         optimizer_kwargs=dict(
@@ -218,14 +217,36 @@ def main(
         opt_vars[k] = v
     # optimizer = create_optimizer(opt_args, model)
     # lr_scheduler = create_scheduler(opt_args, optimizer)
+    
+    model_without_ddp = model.module if hasattr(model, "module") else model
 
-    optimizer = create_optimizer(opt_args, model)
-    lr_scheduler, _ = create_scheduler(opt_args, optimizer)
+    optimizer = torch.optim.AdamW(
+        [
+            {"params": model_without_ddp.encoder.parameters(), "lr": 6e-5},
+            {"params": model_without_ddp.decoder.parameters(), "lr": 6e-4},
+        ],
+        weight_decay=0.05,
+    )
+
+    for i, group in enumerate(optimizer.param_groups):
+        print(f"Group {i} LR: {group['lr']}")
+        
+    if optimizer_kwargs["sched"] == "polynomial":
+        opt_args.lr = 6e-4  # important for scheduler
+        opt_args.warmup_epochs = 2
+        opt_args.iter_warmup = opt_args.warmup_epochs * len(train_loader)
+        lr_scheduler = create_scheduler(opt_args, optimizer)
+        
+    else:
+        opt_args.lr = 6e-4  # important for scheduler
+        opt_args.warmup_lr = 1e-5
+        opt_args.warmup_epochs = 3
+        lr_scheduler, _ = create_timm_scheduler(opt_args, optimizer)
     
     # optimizer = build_optimizer(model)
 
     # iters_per_epoch = len(train_loader)
-    # total_iters = iters_per_epoch * 30  # epochs = 30
+    # total_iters = iters_per_epoch * optimizer_kwargs["epochs"]
 
     # scheduler = WarmupCosineScheduler(
     #     optimizer,
@@ -234,7 +255,7 @@ def main(
     #     min_lr=1e-6,
     # )
     
-    num_iterations = 0
+    # num_iterations = 0
     amp_autocast = suppress
     loss_scaler = None
     if amp:
@@ -351,6 +372,9 @@ def main(
             # Log to W&B
             if wb:
                 wandb.log(log_stats)
+        
+        # lr step        
+        lr_scheduler.step(epoch + 1)
 
     if ptu.dist_rank == 0  and wb:
         wandb.finish()
