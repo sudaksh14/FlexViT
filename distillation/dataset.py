@@ -159,11 +159,13 @@ def load_imagenet(
         train_dataset,
         batch_size=batch_size,
         num_workers=num_workers,
+        pin_memory=True
     )
     val_dataset = DataLoader(
         val_dataset,
         batch_size=batch_size,
         num_workers=num_workers,
+        pin_memory=True
     )
 
     return train_dataset, val_dataset, val_dataset
