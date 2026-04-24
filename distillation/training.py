@@ -351,6 +351,7 @@ class ScalaDistillTrainer(pl.LightningModule, BaseTrainer):
                      prog_bar=False, sync_dist=True)
             self.log(f"test_level{i}_acc",  acc, prog_bar=False, sync_dist=True)
             total_loss += loss.clone().detach()
+            print(f"Level {i} Accuracy: {acc*100:.2f}%")
 
         self.log(f"test_loss", total_loss, prog_bar=True, sync_dist=True)
 
@@ -395,11 +396,12 @@ def finetune(model: pl.LightningModule, config: TrainingContext, conf_descriptio
     if config.wandb_project_name is not None:
         logger = WandbLogger(
             project=config.wandb_project_name,
-            name=f"{conf_description}_ivi",
+            name=f"{conf_description}_hipster",
             config=model_config.get_flat_dict(),
             save_dir=paths.LOG_PATH,
             dir=paths.LOG_PATH,
-            log_model=False)
+            log_model=False.
+            offline=True)
         kwargs['logger'] = logger
     else:
         kwargs['logger'] = False

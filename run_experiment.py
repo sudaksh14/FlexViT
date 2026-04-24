@@ -6,6 +6,8 @@ from config.hardware import HARDWARE, DEFAULT_HARDWARE_CONFIG
 from config.experiments import CONFIGS
 from training import BaseTrainer
 import config.hardware
+import os
+os.environ.setdefault("WANDB_MODE", "offline")
 
 
 def resolve_from_str(config, start=CONFIGS, return_on_index_error=False) -> Callable[[], BaseTrainer]:

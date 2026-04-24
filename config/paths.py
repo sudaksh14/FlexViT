@@ -31,10 +31,12 @@ DATA_PATH = make_path(f"{PROJECT_DIR}/data")
 LOG_PATH = make_path(JOBDIR / 'logs')
 
 # TRAINED_MODELS = make_path(PROJECT_DIR / 'pretrained')
-TRAINED_MODELS = make_path("/ivi/zfs/s0/original_homes/skalra/Saved Models")
-CHECKPOINT_PATH = make_path("/ivi/xfs/skalra/checkpoints")
+TRAINED_MODELS = make_path("/scratch/skalra/saved_models")
+CHECKPOINT_PATH = make_path("/scratch/skalra/checkpoints")
 
 FIGURES = make_path(PROJECT_DIR / 'figures')
+# IMAGENET_PATH = Path("/scratch/skalra/imagenet")
+# IMAGENET_PATH = Path("/dev/shm/skalra/imagenet_tmp")
+IMAGENET_PATH = Path("/local_scratch/skalra/imagenet_tmp")
 
-IMAGENET_PATH = Path("/ssdstore/ImageNet")
-# IMAGENET_PATH = Path("/nvmestore/koelma/pytorch_work/ilsvrc2012")
+
