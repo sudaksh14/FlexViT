@@ -6,5 +6,6 @@ pretrained
 figures
 jobs
 run_*.sh
+runall.sh
 upload_all.sh
 .*
